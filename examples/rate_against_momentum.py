@@ -11,13 +11,13 @@ from coherent_rates.fit import (
     GaussianMethodWithOffset,
 )
 from coherent_rates.plot import (
+    plot_boltzmann_isf_fit_for_directions,
     plot_rate_against_momentum,
-    plot_rate_against_momentum_isf_fit,
 )
 from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
     FreeSystem,
-    PeriodicSystem,
+    System,
 )
 
 if TYPE_CHECKING:
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 def _test_convergence_with_shape(
-    system: PeriodicSystem,
+    system: System,
     config: PeriodicSystemConfig,
     directions: list[tuple[int, ...]],
     fit_method: FitMethod[Any] | None = None,
@@ -52,7 +52,7 @@ def _test_convergence_with_shape(
 
 
 def _test_convergence_with_resolution(
-    system: PeriodicSystem,
+    system: System,
     config: PeriodicSystemConfig,
     directions: list[tuple[int, ...]],
     fit_method: FitMethod[Any] | None = None,
@@ -79,7 +79,7 @@ def _test_convergence_with_resolution(
 
 
 def _test_convergence_with_truncation(
-    system: PeriodicSystem,
+    system: System,
     config: PeriodicSystemConfig,
     directions: list[tuple[int, ...]],
     fit_method: FitMethod[Any] | None = None,
@@ -109,7 +109,7 @@ def _test_convergence_with_truncation(
 
 
 def _compare_rate_against_free_surface(
-    system: PeriodicSystem,
+    system: System,
     config: PeriodicSystemConfig,
     *,
     fit_method: FitMethod[Any] | None = None,
@@ -160,7 +160,7 @@ if __name__ == "__main__":
     _test_convergence_with_shape(system, config, directions=directions)
     _test_convergence_with_resolution(system, config, directions=directions)
     _test_convergence_with_truncation(system, config, directions=directions)
-    plot_rate_against_momentum_isf_fit(
+    plot_boltzmann_isf_fit_for_directions(
         system,
         config,
         directions=directions,

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast, overload
 
 import numpy as np
 from scipy.constants import (  # type: ignore bad types
@@ -10,8 +10,10 @@ from scipy.constants import (  # type: ignore bad types
 from surface_potential_analysis.basis.util import (
     BasisUtil,
 )
+from surface_potential_analysis.operator.build import get_displacements_x_stacked
 from surface_potential_analysis.potential.conversion import (
     convert_potential_to_position_basis,
+    get_continuous_potential,
 )
 from surface_potential_analysis.stacked_basis.conversion import (
     stacked_basis_as_fundamental_momentum_basis,
@@ -26,8 +28,11 @@ from coherent_rates.solve import get_hamiltonian
 if TYPE_CHECKING:
     from surface_potential_analysis.basis.basis import (
         FundamentalPositionBasis,
+        FundamentalTransformedPositionBasis,
     )
-    from surface_potential_analysis.basis.basis_like import BasisLike
+    from surface_potential_analysis.basis.basis_like import (
+        BasisLike,
+    )
     from surface_potential_analysis.basis.explicit_basis import (
         ExplicitStackedBasisWithLength,
     )
@@ -36,10 +41,11 @@ if TYPE_CHECKING:
         TupleBasisWithLengthLike,
     )
     from surface_potential_analysis.operator.operator import SingleBasisDiagonalOperator
+    from surface_potential_analysis.state_vector.eigenstate_list import ValueList
     from surface_potential_analysis.state_vector.state_vector import StateVector
 
     from coherent_rates.config import PeriodicSystemConfig
-    from coherent_rates.system import PeriodicSystem
+    from coherent_rates.system import System
 
     _SBV0 = TypeVar("_SBV0", bound=StackedBasisWithVolumeLike[Any, Any, Any])
     _B0 = TypeVar("_B0", bound=BasisLike[Any, Any])
@@ -47,99 +53,199 @@ if TYPE_CHECKING:
 
 def get_coherent_state(
     basis: _SBV0,
-    x_0: tuple[int, ...],
-    k_0: tuple[int, ...],
-    sigma_0: float,
+    x_0: tuple[float, ...],
+    k_0: tuple[float, ...],
+    sigma_0: tuple[float, ...],
 ) -> StateVector[_SBV0]:
     basis_x = stacked_basis_as_fundamental_position_basis(basis)
 
-    util = BasisUtil(basis_x)
-    dx_stacked = util.dx_stacked
+    displacements = get_displacements_x_stacked(basis, x_0)
 
-    idx = util.get_flat_index(x_0)
-
-    # nx[i,j] stores the ith component displacement jth point from x0
-    nx = tuple(
-        (n_x_points[idx] - n_x_points[:] + n // 2) % n - (n // 2)
-        for (n_x_points, n) in zip(
-            util.fundamental_stacked_nx_points,
-            util.fundamental_shape,
-            strict=True,
-        )
-    )
     # stores distance from x0
-    distance = np.linalg.norm(np.einsum("ji,jk->ik", nx, dx_stacked), axis=1)  # type: ignore unknown
+    distance = np.linalg.norm(
+        [d["data"] / s for d, s in zip(displacements, sigma_0)],
+        axis=0,
+    )
 
     # i k.(x - x')
-    dk = tuple(n / f for (n, f) in zip(k_0, basis_x.shape))
-    phi = (2 * np.pi) * np.einsum(  # type: ignore unknown lib type
+    phi = np.einsum(  # type: ignore unknown lib type
         "ij,i->j",
-        nx,
-        dk,
+        [d["data"] for d in displacements],
+        k_0,
     )
-    data = np.exp(-1j * phi - np.square(distance / sigma_0) / 2)
+    data = np.exp(1j * phi - np.square(distance) / 2)
     norm = np.sqrt(np.sum(np.square(np.abs(data))))
 
     return convert_state_vector_to_basis({"basis": basis_x, "data": data / norm}, basis)
 
 
-def get_thermal_occupation_x(
-    system: PeriodicSystem,
+@overload
+def get_thermal_probability_x(
+    system: System,
     config: PeriodicSystemConfig,
+    x_point: tuple[float, ...],
+) -> float:
+    ...
+
+
+@overload
+def get_thermal_probability_x(
+    system: System,
+    config: PeriodicSystemConfig,
+    x_point: tuple[np.ndarray[Any, np.dtype[np.float64]], ...],
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
+    ...
+
+
+def get_thermal_probability_x(
+    system: System,
+    config: PeriodicSystemConfig,
+    x_point: tuple[float, ...] | tuple[np.ndarray[Any, np.dtype[np.float64]], ...],
+) -> float | np.ndarray[Any, np.dtype[np.float64]]:
+    potential = get_continuous_potential(
+        system.get_potential(config.shape, config.resolution),
+    )
+    return np.abs(
+        np.exp(-potential(cast(Any, x_point)) / (config.temperature * Boltzmann)),
+    )
+
+
+def get_thermal_occupation_x(
+    system: System,
+    config: PeriodicSystemConfig,
+) -> ValueList[
+    TupleBasisWithLengthLike[*tuple[FundamentalPositionBasis[Any, Any], ...]]
+]:
     potential = convert_potential_to_position_basis(
         system.get_potential(config.shape, config.resolution),
     )
-    x_probability = np.abs(
-        np.exp(-potential["data"] / (config.temperature * Boltzmann)),
+    x_probability = get_thermal_probability_x(
+        system,
+        config,
+        tuple(BasisUtil(potential["basis"]).x_points_stacked),
     )
-    return x_probability / np.sum(x_probability)
+    return {"basis": potential["basis"], "data": x_probability / np.sum(x_probability)}
 
 
-def get_thermal_occupation_k(
-    system: PeriodicSystem,
+@overload
+def get_thermal_probability_k(
+    system: System,
     config: PeriodicSystemConfig,
+    k_point: tuple[float, ...],
+) -> float:
+    ...
+
+
+@overload
+def get_thermal_probability_k(
+    system: System,
+    config: PeriodicSystemConfig,
+    k_point: tuple[np.ndarray[Any, np.dtype[np.float64]], ...],
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
-    basis = system.get_potential_basis(config.shape, config.resolution)
-    k_basis = stacked_basis_as_fundamental_momentum_basis(basis)
-    util = BasisUtil(k_basis)
-    k_distance = np.linalg.norm(util.fundamental_stacked_k_points, axis=0)
-    k_probability = np.abs(
+    ...
+
+
+def get_thermal_probability_k(
+    system: System,
+    config: PeriodicSystemConfig,
+    k_point: tuple[float, ...] | tuple[np.ndarray[Any, np.dtype[np.float64]], ...],
+) -> float | np.ndarray[Any, np.dtype[np.float64]]:
+    return np.abs(
         np.exp(
-            -np.square(hbar * k_distance)
+            -np.square(hbar * np.linalg.norm(k_point, axis=0))
             / (2 * system.mass * config.temperature * Boltzmann),
         ),
     )
-    return k_probability / np.sum(k_probability)
 
 
-def get_random_coherent_coordinates(
-    system: PeriodicSystem,
+def get_thermal_occupation_k(
+    system: System,
     config: PeriodicSystemConfig,
-) -> tuple[tuple[int, ...], tuple[int, ...]]:
+) -> ValueList[
+    TupleBasisWithLengthLike[*tuple[FundamentalTransformedPositionBasis[Any, Any], ...]]
+]:
+    basis = system.get_potential_basis(config.shape, config.resolution)
+    k_basis = stacked_basis_as_fundamental_momentum_basis(basis)
+    util = BasisUtil(k_basis)
+    k_probability = get_thermal_probability_k(
+        system,
+        config,
+        tuple(util.fundamental_stacked_k_points),
+    )
+    return {"basis": k_basis, "data": k_probability / np.sum(k_probability)}
+
+
+def get_random_coherent_x(
+    system: System,
+    config: PeriodicSystemConfig,
+    *,
+    rng: np.random.Generator | None = None,
+) -> tuple[float, ...]:
+    rng = np.random.default_rng() if rng is None else rng
+
     basis = stacked_basis_as_fundamental_position_basis(
         system.get_potential_basis(config.shape, config.resolution),
     )
     util = BasisUtil(basis)
 
+    while True:
+        x0 = tuple[float, ...](
+            np.einsum("i,ik->k", rng.random(basis.ndim), util.delta_x_stacked),  # type: ignore lib
+        )
+        if rng.random() > get_thermal_probability_x(system, config, x0):
+            continue
+        return x0
+
+
+def get_random_coherent_k(
+    system: System,
+    config: PeriodicSystemConfig,
+    *,
+    rng: np.random.Generator | None = None,
+) -> tuple[float, ...]:
+    rng = np.random.default_rng() if rng is None else rng
+
+    basis = stacked_basis_as_fundamental_position_basis(
+        system.get_potential_basis(config.shape, config.resolution),
+    )
+    util = BasisUtil(basis)
+
+    while True:
+        k0 = tuple[float, ...](
+            np.einsum("i,ik->k", (0.5 - rng.random(basis.ndim)), util.delta_k_stacked),  # type: ignore lib
+        )
+        if rng.random() > get_thermal_probability_k(system, config, k0):
+            continue
+        return k0
+
+
+def get_random_coherent_coordinates(
+    system: System,
+    config: PeriodicSystemConfig,
+) -> tuple[tuple[float, ...], tuple[float, ...]]:
     rng = np.random.default_rng()
 
     # position probabilities
-    x_probability_normalized = get_thermal_occupation_x(system, config)
-    x_index = rng.choice(util.nx_points, p=x_probability_normalized)
-    x0 = cast(tuple[int, ...], util.get_stacked_index(x_index))
+    x0 = get_random_coherent_x(
+        system,
+        config,
+        rng=rng,
+    )
 
     # momentum probabilities
-    k_probability_normalized = get_thermal_occupation_k(system, config)
-    k_index = rng.choice(util.nx_points, p=k_probability_normalized)
-    k0 = cast(tuple[int, ...], util.get_stacked_index(k_index))
+    k0 = get_random_coherent_k(
+        system,
+        config,
+        rng=rng,
+    )
+
     return (x0, k0)
 
 
 def get_random_coherent_state(
-    system: PeriodicSystem,
+    system: System,
     config: PeriodicSystemConfig,
-    sigma_0: float,
+    sigma_0: tuple[float, ...],
 ) -> StateVector[
     TupleBasisWithLengthLike[*tuple[FundamentalPositionBasis[Any, Any], ...]]
 ]:
@@ -195,7 +301,7 @@ def get_random_boltzmann_state_from_hamiltonian(
 
 
 def get_random_boltzmann_state(
-    system: PeriodicSystem,
+    system: System,
     config: PeriodicSystemConfig,
 ) -> StateVector[ExplicitStackedBasisWithLength[Any, Any]]:
     """Generate a random Boltzmann state.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 import numpy as np
@@ -23,7 +24,7 @@ from surface_potential_analysis.stacked_basis.build import (
 from surface_potential_analysis.stacked_basis.conversion import (
     stacked_basis_as_fundamental_momentum_basis,
 )
-from surface_potential_analysis.util.decorators import timed
+from surface_potential_analysis.util.decorators import cached, timed
 from surface_potential_analysis.wavepacket.get_eigenstate import (
     BlochBasis,
     get_full_bloch_hamiltonian,
@@ -52,13 +53,13 @@ if TYPE_CHECKING:
     )
 
     from coherent_rates.config import PeriodicSystemConfig
-    from coherent_rates.system import PeriodicSystem
+    from coherent_rates.system import System
 
 _L0Inv = TypeVar("_L0Inv", bound=int)
 
 
 def _get_full_hamiltonian(
-    system: PeriodicSystem,
+    system: System,
     shape: tuple[_L0Inv, ...],
     resolution: tuple[_L0Inv, ...],
     *,
@@ -78,8 +79,18 @@ def _get_full_hamiltonian(
     return total_surface_hamiltonian(converted, system.mass, bloch_fraction)
 
 
+def _get_bloch_wavefunctions_path(
+    system: System,
+    config: PeriodicSystemConfig,
+) -> Path:
+    return Path(
+        f"data/{hash((system,(config.shape,config.resolution,config.n_bands)))}.wavefunctions.wavefunctions",
+    )
+
+
+@cached(_get_bloch_wavefunctions_path)
 def get_bloch_wavefunctions(
-    system: PeriodicSystem,
+    system: System,
     config: PeriodicSystemConfig,
 ) -> BlochWavefunctionListWithEigenvaluesList[
     TruncatedBasis[int, int],
@@ -103,12 +114,24 @@ def get_bloch_wavefunctions(
     )
 
 
+def _get_hamiltonian_path(
+    system: System,
+    config: PeriodicSystemConfig,
+) -> Path:
+    filename = hash((system, (config.shape, config.resolution, config.n_bands)))
+    return Path(f"data/{filename}.hamiltonian")
+
+
+@cached(
+    _get_hamiltonian_path,
+    default_call="load_or_call_uncached",
+)
 @timed
 def get_hamiltonian(
-    system: PeriodicSystem,
+    system: System,
     config: PeriodicSystemConfig,
 ) -> SingleBasisDiagonalOperator[BlochBasis[TruncatedBasis[int, int]]]:
-    wavefunctions = get_bloch_wavefunctions(system, config)
+    wavefunctions = get_bloch_wavefunctions.call_uncached(system, config)
 
     return get_full_bloch_hamiltonian(wavefunctions)
 
@@ -117,7 +140,7 @@ _AX0Inv = TypeVar("_AX0Inv", bound=EvenlySpacedTimeBasis[Any, Any, Any])
 
 
 def solve_schrodinger_equation(
-    system: PeriodicSystem,
+    system: System,
     config: PeriodicSystemConfig,
     initial_state: StateVector[Any],
     times: _AX0Inv,
