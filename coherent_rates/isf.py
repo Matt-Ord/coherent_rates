@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterable, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import numpy as np
 from scipy.constants import Boltzmann, electron_volt, hbar  # type: ignore library type
@@ -66,6 +66,8 @@ from coherent_rates.system import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from surface_potential_analysis.basis.stacked_basis import (
         TupleBasisLike,
     )
@@ -484,9 +486,9 @@ def _get_default_directions(config: PeriodicSystemConfig) -> list[tuple[int, ...
     return list(
         zip(
             *tuple(
-                cast(list[int], (s * np.arange(1, r)).tolist())
+                cast("list[int]", (s * np.arange(1, r)).tolist())
                 for (s, r) in zip(config.shape, config.resolution, strict=True)
-            ),
+            ), strict=False,
         ),
     )
 
@@ -714,7 +716,7 @@ def get_rate_against_momentum_linear_fit(
     k_points = values["basis"].k_points
     rates = np.real(values["data"])
     fit = cast(
-        np.ndarray[Any, np.dtype[np.float64]],
+        "np.ndarray[Any, np.dtype[np.float64]]",
         np.polynomial.Polynomial.fit(  # type: ignore bad library type
             k_points,
             rates,

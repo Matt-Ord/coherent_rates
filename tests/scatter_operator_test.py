@@ -37,13 +37,13 @@ if TYPE_CHECKING:
     _B0 = TypeVar("_B0", bound=BlochBasis[Any])
 
 
-@pytest.fixture()
+@pytest.fixture
 def ndim() -> Literal[1, 2]:
     rng = np.random.default_rng()
     return rng.choice([1, 2])
 
 
-@pytest.fixture()
+@pytest.fixture
 def system(ndim: Literal[1, 2]) -> System:
     """Fixture to generate a random n between 2 and 20."""
     if ndim == 1:
@@ -51,7 +51,7 @@ def system(ndim: Literal[1, 2]) -> System:
     return SODIUM_COPPER_SYSTEM_2D
 
 
-@pytest.fixture()
+@pytest.fixture
 def config(ndim: Literal[1, 2]) -> PeriodicSystemConfig:
     """Fixture to generate a random n between 2 and 20."""
     rng = np.random.default_rng()

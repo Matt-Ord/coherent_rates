@@ -4,7 +4,7 @@ import hashlib
 from abc import ABC, abstractmethod
 from copy import copy
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Iterator, Literal, Self, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Literal, Self, TypeVar, cast
 
 import numpy as np
 from scipy.constants import (  # type: ignore bad types
@@ -16,7 +16,6 @@ from surface_potential_analysis.basis.basis import (
     FundamentalTransformedPositionBasis1d,
     TransformedPositionBasis,
 )
-from surface_potential_analysis.basis.basis_like import BasisWithLengthLike
 from surface_potential_analysis.basis.evenly_spaced_basis import (
     EvenlySpacedTransformedPositionBasis,
 )
@@ -38,6 +37,9 @@ from surface_potential_analysis.stacked_basis.conversion import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from surface_potential_analysis.basis.basis_like import BasisWithLengthLike
     from surface_potential_analysis.potential.potential import Potential
 
 _L0Inv = TypeVar("_L0Inv", bound=int)
@@ -64,8 +66,12 @@ def _get_extrapolated_potential(
                 offset=0,
             )
             for (old, s) in zip(
-                cast(Iterator[BasisWithLengthLike[Any, Any, Any]], potential["basis"]),
+                cast(
+                    "Iterator[BasisWithLengthLike[Any, Any, Any]]",
+                    potential["basis"],
+                ),
                 shape,
+                strict=False,
             )
         ),
     )
@@ -111,8 +117,7 @@ class System(ABC):
         self: Self,
         shape: tuple[int, ...],
         resolution: tuple[int, ...],
-    ) -> Potential[StackedBasisWithVolumeLike[Any, Any, Any]]:
-        ...
+    ) -> Potential[StackedBasisWithVolumeLike[Any, Any, Any]]: ...
 
     def get_potential_basis(
         self: Self,
@@ -133,8 +138,7 @@ class PeriodicSystem(System):
         TupleBasisWithLengthLike[
             *tuple[FundamentalTransformedPositionBasis[Any, Any], ...]
         ]
-    ]:
-        ...
+    ]: ...
 
     def get_potential(
         self: Self,
@@ -155,8 +159,7 @@ class FundamentalPeriodicSystem(PeriodicSystem):
         TupleBasisWithLengthLike[
             *tuple[FundamentalTransformedPositionBasis[Any, Any], ...]
         ]
-    ]:
-        ...
+    ]: ...
 
     def get_repeating_potential(
         self: Self,
@@ -176,10 +179,11 @@ class FundamentalPeriodicSystem(PeriodicSystem):
                 )
                 for (old, r) in zip(
                     cast(
-                        Iterator[BasisWithLengthLike[Any, Any, Any]],
+                        "Iterator[BasisWithLengthLike[Any, Any, Any]]",
                         potential["basis"],
                     ),
                     resolution,
+                    strict=False,
                 )
             ),
         )
@@ -197,7 +201,7 @@ class FundamentalPeriodicSystem(PeriodicSystem):
 class FreeSystem(System):
     """A free periodic system."""
 
-    def __init__(self, other: System) -> None:  # noqa: ANN101
+    def __init__(self, other: System) -> None:
         self._other = other
         super().__init__(other.id, 0, other.lattice_constant, other.mass)
 

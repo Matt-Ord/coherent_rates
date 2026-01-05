@@ -11,12 +11,13 @@ python = ">=3.11,<3.13"
 surface-potential-analysis = { path = "lib/surface_potential_analysis", develop = true }
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.2.2"
+ruff = "^0.14.10"
 pytest = "^8.0.1"
 
 
 [tool.ruff]
 unsafe-fixes = true
+include = ["coherent_rates", "tests", "examples"]
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -30,6 +31,8 @@ ignore = [
     "D417",
     "TD003",
     "TD002",
+    "D203",
+    "D213",
 ]
 unfixable = ["ERA001", "T201"]
 
