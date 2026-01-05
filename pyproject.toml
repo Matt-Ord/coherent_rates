@@ -17,7 +17,7 @@ pytest = "^8.0.1"
 
 [tool.ruff]
 unsafe-fixes = true
-include = ["coherent_rates", "tests", "examples"]
+extend-exclude = ["lib/**/*"]
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -36,9 +36,11 @@ ignore = [
 ]
 unfixable = ["ERA001", "T201"]
 
+
 [tool.ruff.lint.extend-per-file-ignores]
 "examples/**/*" = ["T201", "INP001"]
 "tests/**/*" = []
+
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
