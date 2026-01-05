@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Iterable, Sequence, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import numpy as np
 from matplotlib import pyplot as plt
-from matplotlib.axes import Axes
 from scipy.constants import Boltzmann, hbar  # type: ignore library type
 from surface_potential_analysis.basis.basis_like import BasisLike
 from surface_potential_analysis.basis.stacked_basis import (
@@ -99,6 +98,9 @@ from coherent_rates.system import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+
+    from matplotlib.axes import Axes
     from matplotlib.figure import Figure
     from matplotlib.lines import Line2D
     from surface_potential_analysis.basis.basis_like import BasisLike
@@ -133,7 +135,7 @@ def plot_system_eigenstates_1d(
     hamiltonian = get_hamiltonian(system, config)
     eigenvectors = hamiltonian["basis"][0].vectors
 
-    ax1 = cast(Axes, ax.twinx())
+    ax1 = cast("Axes", ax.twinx())
     fig2, ax2 = plt.subplots()  # type: ignore library type
     states = range(3) if states is None else states
     for idx in states:
@@ -219,7 +221,7 @@ def plot_system_bands(
     _, _, line1 = plot_occupation_against_band(
         wavefunctions,
         config.temperature,
-        ax=cast(Axes, ax.twinx()),
+        ax=cast("Axes", ax.twinx()),
     )
     line1.set_color("C1")
     ax.legend(handles=[line0, line1])  # type: ignore library type
@@ -231,7 +233,7 @@ def plot_system_bands(
     _, _, line1 = plot_occupation_against_band_average_energy(
         wavefunctions,
         config.temperature,
-        ax=cast(Axes, ax.twinx()),
+        ax=cast("Axes", ax.twinx()),
     )
     line1.set_color("C1")
 
@@ -253,7 +255,7 @@ def plot_system_evolution_1d(
     potential = system.get_potential(config.shape, config.resolution)
     fig, ax, line = plot_potential_1d_x(potential)
     line.set_color("orange")
-    ax1 = cast(Axes, ax.twinx())
+    ax1 = cast("Axes", ax.twinx())
     states = solve_schrodinger_equation(system, config, initial_state, times)
 
     fig, ax, _anim = animate_state_over_list_1d_x(states, ax=ax1)
@@ -293,7 +295,7 @@ def plot_pair_system_evolution_1d(
     potential = system.get_potential(config.shape, config.resolution)
     fig, ax, line = plot_potential_1d_x(potential)
     line.set_color("orange")
-    ax1 = cast(Axes, ax.twinx())
+    ax1 = cast("Axes", ax.twinx())
 
     (
         state_evolved_scattered,

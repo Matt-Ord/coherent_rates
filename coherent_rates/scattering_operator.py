@@ -200,11 +200,11 @@ def get_periodic_x_operator_sparse(
         dtype=np.complex128,
     )
     stacked_nk_points = BasisUtil(bloch_phase_basis).stacked_nk_points
-    for i, nk_in in enumerate(zip(*stacked_nk_points)):
+    for i, nk_in in enumerate(zip(*stacked_nk_points, strict=False)):
         # Find the bloch k of the scattered state
         util = BasisUtil(basis.wavefunctions["basis"][0][1])
         idx_out = util.get_flat_index(
-            tuple(j + s for (j, s) in zip(nk_in, direction)),
+            tuple(j + s for (j, s) in zip(nk_in, direction, strict=False)),
             mode="wrap",
         )
         nk_out = tuple(k[idx_out] for k in stacked_nk_points)
@@ -257,11 +257,11 @@ def get_energy_change_operator_sparse(
     stacked_nk_points = BasisUtil(bloch_phase_basis).stacked_nk_points
 
     eigenvalues = hamiltonian["data"].reshape(band_basis.n, bloch_phase_basis.n)
-    for i, nk_in in enumerate(zip(*stacked_nk_points)):
+    for i, nk_in in enumerate(zip(*stacked_nk_points, strict=False)):
         # Find the bloch k of the scattered state
         util = BasisUtil(basis.wavefunctions["basis"][0][1])
         j = util.get_flat_index(
-            tuple(j + s for (j, s) in zip(nk_in, direction)),
+            tuple(j + s for (j, s) in zip(nk_in, direction, strict=False)),
             mode="wrap",
         )
 

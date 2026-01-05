@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Generic,
     Literal,
     Self,
@@ -30,6 +29,8 @@ from surface_potential_analysis.basis.util import BasisUtil
 from surface_potential_analysis.util.util import get_measured_data
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from surface_potential_analysis.state_vector.eigenstate_list import ValueList
 
     from coherent_rates.config import PeriodicSystemConfig
@@ -59,62 +60,53 @@ class FitMethod(ABC, Generic[T]):
     def get_rate_from_fit(
         self: Self,
         fit: T,
-    ) -> float:
-        ...
+    ) -> float: ...
 
     @staticmethod
     @abstractmethod
     def _fit_fn(
         x: np.ndarray[Any, np.dtype[np.float64]],
         *params: *tuple[float, ...],
-    ) -> np.ndarray[Any, np.dtype[np.complex128]]:
-        ...
+    ) -> np.ndarray[Any, np.dtype[np.complex128]]: ...
 
     @staticmethod
     @abstractmethod
     def _params_from_fit(
         fit: T,
-    ) -> tuple[float, ...]:
-        ...
+    ) -> tuple[float, ...]: ...
 
     @staticmethod
     @abstractmethod
     def _fit_from_params(
         *params: *tuple[float, ...],
-    ) -> T:
-        ...
+    ) -> T: ...
 
     @staticmethod
     @abstractmethod
     def _scale_params(
         dt: float,
         params: tuple[float, ...],
-    ) -> tuple[float, ...]:
-        ...
+    ) -> tuple[float, ...]: ...
 
     @staticmethod
     @abstractmethod
-    def _fit_param_bounds() -> tuple[list[float], list[float]]:
-        ...
+    def _fit_param_bounds() -> tuple[list[float], list[float]]: ...
 
     @abstractmethod
     def _fit_param_initial_guess(
         self: Self,
         data: ValueList[_BT0],
         **info: Unpack[FitInfo],
-    ) -> tuple[float, ...]:
-        ...
+    ) -> tuple[float, ...]: ...
 
     @abstractmethod
-    def get_rate_label(self: Self) -> str:
-        ...
+    def get_rate_label(self: Self) -> str: ...
 
     @abstractmethod
     def get_fit_times(
         self: Self,
         **info: Unpack[FitInfo],
-    ) -> BasisWithTimeLike[Any, Any]:
-        ...
+    ) -> BasisWithTimeLike[Any, Any]: ...
 
     def get_fit_from_isf(
         self: Self,
@@ -132,7 +124,7 @@ class FitMethod(ABC, Generic[T]):
             return np.real(self._fit_fn(x, *params))
 
         parameters, _covariance = cast(
-            tuple[list[float], Any],
+            "tuple[list[float], Any]",
             curve_fit(
                 _fit_fn,
                 data["basis"].times / dt,
@@ -498,7 +490,7 @@ class DoubleGaussianMethod(
 
 
 def get_filtered_isf(data: ValueList[_BT0]) -> ValueList[_BT0]:
-    offset = cast(int, data["basis"].offset)  # type: ignore we should transform to evenly spaced first...
+    offset = cast("int", data["basis"].offset)  # type: ignore we should transform to evenly spaced first...
 
     rolled = np.fft.fftshift(np.fft.fft(np.roll(data["data"], offset)))
     max_h = 0.9 * np.max(np.abs(rolled))
@@ -509,11 +501,7 @@ def get_filtered_isf(data: ValueList[_BT0]) -> ValueList[_BT0]:
     )
 
     prom = cast(
-        tuple[
-            np.ndarray[Any, np.dtype[np.float64]],
-            np.ndarray[Any, np.dtype[np.int64]],
-            np.ndarray[Any, np.dtype[np.int64]],
-        ],
+        "tuple[np.ndarray[Any, np.dtype[np.float64]], np.ndarray[Any, np.dtype[np.int64]], np.ndarray[Any, np.dtype[np.int64]]]",  # noqa: E501
         scipy.signal.peak_prominences(np.abs(rolled), peaks),  # type:ignore lib
     )
 

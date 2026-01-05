@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
-from matplotlib.axes import Axes
 from scipy.constants import Boltzmann, electron_volt, proton_mass  # type: ignore lib
 from surface_potential_analysis.basis.time_basis_like import EvenlySpacedTimeBasis
 from surface_potential_analysis.potential.plot import plot_potential_1d_x
@@ -74,6 +73,9 @@ from coherent_rates.system import (
     SODIUM_COPPER_SYSTEM_2D,
     FreeSystem,
 )
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
 
 
 def _compare_rate_against_free_surface() -> None:
@@ -436,7 +438,7 @@ def _effective_mass_demonstration() -> None:
 
     _, _, line_2 = plot_potential_1d_x(
         system.get_potential(config.shape, config.resolution),
-        ax=cast(Axes, ax.twinx()),
+        ax=cast("Axes", ax.twinx()),
     )
     line_2.set_color("black")
     line_2.set_alpha(0.1)

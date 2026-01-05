@@ -63,7 +63,7 @@ def get_coherent_state(
 
     # stores distance from x0
     distance = np.linalg.norm(
-        [d["data"] / s for d, s in zip(displacements, sigma_0)],
+        [d["data"] / s for d, s in zip(displacements, sigma_0, strict=False)],
         axis=0,
     )
 
@@ -106,7 +106,7 @@ def get_thermal_probability_x(
         system.get_potential(config.shape, config.resolution),
     )
     return np.abs(
-        np.exp(-potential(cast(Any, x_point)) / (config.temperature * Boltzmann)),
+        np.exp(-potential(cast("Any", x_point)) / (config.temperature * Boltzmann)),
     )
 
 

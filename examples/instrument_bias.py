@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Iterable
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy.constants import electron_volt  # type: ignore bad library
@@ -17,6 +17,9 @@ from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
     System,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 def _test_instrument_bias(
