@@ -342,8 +342,9 @@ def plot_isf_with_fit(
     *,
     system: System,
     config: PeriodicSystemConfig,
+    ax: Axes | None = None,
 ) -> tuple[Figure, Axes]:
-    fig, ax = get_figure(None)
+    fig, ax = get_figure(ax)
 
     fig, ax, line = plot_value_list_against_time(data, measure="abs", ax=ax)
     line.set_label("ISF (abs)")
