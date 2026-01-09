@@ -10,7 +10,7 @@ from coherent_rates.fit import (
 )
 from coherent_rates.plot import (
     plot_boltzmann_isf_fit_for_directions,
-    plot_rate_against_momentum,
+    plot_coherent_rate_against_momentum,
 )
 from coherent_rates.solve import get_hamiltonian
 from coherent_rates.system import (
@@ -37,7 +37,7 @@ def _compare_rate_against_free_surface(
     fig, ax = get_figure(None)
 
     get_hamiltonian.load_or_call_cached(system, config)
-    _, _, line = plot_rate_against_momentum(
+    _, _, line = plot_coherent_rate_against_momentum(
         system,
         config,
         fit_method=fit_method,
@@ -47,7 +47,7 @@ def _compare_rate_against_free_surface(
     line.set_label(f"Bound system, {fit_method.get_rate_label()}")
 
     get_hamiltonian.load_or_call_cached(FreeSystem(system), config)
-    _, _, line = plot_rate_against_momentum(
+    _, _, line = plot_coherent_rate_against_momentum(
         FreeSystem(system),
         config,
         fit_method=free_fit_method,

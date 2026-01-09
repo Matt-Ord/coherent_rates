@@ -51,12 +51,12 @@ from coherent_rates.isf import (
 )
 from coherent_rates.plot import (
     plot_band_resolved_boltzmann_isf,
+    plot_coherent_rate_against_momentum,
     plot_effective_mass_against_condition,
     plot_effective_mass_against_momentum,
     plot_effective_mass_against_scattered_energy,
     plot_free_isf_comparison,
     plot_isf_with_fit,
-    plot_rate_against_momentum,
 )
 from coherent_rates.scattering_operator import (
     apply_scattering_operator_to_state,
@@ -90,7 +90,7 @@ def _compare_rate_against_free_surface() -> None:
 
     fig, ax = get_figure(None)
 
-    _, _, line = plot_rate_against_momentum(
+    _, _, line = plot_coherent_rate_against_momentum(
         system,
         config,
         fit_method=GaussianMethod(),
@@ -99,7 +99,7 @@ def _compare_rate_against_free_surface() -> None:
     )
     line.set_label("Bound system")
 
-    _, _, line = plot_rate_against_momentum(
+    _, _, line = plot_coherent_rate_against_momentum(
         FreeSystem(system),
         config,
         fit_method=GaussianMethod(),

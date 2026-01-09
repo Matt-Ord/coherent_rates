@@ -9,6 +9,7 @@ packages = [{ include = "coherent_rates" }]
 [tool.poetry.dependencies]
 python = ">=3.11,<3.13"
 surface-potential-analysis = { path = "lib/surface_potential_analysis", develop = true }
+pyright = "^1.1.407"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.14.10"
@@ -39,11 +40,15 @@ unfixable = ["ERA001", "T201"]
 
 [tool.ruff.lint.extend-per-file-ignores]
 "examples/**/*" = ["T201", "INP001"]
+"scripts/**/*" = ["INP001"]
 "tests/**/*" = []
 
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.pyright]
+ignore = ["lib"]
 
 [build-system]
 requires = ["poetry-core"]
