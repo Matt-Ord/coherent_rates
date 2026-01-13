@@ -809,8 +809,7 @@ def plot_linear_fit_effective_mass_against_mass(
 
     ax.set_xlabel("Mass /kg")  # type: ignore unknown
     ax.set_title(  # type: ignore unknown
-        "Plot of Effective mass against mass for"
-        f" {fit_method.get_rate_label()} rate",
+        f"Plot of Effective mass against mass for {fit_method.get_rate_label()} rate",
     )
     _, _, line = plot_data_1d(masses, masses, ax=ax)
     line.set_color("black")
@@ -981,7 +980,7 @@ def plot_occupation_against_energy_change_with_contition(
         operator = get_instrument_biased_periodic_x(
             hamiltonian,
             config.direction,
-            config.scattered_energy_range,
+            config.instrument_function,
         )
         scattered_state = apply_scattering_operator_to_state(operator, state)
 

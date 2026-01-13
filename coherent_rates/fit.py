@@ -26,7 +26,7 @@ from surface_potential_analysis.basis.time_basis_like import (
     ExplicitTimeBasis,
 )
 from surface_potential_analysis.basis.util import BasisUtil
-from surface_potential_analysis.util.util import get_measured_data
+from surface_potential_analysis.util.util import Measure, get_measured_data
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -51,10 +51,21 @@ class FitInfo(TypedDict):
 class FitMethod(ABC, Generic[T]):
     """A method used for fitting an ISF."""
 
+    def __init__(self: Self, measure: Measure = "real") -> None:
+        self._measure: Measure = measure
+
     def __hash__(self: Self) -> int:
-        h = hashlib.sha256(usedforsecurity=False)
-        h.update(self.get_rate_label().encode())
-        return int.from_bytes(h.digest(), "big")
+        h_label = hashlib.sha256(usedforsecurity=False)
+        h_label.update(self.get_rate_label().encode())
+
+        h_method = hashlib.sha256(usedforsecurity=False)
+        h_method.update(self._measure.encode())
+        return hash(
+            (
+                int.from_bytes(h_label.digest(), "big"),
+                int.from_bytes(h_method.digest(), "big"),
+            ),
+        )
 
     @abstractmethod
     def get_rate_from_fit(
@@ -113,7 +124,7 @@ class FitMethod(ABC, Generic[T]):
         data: ValueList[_BT0],
         **info: Unpack[FitInfo],
     ) -> T:
-        y_data = get_measured_data(data["data"], measure="real")
+        y_data = get_measured_data(data["data"], measure=self._measure)
         delta_t = np.max(data["basis"].times) - np.min(data["basis"].times)
         dt = (delta_t / data["basis"].times.size).item()
 
@@ -208,14 +219,28 @@ class GaussianParameters:
 class GaussianMethod(FitMethod[GaussianParameters]):
     """Fit the data to a single Gaussian."""
 
-    def __init__(self: Self, *, truncate: bool = True) -> None:
+    def __init__(
+        self: Self,
+        *,
+        truncate: bool = True,
+        measure: Measure = "real",
+    ) -> None:
         self._truncate = truncate
-        super().__init__()
+        super().__init__(measure=measure)
 
     def __hash__(self: Self) -> int:
-        h = hashlib.sha256(usedforsecurity=False)
-        h.update(self.get_rate_label().encode())
-        return hash((int.from_bytes(h.digest(), "big"), self._truncate))
+        h_label = hashlib.sha256(usedforsecurity=False)
+        h_label.update(self.get_rate_label().encode())
+
+        h_method = hashlib.sha256(usedforsecurity=False)
+        h_method.update(self._measure.encode())
+        return hash(
+            (
+                int.from_bytes(h_label.digest(), "big"),
+                int.from_bytes(h_method.digest(), "big"),
+                self._truncate,
+            ),
+        )
 
     @staticmethod
     def _fit_fn(
@@ -264,7 +289,9 @@ class GaussianMethod(FitMethod[GaussianParameters]):
         if not self._truncate:
             return super().get_fit_from_isf(data, **info)
         # Stop trying to fit past the first non-decreasing ISF
-        is_increasing = np.diff(np.abs(data["data"])) > 0
+        is_increasing = (
+            np.diff(get_measured_data(data["data"], measure=self._measure)) > 0
+        )
         first_increasing_idx = np.argmax(is_increasing).item()
         idx = data["basis"].n - 1 if first_increasing_idx == 0 else first_increasing_idx
         idx = max(idx, 10)

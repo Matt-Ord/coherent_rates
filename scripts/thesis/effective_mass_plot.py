@@ -1,5 +1,4 @@
 import numpy as np
-from matplotlib import pyplot as plt
 from matplotlib.scale import SymmetricalLogScale
 from scipy.constants import hbar
 from surface_potential_analysis.stacked_basis.conversion import (
@@ -18,32 +17,10 @@ from coherent_rates.solve import get_bloch_wavefunctions
 from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
 )
+from scripts.thesis.bandstructure_plot import CAM_DARK_BLUE
+from scripts.thesis.util import CAM_WARM_BLUE, get_fancy_figure, setup_rc_params
 
-CAM_DARK_BLUE = "#133844"
-CAM_WARM_BLUE = "#00BDB6"
-CAM_SLATE_1 = "#ECEEF1"
-
-plt.rcParams.update(
-    {
-        "text.usetex": True,
-        "font.family": "serif",
-        "font.serif": ["Utopia"],
-        "text.latex.preamble": r"\usepackage{fourier}" + "\n" + r"\usepackage{amsmath}",
-        "font.size": 11,
-    },
-)
-
-
-def get_fig_size() -> tuple[float, float]:
-    total_textwidth_pt = 437.5
-    pt_to_inch = 1 / 72.27
-
-    # We want half width
-    plot_width_in = (total_textwidth_pt / 2) * pt_to_inch
-
-    # Height using Golden Ratio (Height = Width * 0.618)
-    plot_height_in = plot_width_in * 0.85
-    return plot_width_in, plot_height_in
+setup_rc_params()
 
 
 def plot_rates() -> None:
@@ -63,10 +40,7 @@ def plot_rates() -> None:
         -1,
     )[list(range(converted["basis"][0][0].n)), 0]
 
-    fig, ax = plt.subplots(
-        figsize=get_fig_size(),
-        layout="constrained",
-    )
+    fig, ax = get_fancy_figure()
     fig, ax, (line, free_line) = plot_wavepacket_transformed_energy_1d(
         wavefunctions,
         free_mass=system.mass,
@@ -95,10 +69,6 @@ def plot_rates() -> None:
     )
     legend.get_frame().set_alpha(0)
 
-    ax.set_facecolor(CAM_SLATE_1)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    fig.set_facecolor((0, 0, 0, 0))
     fig.savefig("scripts/thesis/effective_mass_plot.rates.pdf")
 
 
@@ -108,10 +78,7 @@ def plot_effective_mass() -> None:
 
     wavefunctions = get_bloch_wavefunctions(system, config)
 
-    fig, ax = plt.subplots(
-        figsize=get_fig_size(),
-        layout="constrained",
-    )
+    fig, ax = get_fancy_figure()
     fig, ax, line0 = plot_wavepacket_transformed_energy_effective_mass_against_energy(
         wavefunctions,
         true_mass=system.mass,
@@ -138,10 +105,6 @@ def plot_effective_mass() -> None:
     )
     legend.get_frame().set_alpha(0)
 
-    ax.set_facecolor(CAM_SLATE_1)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    fig.set_facecolor((0, 0, 0, 0))
     fig.savefig("scripts/thesis/effective_mass_plot.mass.pdf")
 
 

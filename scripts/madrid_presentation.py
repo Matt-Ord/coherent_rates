@@ -35,7 +35,7 @@ from surface_potential_analysis.wavepacket.plot import (
     plot_wavepacket_transformed_energy_effective_mass_against_energy,
 )
 
-from coherent_rates.config import PeriodicSystemConfig
+from coherent_rates.config import PeriodicSystemConfig, SimpleInstrumentFunction
 from coherent_rates.fit import (
     GaussianMethod,
     GaussianMethodWithOffset,
@@ -298,7 +298,9 @@ def _compare_instrument_sensitivity_against_mass() -> None:
         (100,),
         truncation=50,
         temperature=100,
-        scattered_energy_range=(-0.005 * electron_volt, 0.005 * electron_volt),
+        instrument_function=SimpleInstrumentFunction(
+            energy_range=(-0.005 * electron_volt, 0.005 * electron_volt),
+        ),
     )
     system = FreeSystem(SODIUM_COPPER_BRIDGE_SYSTEM_1D)
     directions = [(i,) for i in [1, 2, *list(range(5, 105, 5))]]
@@ -349,7 +351,9 @@ def _compare_instrument_sensitivity_against_temperature() -> None:
         (100,),
         truncation=50,
         temperature=100,
-        scattered_energy_range=(-0.005 * electron_volt, 0.005 * electron_volt),
+        instrument_function=SimpleInstrumentFunction(
+            energy_range=(-0.005 * electron_volt, 0.005 * electron_volt),
+        ),
     )
     system = FreeSystem(SODIUM_COPPER_BRIDGE_SYSTEM_1D)
     directions = [(i,) for i in [1, 2, *list(range(5, 105, 5))]]
@@ -503,7 +507,7 @@ def _2d_state_evolved_scattered_demo() -> None:
     scattering_operator = get_instrument_biased_periodic_x(
         hamiltonian,
         config.direction,
-        config.scattered_energy_range,
+        config.instrument_function,
     )
     scattered_state = apply_scattering_operator_to_state(
         scattering_operator,

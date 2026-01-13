@@ -84,8 +84,7 @@ def get_thermal_probability_x(
     system: System,
     config: PeriodicSystemConfig,
     x_point: tuple[float, ...],
-) -> float:
-    ...
+) -> float: ...
 
 
 @overload
@@ -93,8 +92,7 @@ def get_thermal_probability_x(
     system: System,
     config: PeriodicSystemConfig,
     x_point: tuple[np.ndarray[Any, np.dtype[np.float64]], ...],
-) -> np.ndarray[Any, np.dtype[np.float64]]:
-    ...
+) -> np.ndarray[Any, np.dtype[np.float64]]: ...
 
 
 def get_thermal_probability_x(
@@ -132,8 +130,7 @@ def get_thermal_probability_k(
     system: System,
     config: PeriodicSystemConfig,
     k_point: tuple[float, ...],
-) -> float:
-    ...
+) -> float: ...
 
 
 @overload
@@ -141,8 +138,7 @@ def get_thermal_probability_k(
     system: System,
     config: PeriodicSystemConfig,
     k_point: tuple[np.ndarray[Any, np.dtype[np.float64]], ...],
-) -> np.ndarray[Any, np.dtype[np.float64]]:
-    ...
+) -> np.ndarray[Any, np.dtype[np.float64]]: ...
 
 
 def get_thermal_probability_k(

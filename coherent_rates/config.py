@@ -1,15 +1,85 @@
 from __future__ import annotations
 
-from copy import copy
+import dataclasses
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Self
+from typing import Any, Self
 
 import numpy as np
 
 _DEFAULT_DIRECTION = ()
 
 
-@dataclass
+class InstrumentFunction(ABC):
+    """Instrument function for scattered energy selection."""
+
+    @abstractmethod
+    def evaluate(
+        self: Self,
+        energy: np.ndarray[Any, np.dtype[np.float64]],
+    ) -> np.ndarray[Any, np.dtype[np.float64]]:
+        """Evaluate the instrument sensitivity at a given energy.
+
+        The energy, is the energy gained by the system during scattering.
+        This is the same as the energy lost by the scattered particle.
+        """
+
+
+@dataclass(kw_only=True, frozen=True)
+class SimpleInstrumentFunction(InstrumentFunction):
+    """Simple instrument function that is constant within a range and zero outside."""
+
+    energy_range: tuple[float, float] = field(
+        default=(-np.inf, np.inf),
+    )
+
+    def evaluate(
+        self: Self,
+        energy: np.ndarray[Any, np.dtype[np.float64]],
+    ) -> np.ndarray[Any, np.dtype[np.float64]]:
+        return np.where(
+            (self.energy_range[0] <= energy) & (energy <= self.energy_range[1]),
+            1.0,
+            0.0,
+        )
+
+    def __hash__(self) -> int:
+        return hash(self.energy_range)
+
+
+@dataclass(kw_only=True, frozen=True)
+class ExponentialInstrumentFunction(InstrumentFunction):
+    """An instrument who's response is an exponential decay."""
+
+    width: float
+    optimal_energy_out: float
+    incoming_energy: float
+
+    def evaluate(
+        self: Self,
+        energy: np.ndarray[Any, np.dtype[np.float64]],
+    ) -> np.ndarray[Any, np.dtype[np.float64]]:
+        energy_out = self.incoming_energy - energy
+
+        return np.where(
+            energy_out > 0,
+            np.exp(
+                -0.5 * (np.abs(energy_out - self.optimal_energy_out) / self.width),
+            ),
+            0.0,
+        )
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.width,
+                self.optimal_energy_out,
+                self.incoming_energy,
+            ),
+        )
+
+
+@dataclass(frozen=True)
 class PeriodicSystemConfig:
     """Configure the simlation-specific detail of the system."""
 
@@ -17,48 +87,30 @@ class PeriodicSystemConfig:
     resolution: tuple[int, ...]
     truncation: int | None = None
     temperature: float = field(default=150, kw_only=True)
-    scattered_energy_range: tuple[float, float] = field(
-        default=(-np.inf, np.inf),
+    instrument_function: InstrumentFunction = field(
+        default_factory=SimpleInstrumentFunction,
         kw_only=True,
     )
     direction: tuple[int, ...] = field(default=_DEFAULT_DIRECTION, kw_only=True)
 
     def __post_init__(self: Self) -> None:
         if self.direction is _DEFAULT_DIRECTION:
-            self.direction = tuple(0 for _ in self.shape)
+            object.__setattr__(self, "direction", tuple(0 for _ in self.shape))
 
     def with_direction(self: Self, direction: tuple[int, ...]) -> Self:
-        copied = copy(self)
-        copied.direction = direction
-        return copied
+        return dataclasses.replace(self, direction=direction)
 
     def with_temperature(self: Self, temperature: float) -> Self:
-        copied = copy(self)
-        copied.temperature = temperature
-        return copied
+        return dataclasses.replace(self, temperature=temperature)
 
     def with_resolution(self: Self, resolution: tuple[int, ...]) -> Self:
-        copied = copy(self)
-        copied.resolution = resolution
-        return copied
+        return dataclasses.replace(self, resolution=resolution)
 
     def with_shape(self: Self, shape: tuple[int, ...]) -> Self:
-        copied = copy(self)
-        copied.shape = shape
-        return copied
+        return dataclasses.replace(self, shape=shape)
 
     def with_truncation(self: Self, truncation: int | None) -> Self:
-        copied = copy(self)
-        copied.truncation = truncation
-        return copied
-
-    def with_scattered_energy_range(
-        self: Self,
-        energy_range: tuple[float, float],
-    ) -> Self:
-        copied = copy(self)
-        copied.scattered_energy_range = energy_range
-        return copied
+        return dataclasses.replace(self, truncation=truncation)
 
     @property
     def n_bands(self: Self) -> int:
@@ -87,6 +139,6 @@ class PeriodicSystemConfig:
                 self.n_bands,
                 self.temperature,
                 self.direction,
-                self.scattered_energy_range,
+                self.instrument_function,
             ),
         )

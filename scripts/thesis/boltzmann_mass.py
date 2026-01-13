@@ -2,27 +2,32 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from scipy.constants import electron_volt  # type:ignore lib
-from surface_potential_analysis.util.plot import get_figure
-
-from coherent_rates.config import PeriodicSystemConfig, SimpleInstrumentFunction
+from coherent_rates.config import PeriodicSystemConfig
 from coherent_rates.fit import (
     GaussianMethod,
-    GaussianMethodWithOffset,
 )
 from coherent_rates.plot import (
     plot_boltzmann_isf_fit_for_directions,
     plot_boltzmann_rate_against_momentum,
-    plot_coherent_rate_against_momentum,
 )
 from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
     FreeSystem,
     System,
 )
+from scripts.thesis.bandstructure_plot import CAM_DARK_BLUE
+from scripts.thesis.util import (
+    CAM_WARM_BLUE,
+    format_axis_scientific,
+    get_fancy_figure,
+    setup_rc_params,
+)
 
 if TYPE_CHECKING:
     from coherent_rates.fit import FitMethod
+
+
+setup_rc_params()
 
 
 def _test_convergence_with_shape(
@@ -49,7 +54,6 @@ def _test_convergence_with_shape(
     line.set_label("2x shape")
     ax.legend()  # type: ignore unknown
     fig.show()
-    input()
 
 
 def _test_convergence_with_resolution(
@@ -76,7 +80,6 @@ def _test_convergence_with_resolution(
     line.set_label("2x resolution")
     ax.legend()  # type: ignore unknown
     fig.show()
-    input()
 
 
 def _test_convergence_with_truncation(
@@ -106,7 +109,6 @@ def _test_convergence_with_truncation(
     line.set_label("2x truncation")
     ax.legend()  # type: ignore unknown
     fig.show()
-    input()
 
 
 def _compare_rate_against_free_surface(
@@ -120,7 +122,7 @@ def _compare_rate_against_free_surface(
     fit_method = GaussianMethod() if fit_method is None else fit_method
     free_fit_method = GaussianMethod() if free_fit_method is None else free_fit_method
 
-    fig, ax = get_figure(None)
+    fig, ax = get_fancy_figure()
 
     _, _, line = plot_boltzmann_rate_against_momentum(
         system,
@@ -129,7 +131,8 @@ def _compare_rate_against_free_surface(
         directions=directions,
         ax=ax,
     )
-    line.set_label(f"Bound system, {fit_method.get_rate_label()}")
+    line.set_label("Bound system")
+    line.set_color(CAM_DARK_BLUE)
 
     _, _, line = plot_boltzmann_rate_against_momentum(
         FreeSystem(system),
@@ -138,90 +141,63 @@ def _compare_rate_against_free_surface(
         directions=directions,
         ax=ax,
     )
-    line.set_label(f"Free system, {fit_method.get_rate_label()}")
+    line.set_label("Free system")
+    line.set_color(CAM_WARM_BLUE)
 
-    ax.legend()  # type: ignore library type
-    ax.set_title("Plot of rate against delta k, comparing to a free particle")  # type: ignore library type
-
-    fig.show()
-    input()
-
-
-def _compare_rate_against_free_surface_coherent(  # noqa: PLR0913
-    system: System,
-    config: PeriodicSystemConfig,
-    *,
-    fit_method: FitMethod[Any] | None = None,
-    free_fit_method: FitMethod[Any] | None = None,
-    directions: list[tuple[int, ...]] | None = None,
-    n_repeats: int = 10,
-    sigma_0: tuple[float, ...] | None = None,
-) -> None:
-    fit_method = GaussianMethod() if fit_method is None else fit_method
-    free_fit_method = GaussianMethod() if free_fit_method is None else free_fit_method
-
-    fig, ax = get_figure(None)
-
-    _, _, line = plot_coherent_rate_against_momentum(
-        system,
-        config,
-        fit_method=fit_method,
-        directions=directions,
-        ax=ax,
-        n_repeats=n_repeats,
-        sigma_0=sigma_0,
+    legend = ax.legend(
+        frameon=False,
+        loc="upper left",
+        fontsize=9,
     )
-    line.set_label(f"Bound system, {fit_method.get_rate_label()}")
+    legend.get_frame().set_alpha(0)
+    format_axis_scientific(ax.xaxis)
+    ax.set_title("")
+    ax.set_ylabel(r"Rate / $\mathrm{s}^{-1}$")
+    ax.set_xlabel(r"$\Delta k$ / $\mathrm{m}^{-1}$")
 
-    _, _, line = plot_boltzmann_rate_against_momentum(
-        FreeSystem(system),
-        config,
-        fit_method=free_fit_method,
-        directions=directions,
-        ax=ax,
-    )
-    line.set_label(f"Free system, {fit_method.get_rate_label()}")
-
-    ax.legend()  # type: ignore library type
-    ax.set_title("Plot of rate against delta k, comparing to a free particle")  # type: ignore library type
-
-    fig.show()
-    input()
+    fig.savefig("scripts/thesis/boltzmann_mass.1d.pdf")
 
 
 if __name__ == "__main__":
     config = PeriodicSystemConfig(
+        (400,),
         (100,),
-        (100,),
-        truncation=50,
-        temperature=100,
-        instrument_function=SimpleInstrumentFunction(
-            energy_range=(-0.005 * electron_volt, 0.005 * electron_volt),
-        ),
+        truncation=25,
+        temperature=155,
     )
     system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
-    directions = [(i,) for i in [1, 2, *list(range(5, 105, 5))]]
+    print(system.barrier_energy)  # noqa: T201
+    directions = [(i,) for i in [1, 2, *list(range(5, 155, 5))]]
 
-    _test_convergence_with_shape(system, config, directions=directions)
-    _test_convergence_with_resolution(system, config, directions=directions)
-    _test_convergence_with_truncation(system, config, directions=directions)
-    plot_boltzmann_isf_fit_for_directions(
-        system,
-        config,
-        directions=directions,
-        fit_method=GaussianMethodWithOffset(),
-    )
+    if False:
+        _test_convergence_with_shape(
+            system,
+            config,
+            directions=directions,
+            fit_method=GaussianMethod(measure="abs"),
+        )
+        _test_convergence_with_resolution(
+            system,
+            config,
+            directions=directions,
+            fit_method=GaussianMethod(measure="abs"),
+        )
+        _test_convergence_with_truncation(
+            system,
+            config,
+            directions=directions,
+            fit_method=GaussianMethod(measure="abs"),
+        )
+        plot_boltzmann_isf_fit_for_directions(
+            system,
+            config,
+            directions=directions,
+            fit_method=GaussianMethod(measure="abs"),
+        )
     _compare_rate_against_free_surface(
         system,
         config,
         directions=directions,
-        fit_method=GaussianMethodWithOffset(),
-        free_fit_method=GaussianMethodWithOffset(),
-    )
-    _compare_rate_against_free_surface_coherent(
-        system,
-        config,
-        directions=directions,
-        fit_method=GaussianMethodWithOffset(),
-        free_fit_method=GaussianMethodWithOffset(),
+        fit_method=GaussianMethod(measure="abs"),
+        free_fit_method=GaussianMethod(measure="abs"),
     )

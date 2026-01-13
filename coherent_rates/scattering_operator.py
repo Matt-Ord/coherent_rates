@@ -26,6 +26,8 @@ if TYPE_CHECKING:
         StateVectorList,
     )
 
+    from coherent_rates.config import InstrumentFunction
+
     _B0 = TypeVar("_B0", bound=BlochBasis[Any])
 
     _B1 = TypeVar("_B1", bound=BasisLike[Any, Any])
@@ -246,6 +248,11 @@ def get_energy_change_operator_sparse(
     hamiltonian: SingleBasisDiagonalOperator[_B0],
     direction: tuple[int, ...],
 ) -> SparseScatteringOperator[_B0, _B0]:
+    """Get the energy of the outgoing state - the energy of the incoming state.
+
+    This is the total increse of energy of the system after scattering
+    in the given direction.
+    """
     basis = hamiltonian["basis"][0]
     band_basis = basis.wavefunctions["basis"][0][0]
     bloch_phase_basis = basis.wavefunctions["basis"][0][1]
@@ -277,16 +284,14 @@ def get_energy_change_operator_sparse(
 def get_instrument_biased_periodic_x(
     hamiltonian: SingleBasisDiagonalOperator[_B0],
     direction: tuple[int, ...],
-    energy_range: tuple[float, float],
+    instrument_function: InstrumentFunction,
 ) -> SparseScatteringOperator[_B0, _B0]:
     periodic_x = get_periodic_x_operator_sparse(hamiltonian["basis"][0], direction)
 
     scattered_energy = get_energy_change_operator_sparse(hamiltonian, direction)
-    min_energy, max_energy = energy_range
-    mask = np.logical_and(
-        min_energy < scattered_energy["data"],
-        scattered_energy["data"] < max_energy,
+    instrument_factor = instrument_function.evaluate(
+        np.real(scattered_energy["data"]),
     )
-    periodic_x["data"][np.logical_not(mask)] = 0
+    periodic_x["data"] *= instrument_factor
 
     return periodic_x
