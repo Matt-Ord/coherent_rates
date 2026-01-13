@@ -1,77 +1,55 @@
-from matplotlib import pyplot as plt
-from matplotlib import ticker
-from matplotlib.axis import Axis
+from typing import Any
+
+import numpy as np
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from scipy.constants import Boltzmann, hbar
+from surface_potential_analysis.basis.time_basis_like import EvenlySpacedTimeBasis
 from surface_potential_analysis.state_vector.plot_value_list import (
     plot_value_list_against_time,
 )
 
 from coherent_rates.config import PeriodicSystemConfig
-from coherent_rates.fit import GaussianMethod, get_default_isf_times
+from coherent_rates.fit import GaussianMethod
 from coherent_rates.isf import (
     get_analytical_isf,
     get_boltzmann_isf,
+    get_scattered_momentum,
 )
+from coherent_rates.solve import get_hamiltonian
 from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
+    PeriodicSystem1d,
+)
+from scripts.thesis.bandstructure_plot import CAM_DARK_BLUE, CAM_SLATE_1, CAM_WARM_BLUE
+from scripts.thesis.util import (
+    format_axis_scientific,
+    get_fancy_figure,
+    setup_rc_params,
 )
 
-CAM_DARK_BLUE = "#133844"
-CAM_WARM_BLUE = "#00BDB6"
-CAM_SLATE_1 = "#ECEEF1"
-
-plt.rcParams.update(
-    {
-        "text.usetex": True,
-        "font.family": "serif",
-        "font.serif": ["Utopia"],
-        "text.latex.preamble": r"\usepackage{fourier}" + "\n" + r"\usepackage{amsmath}",
-        "font.size": 11,
-    },
-)
-
-
-def get_fig_size() -> tuple[float, float]:
-    total_textwidth_pt = 437.5
-    pt_to_inch = 1 / 72.27
-
-    # We want half width
-    plot_width_in = (total_textwidth_pt / 2) * pt_to_inch
-
-    # Height using Golden Ratio (Height = Width * 0.618)
-    plot_height_in = plot_width_in * 0.85
-    return plot_width_in, plot_height_in
-
-
-def format_axis_scientific(ax: Axis) -> None:
-    formatter = ticker.ScalarFormatter(useMathText=True)
-    # 2. Force scientific notation
-    # (0, 0) tells it to use scientific notation for all numbers regardless of size
-    formatter.set_scientific(True)
-    formatter.set_powerlimits((0, 0))
-    ax.set_major_formatter(formatter)
+setup_rc_params()
 
 
 def plot_periodic_isf() -> None:
     system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
 
     config = PeriodicSystemConfig(
-        (200,),
+        (400,),
         (100,),
-        direction=(1,),
-        truncation=50,
-        temperature=100,
+        direction=(100,),
+        truncation=25,
+        temperature=155,
     )
-
-    times = get_default_isf_times(system=system, config=config)
-    isf = get_boltzmann_isf(system, config, times, n_repeats=5000)
-
-    fig, ax = plt.subplots(
-        figsize=get_fig_size(),
-        layout="constrained",
+    times = EvenlySpacedTimeBasis(100, 1, 0, 1.5e-10)
+    times = GaussianMethod(measure="abs").get_fit_times(
+        system=system,
+        config=config,
     )
+    isf = get_boltzmann_isf(system, config, times, n_repeats=100)
 
-    fit = GaussianMethod().get_fit_from_isf(
+    fig, ax = get_fancy_figure()
+
+    fit = GaussianMethod(measure="abs").get_fit_from_isf(
         isf,
         system=system,
         config=config,
@@ -99,10 +77,6 @@ def plot_periodic_isf() -> None:
         bbox_to_anchor=(1.0, 0.6),
     )
     legend.get_frame().set_alpha(0)
-
-    ax.set_facecolor(CAM_SLATE_1)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
 
     inset_ax = inset_axes(
         ax,
@@ -137,19 +111,71 @@ def plot_periodic_isf() -> None:
     fig.savefig("scripts/thesis/boltzmann_isf.periodic.pdf")
 
 
+def _get_occupation_probabilities(
+    system: PeriodicSystem1d,
+    config: PeriodicSystemConfig,
+) -> np.ndarray[Any, np.dtype[np.float64]]:
+    """Get the occupation probability for a given system, configuration, and time."""
+    hamiltonian = get_hamiltonian.call_cached(system, config)
+    boltzmann_distribution = np.exp(
+        -hamiltonian["data"] / (2 * Boltzmann * config.temperature),
+    )
+    return boltzmann_distribution / np.sum(boltzmann_distribution)
+
+
+def get_occupation_loss(
+    system: PeriodicSystem1d,
+    config: PeriodicSystemConfig,
+) -> float:
+    """Get the occupation loss for a given system and configuration."""
+    config_full = config.with_truncation(None)
+    probabilities = _get_occupation_probabilities(system, config_full)
+    total_p = np.sum(probabilities.reshape(config_full.n_bands, -1)[: config.n_bands])
+    return np.real(1 - total_p.item())
+
+
+def get_max_simulation_time(
+    system: PeriodicSystem1d,
+    config: PeriodicSystemConfig,
+) -> float:
+    """Get the occupation loss for a given system and configuration."""
+    n_b = config.n_bands
+    velocity = (2 * hbar * n_b * np.pi) / (system.mass * system.lattice_constant)
+    return (config.shape[0] * system.lattice_constant) / velocity
+
+
+def get_max_simulation_time_thermal(
+    system: PeriodicSystem1d,
+    config: PeriodicSystemConfig,
+) -> float:
+    """Get the occupation loss for a given system and configuration."""
+    velocity = (system.mass / (2 * Boltzmann * config.temperature)) ** 0.5
+    return (config.shape[0] * system.lattice_constant) * velocity
+
+
 def plot_free_isf() -> None:
     system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
     system = system.with_barrier_energy(0)
 
     config = PeriodicSystemConfig(
-        (200,),
+        (400,),
         (100,),
-        direction=(1,),
-        truncation=50,
-        temperature=100,
+        direction=(2,),
+        truncation=25,
+        temperature=155,
     )
+    print(f"Missing Occupation {get_occupation_loss(system, config):0.3e}")  # noqa: T201
+    print(f"Max Simulation Time {get_max_simulation_time(system, config):0.3e}")  # noqa: T201
+    print(f"Max Simulation Time {get_max_simulation_time_thermal(system, config):0.3e}")  # noqa: T201
 
-    times = get_default_isf_times(system=system, config=config)
+    delta_k = get_scattered_momentum(system, config, [config.direction])[0]
+    print(f"Actual delta k:1 {delta_k:0.3e}")  # noqa: T201
+    print("Decay after 1e-10s")  # noqa: T201
+    decayed_isf = np.exp(
+        -(Boltzmann * config.temperature * (1e-10 * delta_k) ** 2) / (2 * system.mass),
+    )
+    print(f"I: {decayed_isf:0.3e}")  # noqa: T201
+    times = EvenlySpacedTimeBasis(100, 1, 0, 1.5e-10)
     isf = get_boltzmann_isf(
         system,
         config,
@@ -158,10 +184,7 @@ def plot_free_isf() -> None:
     )
     analytical_isf = get_analytical_isf(system, config, times)
 
-    fig, ax = plt.subplots(
-        figsize=get_fig_size(),
-        layout="constrained",
-    )
+    fig, ax = get_fancy_figure()
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("Simulated")
     line.set_color(CAM_WARM_BLUE)
@@ -175,6 +198,7 @@ def plot_free_isf() -> None:
     line.set_linestyle("--")
     ax.set_xlabel("Time / s")
     ax.set_ylabel(r"$|I(\Delta k, t)|$")
+    ax.set_xlim(0, 1.5e-10)
 
     format_axis_scientific(ax.yaxis)
 
@@ -184,10 +208,6 @@ def plot_free_isf() -> None:
         fontsize=9,
     )
     legend.get_frame().set_alpha(0)
-
-    ax.set_facecolor(CAM_SLATE_1)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
 
     inset_ax = inset_axes(
         ax,
@@ -205,6 +225,8 @@ def plot_free_isf() -> None:
     )
     inset_line.set_color(CAM_DARK_BLUE)
     inset_line.set_linestyle("--")
+    inset_ax.set_ylim(0, 1.1 * np.max(np.angle(analytical_isf["data"])))
+    inset_ax.set_xlim(ax.get_xlim())
     inset_ax.set_facecolor(CAM_SLATE_1)
     inset_ax.spines["top"].set_visible(False)
     inset_ax.spines["right"].set_visible(False)
@@ -222,7 +244,6 @@ def plot_free_isf() -> None:
 
     format_axis_scientific(inset_ax.yaxis)
 
-    fig.set_facecolor((0, 0, 0, 0))
     fig.savefig("scripts/thesis/boltzmann_isf.free.pdf")
 
 

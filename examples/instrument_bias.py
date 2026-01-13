@@ -43,7 +43,7 @@ if __name__ == "__main__":
         (100,),
         (100,),
         truncation=50,
-        direction=(5,),
+        direction=(20,),
         temperature=155,
     )
     system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
@@ -51,3 +51,4 @@ if __name__ == "__main__":
     energies = np.array([2, 5, 10, 15, 20, np.inf]) * 0.001 * electron_volt
 
     _test_instrument_bias(system, config, energies)
+    input()

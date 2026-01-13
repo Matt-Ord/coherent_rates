@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar, cast
@@ -42,7 +43,7 @@ from surface_potential_analysis.state_vector.state_vector_list import (
 from surface_potential_analysis.util.decorators import cached, timed
 from surface_potential_analysis.wavepacket.get_eigenstate import BlochBasis
 
-from coherent_rates.config import PeriodicSystemConfig
+from coherent_rates.config import PeriodicSystemConfig, SimpleInstrumentFunction
 from coherent_rates.fit import (
     FitMethod,
     GaussianMethod,
@@ -136,7 +137,7 @@ def get_isf_pair_states(
     operator = get_instrument_biased_periodic_x(
         hamiltonian,
         direction=config.direction,
-        energy_range=config.scattered_energy_range,
+        instrument_function=config.instrument_function,
     )
 
     return _get_isf_pair_states_from_hamiltonian(
@@ -179,7 +180,7 @@ def get_isf(
     operator = get_instrument_biased_periodic_x(
         hamiltonian,
         direction=config.direction,
-        energy_range=config.scattered_energy_range,
+        instrument_function=config.instrument_function,
     )
 
     return _get_isf_from_hamiltonian(hamiltonian, operator, initial_state, times)
@@ -259,7 +260,7 @@ def get_band_resolved_boltzmann_isf(
     operator = get_instrument_biased_periodic_x(
         hamiltonian,
         direction=config.direction,
-        energy_range=config.scattered_energy_range,
+        instrument_function=config.instrument_function,
     )
 
     isf_data = np.zeros((n_repeats, bands.n * times.n), dtype=np.complex128)
@@ -307,7 +308,7 @@ def _get_coherent_isf_from_hamiltonian(  # noqa: PLR0913
     operator = get_instrument_biased_periodic_x(
         hamiltonian,
         direction=config.direction,
-        energy_range=config.scattered_energy_range,
+        instrument_function=config.instrument_function,
     )
 
     isf_data = np.zeros((2 * n_repeats, times.n), dtype=np.complex128)
@@ -488,7 +489,8 @@ def _get_default_directions(config: PeriodicSystemConfig) -> list[tuple[int, ...
             *tuple(
                 cast("list[int]", (s * np.arange(1, r)).tolist())
                 for (s, r) in zip(config.shape, config.resolution, strict=True)
-            ), strict=False,
+            ),
+            strict=False,
         ),
     )
 
@@ -506,7 +508,7 @@ def _get_boltzmann_isf_from_hamiltonian(
     operator = get_instrument_biased_periodic_x(
         hamiltonian,
         direction=config.direction,
-        energy_range=config.scattered_energy_range,
+        instrument_function=config.instrument_function,
     )
 
     def _calculate_isf(i: int) -> None:
@@ -917,7 +919,7 @@ def get_conditions_at_directions(
     directions: Iterable[tuple[int, ...]],
 ) -> list[SimulationCondition]:
     return [
-        (system, config.with_direction(d), f"({', '.join(str(x) for x in d) },)")
+        (system, config.with_direction(d), f"({', '.join(str(x) for x in d)},)")
         for d in directions
     ]
 
@@ -934,7 +936,10 @@ def get_conditions_at_energy_range(
     return [
         (
             system,
-            config.with_scattered_energy_range((-r, r)),
+            dataclasses.replace(
+                config,
+                instrument_function=SimpleInstrumentFunction(energy_range=(-r, r)),
+            ),
             rf"$\pm$ {_energy_to_mev(r):.1f} meV",
         )
         for r in scattered_energy_ranges
