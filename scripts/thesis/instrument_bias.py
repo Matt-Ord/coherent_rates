@@ -48,7 +48,7 @@ if __name__ == "__main__":
     fig, ax = get_fancy_figure()
     fig, ax, line = plot_value_list_against_time(data, ax=ax)
     line.set_label("Ideal")
-    line.set_color(CAM_DARK_BLUE)
+    line.set_color(CAM_WARM_BLUE)
 
     config = dataclasses.replace(
         config,
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     )
     fig, ax, line = plot_value_list_against_time(data, ax=ax)
     line.set_label("Corrected")
-    line.set_color(CAM_WARM_BLUE)
+    line.set_color(CAM_DARK_BLUE)
     legend = ax.legend(
         frameon=False,
         loc="lower right",

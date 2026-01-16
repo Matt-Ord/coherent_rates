@@ -47,6 +47,13 @@ class SimpleInstrumentFunction(InstrumentFunction):
         return hash(self.energy_range)
 
 
+class IdealInstrumentFunction(SimpleInstrumentFunction):
+    """Ideal instrument function that is constant for all energies."""
+
+    def __init__(self: Self) -> None:
+        super().__init__(energy_range=(-np.inf, np.inf))
+
+
 @dataclass(kw_only=True, frozen=True)
 class ExponentialInstrumentFunction(InstrumentFunction):
     """An instrument who's response is an exponential decay."""
@@ -88,7 +95,7 @@ class PeriodicSystemConfig:
     truncation: int | None = None
     temperature: float = field(default=150, kw_only=True)
     instrument_function: InstrumentFunction = field(
-        default_factory=SimpleInstrumentFunction,
+        default_factory=IdealInstrumentFunction,
         kw_only=True,
     )
     direction: tuple[int, ...] = field(default=_DEFAULT_DIRECTION, kw_only=True)
