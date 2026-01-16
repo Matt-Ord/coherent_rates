@@ -325,9 +325,14 @@ class FitOffset:
 class GaussianMethodWithOffset(FitMethod[tuple[GaussianParameters, FitOffset]]):
     """Fit the data to a single Gaussian."""
 
-    def __init__(self: Self, *, truncate: bool = True) -> None:
+    def __init__(
+        self: Self,
+        *,
+        truncate: bool = True,
+        measure: Measure = "abs",
+    ) -> None:
         self._truncate = truncate
-        super().__init__()
+        super().__init__(measure=measure)
 
     def __hash__(self: Self) -> int:
         h = hashlib.sha256(usedforsecurity=False)

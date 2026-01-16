@@ -14,6 +14,8 @@ from surface_potential_analysis.state_vector.plot import get_periodic_x_operator
 from surface_potential_analysis.util.decorators import timed
 from surface_potential_analysis.wavepacket.get_eigenstate import BlochBasis
 
+from coherent_rates.config import IdealInstrumentFunction
+
 if TYPE_CHECKING:
     from surface_potential_analysis.basis.basis_like import BasisLike
     from surface_potential_analysis.basis.stacked_basis import TupleBasisLike
@@ -281,12 +283,15 @@ def get_energy_change_operator_sparse(
     }
 
 
+@timed
 def get_instrument_biased_periodic_x(
     hamiltonian: SingleBasisDiagonalOperator[_B0],
     direction: tuple[int, ...],
     instrument_function: InstrumentFunction,
 ) -> SparseScatteringOperator[_B0, _B0]:
     periodic_x = get_periodic_x_operator_sparse(hamiltonian["basis"][0], direction)
+    if isinstance(instrument_function, IdealInstrumentFunction):
+        return periodic_x
 
     scattered_energy = get_energy_change_operator_sparse(hamiltonian, direction)
     instrument_factor = instrument_function.evaluate(

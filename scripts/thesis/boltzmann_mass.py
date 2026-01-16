@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import dataclasses
 from typing import TYPE_CHECKING, Any
 
-from coherent_rates.config import PeriodicSystemConfig
+from scipy.constants import electron_volt  # type:ignore lib
+
+from coherent_rates.config import ExponentialInstrumentFunction, PeriodicSystemConfig
 from coherent_rates.fit import (
     GaussianMethod,
+    GaussianMethodWithOffset,
 )
 from coherent_rates.plot import (
     plot_boltzmann_isf_fit_for_directions,
@@ -24,6 +28,8 @@ from scripts.thesis.util import (
 )
 
 if TYPE_CHECKING:
+    from matplotlib.figure import Figure
+
     from coherent_rates.fit import FitMethod
 
 
@@ -118,7 +124,7 @@ def _compare_rate_against_free_surface(
     fit_method: FitMethod[Any] | None = None,
     free_fit_method: FitMethod[Any] | None = None,
     directions: list[tuple[int, ...]] | None = None,
-) -> None:
+) -> Figure:
     fit_method = GaussianMethod() if fit_method is None else fit_method
     free_fit_method = GaussianMethod() if free_fit_method is None else free_fit_method
 
@@ -155,7 +161,62 @@ def _compare_rate_against_free_surface(
     ax.set_ylabel(r"Rate / $\mathrm{s}^{-1}$")
     ax.set_xlabel(r"$\Delta k$ / $\mathrm{m}^{-1}$")
 
-    fig.savefig("scripts/thesis/boltzmann_mass.1d.pdf")
+    return fig
+
+
+def _compare_rate_against_corrected_surface(
+    system: System,
+    config: PeriodicSystemConfig,
+    *,
+    fit_method: FitMethod[Any] | None = None,
+    corrected_fit_method: FitMethod[Any] | None = None,
+    directions: list[tuple[int, ...]] | None = None,
+) -> Figure:
+    fit_method = GaussianMethod() if fit_method is None else fit_method
+    corrected_fit_method = (
+        GaussianMethod() if corrected_fit_method is None else corrected_fit_method
+    )
+    fig, ax = get_fancy_figure()
+
+    _, _, line = plot_boltzmann_rate_against_momentum(
+        system,
+        config,
+        fit_method=fit_method,
+        directions=directions,
+        ax=ax,
+    )
+    line.set_label("Ideal System")
+    line.set_color(CAM_WARM_BLUE)
+
+    _, _, line = plot_boltzmann_rate_against_momentum(
+        system,
+        dataclasses.replace(
+            config,
+            instrument_function=ExponentialInstrumentFunction(
+                width=8.03 * 10**-3 * electron_volt,
+                optimal_energy_out=7.7 * 10**-3 * electron_volt,
+                incoming_energy=8 * 10**-3 * electron_volt,
+            ),
+        ),
+        fit_method=corrected_fit_method,
+        directions=directions,
+        ax=ax,
+    )
+    line.set_label("Corrected System")
+    line.set_color(CAM_DARK_BLUE)
+
+    legend = ax.legend(
+        frameon=False,
+        loc="upper left",
+        fontsize=9,
+    )
+    legend.get_frame().set_alpha(0)
+    format_axis_scientific(ax.xaxis)
+    ax.set_title("")
+    ax.set_ylabel(r"Rate / $\mathrm{s}^{-1}$")
+    ax.set_xlabel(r"$\Delta k$ / $\mathrm{m}^{-1}$")
+
+    return fig
 
 
 if __name__ == "__main__":
@@ -194,10 +255,23 @@ if __name__ == "__main__":
             directions=directions,
             fit_method=GaussianMethod(measure="abs"),
         )
-    _compare_rate_against_free_surface(
+    fig = _compare_rate_against_free_surface(
         system,
         config,
         directions=directions,
         fit_method=GaussianMethod(measure="abs"),
         free_fit_method=GaussianMethod(measure="abs"),
     )
+    fig.savefig("scripts/thesis/boltzmann_mass.1d.pdf")
+
+    fig = _compare_rate_against_corrected_surface(
+        dataclasses.replace(
+            system,
+            barrier_energy=0.0,
+        ),
+        config,
+        directions=directions,
+        fit_method=GaussianMethod(measure="abs"),
+        corrected_fit_method=GaussianMethodWithOffset(measure="abs"),
+    )
+    fig.savefig("scripts/thesis/boltzmann_mass.1d.corrected.free.pdf")

@@ -2,7 +2,7 @@ from typing import Any
 
 import numpy as np
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-from scipy.constants import Boltzmann, hbar
+from scipy.constants import Boltzmann
 from surface_potential_analysis.basis.time_basis_like import EvenlySpacedTimeBasis
 from surface_potential_analysis.state_vector.plot_value_list import (
     plot_value_list_against_time,
@@ -18,7 +18,8 @@ from coherent_rates.isf import (
 from coherent_rates.solve import get_hamiltonian
 from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
-    PeriodicSystem1d,
+    SODIUM_COPPER_SYSTEM_2D,
+    PeriodicSystem,
 )
 from scripts.thesis.bandstructure_plot import CAM_DARK_BLUE, CAM_SLATE_1, CAM_WARM_BLUE
 from scripts.thesis.util import (
@@ -34,10 +35,10 @@ def plot_periodic_isf() -> None:
     system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
 
     config = PeriodicSystemConfig(
-        (400,),
-        (100,),
-        direction=(100,),
-        truncation=25,
+        (20, 20),
+        (35, 35),
+        direction=(2, 2),
+        truncation=625,
         temperature=155,
     )
     times = EvenlySpacedTimeBasis(100, 1, 0, 1.5e-10)
@@ -108,11 +109,11 @@ def plot_periodic_isf() -> None:
     format_axis_scientific(inset_ax.yaxis)
 
     fig.set_facecolor((0, 0, 0, 0))
-    fig.savefig("scripts/thesis/boltzmann_isf.periodic.pdf")
+    fig.savefig("scripts/thesis/boltzmann_isf.2d.periodic.pdf")
 
 
 def _get_occupation_probabilities(
-    system: PeriodicSystem1d,
+    system: PeriodicSystem,
     config: PeriodicSystemConfig,
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
     """Get the occupation probability for a given system, configuration, and time."""
@@ -124,7 +125,7 @@ def _get_occupation_probabilities(
 
 
 def get_occupation_loss(
-    system: PeriodicSystem1d,
+    system: PeriodicSystem,
     config: PeriodicSystemConfig,
 ) -> float:
     """Get the occupation loss for a given system and configuration."""
@@ -134,18 +135,8 @@ def get_occupation_loss(
     return np.real(1 - total_p.item())
 
 
-def get_max_simulation_time(
-    system: PeriodicSystem1d,
-    config: PeriodicSystemConfig,
-) -> float:
-    """Get the occupation loss for a given system and configuration."""
-    n_b = config.n_bands
-    velocity = (2 * hbar * n_b * np.pi) / (system.mass * system.lattice_constant)
-    return (config.shape[0] * system.lattice_constant) / velocity
-
-
 def get_max_simulation_time_thermal(
-    system: PeriodicSystem1d,
+    system: PeriodicSystem,
     config: PeriodicSystemConfig,
 ) -> float:
     """Get the occupation loss for a given system and configuration."""
@@ -154,7 +145,7 @@ def get_max_simulation_time_thermal(
 
 
 def get_band_energy(
-    system: PeriodicSystem1d,
+    system: PeriodicSystem,
     config: PeriodicSystemConfig,
     band_index: int,
 ) -> float:
@@ -165,20 +156,19 @@ def get_band_energy(
 
 
 def plot_free_isf() -> None:
-    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
+    system = SODIUM_COPPER_SYSTEM_2D
     system = system.with_barrier_energy(0)
 
     config = PeriodicSystemConfig(
-        (400,),
-        (100,),
-        direction=(2,),
-        truncation=25,
+        (20, 20),
+        (35, 35),
+        direction=(2, 2),
+        truncation=625,
         temperature=155,
     )
     print(f"Missing Occupation {get_occupation_loss(system, config):0.3e}")  # noqa: T201
     print("Max Band Energy Level:")  # noqa: T201
     print(f"{get_band_energy(system, config, config.n_bands - 1):0.3e}")  # noqa: T201
-    print(f"Max Simulation Time {get_max_simulation_time(system, config):0.3e}")  # noqa: T201
     print(f"Max Simulation Time {get_max_simulation_time_thermal(system, config):0.3e}")  # noqa: T201
 
     delta_k = get_scattered_momentum(system, config, [config.direction])[0]
@@ -257,7 +247,7 @@ def plot_free_isf() -> None:
 
     format_axis_scientific(inset_ax.yaxis)
 
-    fig.savefig("scripts/thesis/boltzmann_isf.free.pdf")
+    fig.savefig("scripts/thesis/boltzmann_isf.2d.free.pdf")
 
 
 if __name__ == "__main__":
