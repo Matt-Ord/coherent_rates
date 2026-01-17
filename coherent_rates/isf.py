@@ -20,7 +20,6 @@ from surface_potential_analysis.basis.stacked_basis import (
 from surface_potential_analysis.basis.time_basis_like import (
     BasisWithTimeLike,
 )
-from surface_potential_analysis.basis.util import BasisUtil
 from surface_potential_analysis.dynamics.schrodinger.solve import (
     solve_schrodinger_equation_diagonal,
 )
@@ -49,6 +48,7 @@ from coherent_rates.fit import (
     GaussianMethod,
     GaussianPlusExponentialMethod,
     get_free_particle_rate,
+    get_scattered_momentum,
 )
 from coherent_rates.scattering_operator import (
     SparseScatteringOperator,
@@ -471,16 +471,6 @@ def get_coherent_rate_against_momentum_data(  # noqa: PLR0913
 
     basis = MomentumBasis(get_scattered_momentum(system, config, directions))
     return {"data": rates.ravel(), "basis": basis}
-
-
-def get_scattered_momentum(
-    system: System,
-    config: PeriodicSystemConfig,
-    directions: list[tuple[int, ...]],
-) -> np.ndarray[Any, np.dtype[np.float64]]:
-    basis = system.get_potential_basis(config.shape, config.resolution)
-    dk_stacked = BasisUtil(basis).fundamental_dk_stacked
-    return np.linalg.norm(np.einsum("ij,jk->ik", directions, dk_stacked), axis=1)  # type: ignore library type
 
 
 def _get_default_directions(config: PeriodicSystemConfig) -> list[tuple[int, ...]]:

@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from coherent_rates.config import PeriodicSystemConfig
 from coherent_rates.fit import (
+    DoubleGaussianMethod,
     GaussianMethod,
 )
 from coherent_rates.plot import (
@@ -82,12 +83,33 @@ if __name__ == "__main__":
     config = PeriodicSystemConfig(
         (20, 20),
         (35, 35),
+        direction=(2, 2),
         truncation=625,
         temperature=155,
     )
     system = SODIUM_COPPER_SYSTEM_2D
-    print(system.barrier_energy)  # noqa: T201
-    directions = [(i, i) for i in [1, 2, *list(range(5, 100, 5))]]
+
+    directions = [(i, i) for i in range(1, 3)]
+    fig = _compare_rate_against_free_surface(
+        system,
+        config,
+        directions=directions,
+        fit_method=DoubleGaussianMethod(measure="abs", ty="Fast"),
+        free_fit_method=GaussianMethod(measure="abs"),
+    )
+    fig.savefig("scripts/thesis/boltzmann_mass.2d.112.dg.pdf")
+
+    directions = [(i, 0) for i in range(1, 3)]
+    fig = _compare_rate_against_free_surface(
+        system,
+        config,
+        directions=directions,
+        fit_method=DoubleGaussianMethod(measure="abs", ty="Fast"),
+        free_fit_method=GaussianMethod(measure="abs"),
+    )
+    fig.savefig("scripts/thesis/boltzmann_mass.2d.110.dg.pdf")
+
+    directions = [(i, i) for i in range(1, 16)]
 
     fig = _compare_rate_against_free_surface(
         system,
@@ -96,4 +118,16 @@ if __name__ == "__main__":
         fit_method=GaussianMethod(measure="abs"),
         free_fit_method=GaussianMethod(measure="abs"),
     )
-    fig.savefig("scripts/thesis/boltzmann_mass.2d.pdf")
+    fig.savefig("scripts/thesis/boltzmann_mass.2d.112.pdf")
+
+    directions = [(i, 0) for i in range(1, 16)]
+
+    fig = _compare_rate_against_free_surface(
+        system,
+        config,
+        directions=directions,
+        fit_method=GaussianMethod(measure="abs"),
+        free_fit_method=GaussianMethod(measure="abs"),
+    )
+
+    fig.savefig("scripts/thesis/boltzmann_mass.2d.110.pdf")

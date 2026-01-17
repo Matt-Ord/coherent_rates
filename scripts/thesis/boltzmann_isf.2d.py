@@ -3,7 +3,6 @@ from typing import Any
 import numpy as np
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from scipy.constants import Boltzmann
-from surface_potential_analysis.basis.time_basis_like import EvenlySpacedTimeBasis
 from surface_potential_analysis.state_vector.plot_value_list import (
     plot_value_list_against_time,
 )
@@ -17,7 +16,6 @@ from coherent_rates.isf import (
 )
 from coherent_rates.solve import get_hamiltonian
 from coherent_rates.system import (
-    SODIUM_COPPER_BRIDGE_SYSTEM_1D,
     SODIUM_COPPER_SYSTEM_2D,
     PeriodicSystem,
 )
@@ -32,21 +30,22 @@ setup_rc_params()
 
 
 def plot_periodic_isf() -> None:
-    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
+    system = SODIUM_COPPER_SYSTEM_2D
 
     config = PeriodicSystemConfig(
         (20, 20),
         (35, 35),
-        direction=(2, 2),
+        direction=(10, 10),
         truncation=625,
         temperature=155,
     )
-    times = EvenlySpacedTimeBasis(100, 1, 0, 1.5e-10)
+    delta_k = get_scattered_momentum(system, config, [config.direction])[0]
+    print(f"Actual delta k: {delta_k:0.3e}")  # noqa: T201
     times = GaussianMethod(measure="abs").get_fit_times(
         system=system,
         config=config,
     )
-    isf = get_boltzmann_isf(system, config, times, n_repeats=100)
+    isf = get_boltzmann_isf(system, config, times, n_repeats=20)
 
     fig, ax = get_fancy_figure()
 
@@ -166,24 +165,16 @@ def plot_free_isf() -> None:
         truncation=625,
         temperature=155,
     )
-    print(f"Missing Occupation {get_occupation_loss(system, config):0.3e}")  # noqa: T201
-    print("Max Band Energy Level:")  # noqa: T201
-    print(f"{get_band_energy(system, config, config.n_bands - 1):0.3e}")  # noqa: T201
-    print(f"Max Simulation Time {get_max_simulation_time_thermal(system, config):0.3e}")  # noqa: T201
 
-    delta_k = get_scattered_momentum(system, config, [config.direction])[0]
-    print(f"Actual delta k:1 {delta_k:0.3e}")  # noqa: T201
-    print("Decay after 1e-10s")  # noqa: T201
-    decayed_isf = np.exp(
-        -(Boltzmann * config.temperature * (1e-10 * delta_k) ** 2) / (2 * system.mass),
+    times = GaussianMethod(measure="abs").get_fit_times(
+        system=system,
+        config=config,
     )
-    print(f"I: {decayed_isf:0.3e}")  # noqa: T201
-    times = EvenlySpacedTimeBasis(100, 1, 0, 1.5e-10)
     isf = get_boltzmann_isf(
         system,
         config,
         times,
-        n_repeats=100,
+        n_repeats=20,
     )
     analytical_isf = get_analytical_isf(system, config, times)
 
@@ -201,7 +192,6 @@ def plot_free_isf() -> None:
     line.set_linestyle("--")
     ax.set_xlabel("Time / s")
     ax.set_ylabel(r"$|I(\Delta k, t)|$")
-    ax.set_xlim(0, 1.5e-10)
 
     format_axis_scientific(ax.yaxis)
 

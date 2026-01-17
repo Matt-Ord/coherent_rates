@@ -188,15 +188,21 @@ def _truncate_value_list(
     return {"basis": new_times, "data": data}
 
 
+def get_scattered_momentum(
+    system: System,
+    config: PeriodicSystemConfig,
+    directions: list[tuple[int, ...]],
+) -> np.ndarray[Any, np.dtype[np.float64]]:
+    basis = system.get_potential_basis(config.shape, config.resolution)
+    dk_stacked = BasisUtil(basis).fundamental_dk_stacked
+    return np.linalg.norm(np.einsum("ij,jk->ik", directions, dk_stacked), axis=1)  # type: ignore library type
+
+
 def get_free_particle_time(
     system: System,
     config: PeriodicSystemConfig,
 ) -> float:
-    basis = system.get_potential(config.shape, config.resolution)["basis"]
-    dk_stacked = BasisUtil(basis).dk_stacked
-
-    k = np.linalg.norm(np.einsum("i,ij->j", config.direction, dk_stacked))  # type:ignore unknown lib type
-    k = np.linalg.norm(dk_stacked[0]) if k == 0 else k
+    k = get_scattered_momentum(system, config, [config.direction])[0]
 
     return np.sqrt(system.mass / (Boltzmann * config.temperature * k**2))
 
@@ -432,9 +438,13 @@ class DoubleGaussianMethod(
 ):
     """Fit the data to a double Gaussian."""
 
-    def __init__(self: Self, ty: Literal["Fast", "Slow"]) -> None:
+    def __init__(
+        self: Self,
+        ty: Literal["Fast", "Slow"],
+        measure: Measure = "abs",
+    ) -> None:
         self._ty = ty
-        super().__init__()
+        super().__init__(measure=measure)
 
     @staticmethod
     def _fit_fn(
