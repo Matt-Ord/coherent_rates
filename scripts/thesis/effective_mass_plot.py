@@ -17,8 +17,8 @@ from coherent_rates.solve import get_bloch_wavefunctions
 from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
 )
-from scripts.thesis.bandstructure_plot import CAM_DARK_BLUE
-from scripts.thesis.util import CAM_WARM_BLUE, get_fancy_figure, setup_rc_params
+from scripts.thesis.bandstructure_plot import CAM_BLUE
+from scripts.thesis.util import get_fancy_figure, setup_rc_params
 
 setup_rc_params()
 
@@ -49,8 +49,8 @@ def plot_rates() -> None:
         scale_factor=system.lattice_constant / hbar,
     )
     if free_line is not None:
-        free_line.set_color(CAM_DARK_BLUE)
-    line.set_color(CAM_WARM_BLUE)
+        free_line.set_color(CAM_BLUE.dark)
+    line.set_color(CAM_BLUE.warm)
     line.set_linestyle("-")
     barrier_energy = system.barrier_energy
 
@@ -84,7 +84,7 @@ def plot_effective_mass() -> None:
         true_mass=system.mass,
         ax=ax,
     )
-    line0.set_color(CAM_WARM_BLUE)
+    line0.set_color(CAM_BLUE.warm)
 
     line = ax.axvline(system.barrier_energy)  # type: ignore library type
     ax.set_yscale(
@@ -93,7 +93,7 @@ def plot_effective_mass() -> None:
     ax.set_ylabel(r"Effective Mass \quad $\frac{m_\mathrm{eff} }{m}-1$")
     ax.set_xlabel("Average Energy / $J$")
     ax.set_xlim(0, 3 * system.barrier_energy)
-    line.set_color(CAM_DARK_BLUE)
+    line.set_color(CAM_BLUE.dark)
     line.set_linestyle("--")
 
     legend = ax.legend(

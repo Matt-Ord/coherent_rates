@@ -22,9 +22,8 @@ from coherent_rates.system import (
     FreeSystem,
     System,
 )
-from scripts.thesis.bandstructure_plot import CAM_DARK_BLUE
 from scripts.thesis.util import (
-    CAM_WARM_BLUE,
+    CAM_BLUE,
     format_axis_scientific,
     get_fancy_figure,
     setup_rc_params,
@@ -141,7 +140,7 @@ def _compare_rate_against_free_surface(
         ax=ax,
     )
     line.set_label("Bound system")
-    line.set_color(CAM_DARK_BLUE)
+    line.set_color(CAM_BLUE.dark)
 
     _, _, line = plot_boltzmann_rate_against_momentum(
         FreeSystem(system),
@@ -151,7 +150,7 @@ def _compare_rate_against_free_surface(
         ax=ax,
     )
     line.set_label("Free system")
-    line.set_color(CAM_WARM_BLUE)
+    line.set_color(CAM_BLUE.warm)
 
     legend = ax.legend(
         frameon=False,
@@ -241,7 +240,7 @@ def _compare_rate_against_corrected_surface(
         ax=ax,
     )
     line.set_label("Ideal System")
-    line.set_color(CAM_WARM_BLUE)
+    line.set_color(CAM_BLUE.warm)
 
     _, _, line = plot_boltzmann_rate_against_momentum(
         system,
@@ -258,7 +257,7 @@ def _compare_rate_against_corrected_surface(
         ax=ax,
     )
     line.set_label("Corrected System")
-    line.set_color(CAM_DARK_BLUE)
+    line.set_color(CAM_BLUE.dark)
 
     legend = ax.legend(
         frameon=False,

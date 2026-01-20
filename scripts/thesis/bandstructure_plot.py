@@ -6,20 +6,9 @@ from coherent_rates.solve import get_bloch_wavefunctions
 from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
 )
+from scripts.thesis.util import CAM_BLUE, CAM_SLATE_1, setup_rc_params
 
-CAM_DARK_BLUE = "#133844"
-CAM_WARM_BLUE = "#00BDB6"
-CAM_SLATE_1 = "#ECEEF1"
-
-plt.rcParams.update(
-    {
-        "text.usetex": True,
-        "font.family": "serif",
-        "font.serif": ["Utopia"],
-        "text.latex.preamble": r"\usepackage{fourier}",
-        "font.size": 11,
-    },
-)
+setup_rc_params()
 
 
 def get_fig_size() -> tuple[float, float]:
@@ -51,7 +40,7 @@ if __name__ == "__main__":
     print(f"Barrier energy: {barrier_energy:0.2e} J")  # noqa: T201
     ax.set_ylim(None, 2 * barrier_energy)
     barrier_line = ax.axhline(barrier_energy, linestyle="--", label="Barrier Energy")
-    barrier_line.set_color(CAM_DARK_BLUE)
+    barrier_line.set_color(CAM_BLUE.dark)
     barrier_line.set_linewidth(1)
     ax.set_xlabel("Crystal Momentum $k_c$ / $m^{-1}$")
     ax.tick_params(axis="both", which="major", labelsize=8)
@@ -59,7 +48,7 @@ if __name__ == "__main__":
     for line in lines:
         line.set_marker("")
         line.set_linestyle("-")
-        line.set_color(CAM_WARM_BLUE)
+        line.set_color(CAM_BLUE.warm)
         line.set_linewidth(1)
 
     legend = ax.legend(
