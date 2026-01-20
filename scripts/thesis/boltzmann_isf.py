@@ -187,7 +187,7 @@ def plot_periodic_local_isf() -> None:
     fitted_data = GaussianMethod().get_fitted_data(fit, isf["basis"])
     fig, ax, line = plot_value_list_against_time(isf, measure=measure, ax=ax)
     line.set_label("Simulated")
-    line.set_color(CAM_WARM_BLUE)
+    line.set_color(CAM_BLUE.warm)
 
     fig, ax, line = plot_value_list_against_time(fitted_data, ax=ax, measure="abs")
     line.set_label("Gaussian Fit")
@@ -200,7 +200,7 @@ def plot_periodic_local_isf() -> None:
     isf_nonlocal = get_boltzmann_isf(system, config, times, n_repeats=100)
     fig, ax, line = plot_value_list_against_time(isf_nonlocal, measure=measure, ax=ax)
     line.set_label("Simulated (NL)")
-    line.set_color(CAM_DARK_BLUE)
+    line.set_color(CAM_BLUE.dark)
 
     format_axis_scientific(ax.yaxis)
 
@@ -222,13 +222,13 @@ def plot_periodic_local_isf() -> None:
         bbox_transform=ax.transAxes,
     )
     _, _, inset_line = plot_value_list_against_time(isf, measure="angle", ax=inset_ax)
-    inset_line.set_color(CAM_WARM_BLUE)
+    inset_line.set_color(CAM_BLUE.warm)
     _, _, inset_line = plot_value_list_against_time(
         isf_nonlocal,
         measure="angle",
         ax=inset_ax,
     )
-    inset_line.set_color(CAM_DARK_BLUE)
+    inset_line.set_color(CAM_BLUE.dark)
 
     inset_ax.set_facecolor((0, 0, 0, 0))
     inset_ax.spines["top"].set_visible(False)
@@ -432,14 +432,14 @@ def plot_free_local_isf() -> None:
     fig, ax = get_fancy_figure()
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("Simulated")
-    line.set_color(CAM_WARM_BLUE)
+    line.set_color(CAM_BLUE.warm)
     fig, ax, line = plot_value_list_against_time(
         analytical_isf,
         ax=ax,
         measure="abs",
     )
     line.set_label("Analytical")
-    line.set_color(CAM_DARK_BLUE)
+    line.set_color(CAM_BLUE.dark)
     line.set_linestyle("--")
     ax.set_xlabel("Time / s")
     ax.set_ylabel(r"$|I(\Delta k, t)|$")
@@ -461,13 +461,13 @@ def plot_free_local_isf() -> None:
         borderpad=1.0,
     )
     _, _, inset_line = plot_value_list_against_time(isf, measure="angle", ax=inset_ax)
-    inset_line.set_color(CAM_WARM_BLUE)
+    inset_line.set_color(CAM_BLUE.warm)
     _, _, inset_line = plot_value_list_against_time(
         analytical_isf,
         ax=inset_ax,
         measure="angle",
     )
-    inset_line.set_color(CAM_DARK_BLUE)
+    inset_line.set_color(CAM_BLUE.dark)
     inset_line.set_linestyle("--")
     inset_ax.set_ylim(0, 1.1 * np.max(np.angle(analytical_isf["data"])))
     inset_ax.set_xlim(ax.get_xlim())

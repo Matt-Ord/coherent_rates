@@ -15,9 +15,8 @@ from coherent_rates.state import (
     get_local_boltzmann_state,
 )
 from coherent_rates.system import SODIUM_COPPER_BRIDGE_SYSTEM_1D
-from scripts.thesis.bandstructure_plot import CAM_WARM_BLUE
 from scripts.thesis.util import (
-    CAM_DARK_BLUE,
+    CAM_BLUE,
     format_axis_scientific,
     get_fancy_figure,
     setup_rc_params,
@@ -69,7 +68,7 @@ def plot_local_state_comparison() -> None:
         strategy=strategy,
     )
     fig, ax, line = plot_state_1d_x(initial_state, ax=ax)
-    line.set_color(CAM_WARM_BLUE)
+    line.set_color(CAM_BLUE.warm)
     line.set_label("Actual")
 
     params = strategy.generate_params()
@@ -81,7 +80,7 @@ def plot_local_state_comparison() -> None:
         params.sigma_0,
     )
     fig, ax, line = plot_state_1d_x(coherent_state, ax=ax)
-    line.set_color(CAM_DARK_BLUE)
+    line.set_color(CAM_BLUE.dark)
     line.set_label("Target")
     line.set_linestyle("--")
     line.set_alpha(0.7)
@@ -100,10 +99,10 @@ def plot_local_state_comparison() -> None:
         bbox_to_anchor=(0, 0, 1, 1),
     )
     _, _, inset_line = plot_state_1d_k(initial_state, measure="abs", ax=inset_ax)
-    inset_line.set_color(CAM_WARM_BLUE)
+    inset_line.set_color(CAM_BLUE.warm)
 
     _, _, inset_line = plot_state_1d_k(coherent_state, measure="abs", ax=inset_ax)
-    inset_line.set_color(CAM_DARK_BLUE)
+    inset_line.set_color(CAM_BLUE.dark)
     inset_line.set_linestyle("--")
     inset_line.set_alpha(0.7)
 
