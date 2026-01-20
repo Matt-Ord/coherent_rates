@@ -192,7 +192,7 @@ def _compare_rate_against_free_surface_localized(
         ),
     )
     line.set_label("Bound system")
-    line.set_color(CAM_DARK_BLUE)
+    line.set_color(CAM_BLUE.dark)
 
     _, _, line = plot_boltzmann_rate_against_momentum(
         FreeSystem(system),
@@ -202,7 +202,7 @@ def _compare_rate_against_free_surface_localized(
         ax=ax,
     )
     line.set_label("Free system")
-    line.set_color(CAM_WARM_BLUE)
+    line.set_color(CAM_BLUE.warm)
 
     legend = ax.legend(
         frameon=False,
@@ -298,7 +298,7 @@ def _compare_rate_against_corrected_surface_localized(
         ax=ax,
     )
     line.set_label("Ideal System")
-    line.set_color(CAM_WARM_BLUE)
+    line.set_color(CAM_BLUE.warm)
 
     _, _, line = plot_local_boltzmann_rate_against_momentum(
         system,
@@ -315,7 +315,7 @@ def _compare_rate_against_corrected_surface_localized(
         ax=ax,
     )
     line.set_label("Corrected System")
-    line.set_color(CAM_DARK_BLUE)
+    line.set_color(CAM_BLUE.dark)
 
     legend = ax.legend(
         frameon=False,
@@ -353,7 +353,7 @@ def _compare_rate_against_localized_surface(
         ax=ax,
     )
     line.set_label("Standard System")
-    line.set_color(CAM_WARM_BLUE)
+    line.set_color(CAM_BLUE.warm)
     sigma_0 = (system.lattice_constant / 20,)
     _, _, line = plot_local_boltzmann_rate_against_momentum(
         system,
@@ -367,7 +367,7 @@ def _compare_rate_against_localized_surface(
         ),
     )
     line.set_label("Localized System")
-    line.set_color(CAM_DARK_BLUE)
+    line.set_color(CAM_BLUE.dark)
 
     legend = ax.legend(
         frameon=False,
