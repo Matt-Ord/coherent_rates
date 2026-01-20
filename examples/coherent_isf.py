@@ -26,7 +26,8 @@ if __name__ == "__main__":
     # Plot of a coherent state against time
     hamiltonian = get_hamiltonian(system, config)
     state = get_coherent_state(
-        hamiltonian["basis"][0],
+        system,
+        config,
         (hamiltonian["basis"][0].delta_x_stacked[0][0] / 2,),
         (0,),
         tuple(system.lattice_constant / 20 for _ in config.resolution),
@@ -65,7 +66,7 @@ if __name__ == "__main__":
     # Compare 500 samples to 50 samples
     isf_large = coherent_isf
     fig, ax, line = plot_value_list_against_time(isf_large)
-    line.set_label(f"{n_repeats*2} runs")
+    line.set_label(f"{n_repeats * 2} runs")
 
     n_repeats = 50
     isf_small = get_coherent_isf(
@@ -75,7 +76,7 @@ if __name__ == "__main__":
         n_repeats=n_repeats,
     )
     fig, ax, line = plot_value_list_against_time(isf_small, ax=ax)
-    line.set_label(f"{n_repeats*2} runs")
+    line.set_label(f"{n_repeats * 2} runs")
     ax.legend()  # type: ignore unknown
     ax.set_title("Comparison of coherent ISF with a range of sample sizes")  # type: ignore unknown
     fig.show()

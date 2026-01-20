@@ -11,6 +11,8 @@ from surface_potential_analysis.util.plot import (
 from coherent_rates.config import PeriodicSystemConfig
 from coherent_rates.plot import plot_system_evolution_1d
 from coherent_rates.state import (
+    ThermalLocalizationStrategy,
+    get_local_boltzmann_state,
     get_random_boltzmann_state,
     get_random_coherent_k,
     get_random_coherent_state,
@@ -23,7 +25,7 @@ from coherent_rates.system import (
 )
 
 if __name__ == "__main__":
-    config = PeriodicSystemConfig((3,), (30,), temperature=155)
+    config = PeriodicSystemConfig((3,), (30,), truncation=10, temperature=155)
     system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
     times = EvenlySpacedTimeBasis(100, 1, 0, 3e-12)
 
@@ -33,6 +35,19 @@ if __name__ == "__main__":
     fig.show()
     fig, ax, line = plot_state_1d_k(boltzmann_state)
     ax.set_title("Boltzmann state in momentum space")  # type: ignore unknown
+    fig.show()
+
+    strategy = ThermalLocalizationStrategy(
+        system=system,
+        config=config,
+        sigma_0=(system.lattice_constant / 14,),
+    )
+    boltzmann_state = get_local_boltzmann_state(system, config, strategy=strategy)
+    fig, ax, line = plot_state_1d_x(boltzmann_state)
+    ax.set_title("Local Boltzmann state in real space")  # type: ignore unknown
+    fig.show()
+    fig, ax, line = plot_state_1d_k(boltzmann_state, measure="abs")
+    ax.set_title("Local Boltzmann state in momentum space")  # type: ignore unknown
     fig.show()
 
     sigma = system.lattice_constant / 10

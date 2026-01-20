@@ -178,6 +178,13 @@ class FitMethod(ABC, Generic[T]):
     def n_params(cls: type[Self]) -> int:
         return len(cls._fit_param_bounds()[0])
 
+    def initial_fit(
+        self: Self,
+        data: ValueList[_BT0],
+        **info: Unpack[FitInfo],
+    ) -> T:
+        return self._fit_from_params(*self._fit_param_initial_guess(data, **info))
+
 
 def _truncate_value_list(
     values: ValueList[BasisWithTimeLike[int, int]],
@@ -300,6 +307,8 @@ class GaussianMethod(FitMethod[GaussianParameters]):
         )
         first_increasing_idx = np.argmax(is_increasing).item()
         idx = data["basis"].n - 1 if first_increasing_idx == 0 else first_increasing_idx
+        # Usually, near the cutoff point the curve becomes less gaussian
+        idx -= min(10, idx // 4)
         idx = max(idx, 10)
         truncated = _truncate_value_list(data, idx)
 
@@ -318,7 +327,7 @@ class GaussianMethod(FitMethod[GaussianParameters]):
         self: Self,
         **info: Unpack[FitInfo],
     ) -> EvenlySpacedTimeBasis[Any, Any, Any]:
-        return EvenlySpacedTimeBasis(100, 1, 0, 8 * get_free_particle_time(**info))
+        return EvenlySpacedTimeBasis(100, 1, 0, 4 * get_free_particle_time(**info))
 
 
 @dataclass

@@ -76,6 +76,7 @@ from coherent_rates.isf import (
     get_effective_mass_against_momentum_data,
     get_isf_pair_states,
     get_linear_fit_effective_mass_against_condition_data,
+    get_local_boltzmann_rate_against_momentum_data,
     get_scattered_energy_change_against_k,
     get_thermal_scattered_energy_change_against_k,
 )
@@ -89,6 +90,7 @@ from coherent_rates.solve import (
     solve_schrodinger_equation,
 )
 from coherent_rates.state import (
+    LocalizationStrategy,
     get_boltzmann_state_from_hamiltonian,
     get_random_boltzmann_state,
 )
@@ -130,7 +132,8 @@ def plot_system_eigenstates_1d(
 ) -> None:
     """Plot the potential against position."""
     potential = system.get_potential(config.shape, config.resolution)
-    fig, ax, _ = plot_potential_1d_x(potential)
+    fig, ax, line = plot_potential_1d_x(potential)
+    line.set_label("Potential")
 
     hamiltonian = get_hamiltonian(system, config)
     eigenvectors = hamiltonian["basis"][0].vectors
@@ -140,10 +143,11 @@ def plot_system_eigenstates_1d(
     states = range(3) if states is None else states
     for idx in states:
         state = get_state_vector(eigenvectors, idx=idx)
-        plot_state_1d_x(state, ax=ax1)
+        _, _, line = plot_state_1d_x(state, ax=ax1)
+        line.set_label(f"State {idx}")
 
         plot_state_1d_k(state, ax=ax2)
-
+    ax.legend()
     fig.show()
     fig2.show()
     input()
@@ -638,6 +642,39 @@ def plot_boltzmann_rate_against_momentum(
         config,
         fit_method=fit_method,
         directions=directions,
+    )
+
+    fig, ax, line = plot_value_list_against_momentum(data, ax=ax)
+    line.set_linestyle("")
+    line.set_marker("x")
+
+    ax.set_xlabel(r"$\Delta K$ /$m^{-1}$")  # type: ignore library type
+    ax.set_ylabel("Rate")  # type: ignore library type
+
+    ax.set_ylim(0, ax.get_ylim()[1])
+    ax.set_xlim(0, ax.get_xlim()[1])
+    ax.set_title("Plot of rate against delta k")  # type: ignore library type
+
+    return (fig, ax, line)
+
+
+def plot_local_boltzmann_rate_against_momentum(  # noqa: PLR0913
+    system: System,
+    config: PeriodicSystemConfig,
+    *,
+    fit_method: FitMethod[Any] | None = None,
+    directions: list[tuple[int, ...]] | None = None,
+    ax: Axes | None = None,
+    strategy: LocalizationStrategy | None = None,
+) -> tuple[Figure, Axes, Line2D]:
+    fit_method = GaussianMethod() if fit_method is None else fit_method
+    data = get_local_boltzmann_rate_against_momentum_data.call_cached(
+        system,
+        config,
+        fit_method=fit_method,
+        directions=directions,
+        n_repeats=100,
+        strategy=strategy,
     )
 
     fig, ax, line = plot_value_list_against_momentum(data, ax=ax)
