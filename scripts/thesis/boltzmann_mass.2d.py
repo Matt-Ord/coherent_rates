@@ -124,7 +124,8 @@ if __name__ == "__main__":
     line.set_linestyle("")
     line.set_marker("x")
 
-    ax.set_xlim(0, 2e10)
+    ax.set_xlim(0, 1.5e10)
+    ax.set_ylim(0, 1e13)
 
     legend = ax.legend(
         frameon=False,
