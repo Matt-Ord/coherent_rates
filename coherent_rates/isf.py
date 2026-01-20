@@ -676,10 +676,7 @@ def _get_boltzmann_rate_from_hamiltonian(
     *,
     n_repeats: int = 10,
 ) -> float:
-    times = fit_method.get_fit_times(
-        system=system,
-        config=config,
-    )
+    times = fit_method.get_fit_times(system=system, config=config)
 
     isf = _get_boltzmann_isf_from_hamiltonian(
         hamiltonian,

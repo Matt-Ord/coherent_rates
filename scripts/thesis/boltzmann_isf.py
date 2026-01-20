@@ -28,7 +28,7 @@ from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
     PeriodicSystem1d,
 )
-from scripts.thesis.bandstructure_plot import CAM_DARK_BLUE, CAM_SLATE_1, CAM_WARM_BLUE
+from scripts.thesis.bandstructure_plot import CAM_BLUE, CAM_SLATE_1
 from scripts.thesis.util import (
     format_axis_scientific,
     get_fancy_figure,
@@ -66,11 +66,11 @@ def plot_periodic_isf() -> None:
 
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("Simulated")
-    line.set_color(CAM_WARM_BLUE)
+    line.set_color(CAM_BLUE.warm)
 
     fig, ax, line = plot_value_list_against_time(fitted_data, ax=ax, measure="abs")
     line.set_label("Gaussian Fit")
-    line.set_color(CAM_DARK_BLUE)
+    line.set_color(CAM_BLUE.dark)
     line.set_linestyle("--")
 
     ax.set_xlabel("Time / s")
@@ -96,7 +96,7 @@ def plot_periodic_isf() -> None:
         bbox_transform=ax.transAxes,
     )
     _, _, inset_line = plot_value_list_against_time(isf, measure="angle", ax=inset_ax)
-    inset_line.set_color(CAM_WARM_BLUE)
+    inset_line.set_color(CAM_BLUE.warm)
 
     inset_ax.set_facecolor((0, 0, 0, 0))
     inset_ax.spines["top"].set_visible(False)
@@ -340,14 +340,14 @@ def plot_free_isf() -> None:
     fig, ax = get_fancy_figure()
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("Simulated")
-    line.set_color(CAM_WARM_BLUE)
+    line.set_color(CAM_BLUE.warm)
     fig, ax, line = plot_value_list_against_time(
         analytical_isf,
         ax=ax,
         measure="abs",
     )
     line.set_label("Analytical")
-    line.set_color(CAM_DARK_BLUE)
+    line.set_color(CAM_BLUE.dark)
     line.set_linestyle("--")
     ax.set_xlabel("Time / s")
     ax.set_ylabel(r"$|I(\Delta k, t)|$")
@@ -370,13 +370,13 @@ def plot_free_isf() -> None:
         borderpad=1.0,
     )
     _, _, inset_line = plot_value_list_against_time(isf, measure="angle", ax=inset_ax)
-    inset_line.set_color(CAM_WARM_BLUE)
+    inset_line.set_color(CAM_BLUE.warm)
     _, _, inset_line = plot_value_list_against_time(
         analytical_isf,
         ax=inset_ax,
         measure="angle",
     )
-    inset_line.set_color(CAM_DARK_BLUE)
+    inset_line.set_color(CAM_BLUE.dark)
     inset_line.set_linestyle("--")
     inset_ax.set_ylim(0, 1.1 * np.max(np.angle(analytical_isf["data"])))
     inset_ax.set_xlim(ax.get_xlim())

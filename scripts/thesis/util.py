@@ -1,11 +1,60 @@
+from dataclasses import dataclass
+
 from matplotlib import pyplot as plt
 from matplotlib import ticker
 from matplotlib.axes import Axes
 from matplotlib.axis import Axis
 from matplotlib.figure import Figure
 
-CAM_DARK_BLUE = "#133844"
-CAM_WARM_BLUE = "#00BDB6"
+
+@dataclass(frozen=True, kw_only=True)
+class CamColor:
+    """A class to hold CAM color palettes."""
+
+    light: str
+    warm: str
+    base: str
+    dark: str
+
+
+CAM_BLUE = CamColor(
+    light="#D1F9F1",
+    warm="#00BDB6",
+    base="#8EE8D8",
+    dark="#133844",
+)
+CAM_CHERRY = CamColor(
+    light="#F2CAD8",
+    warm="#E18AAC",
+    base="#CD3572",
+    dark="#911449",
+)
+CAM_CREST = CamColor(
+    light="#FFE2C8",
+    warm="#FFC392",
+    base="#FD8153",
+    dark="#DD3025",
+)
+CAM_PURPLE = CamColor(
+    light="#F2ECF8",
+    warm="#D1B7EB",
+    base="#A368DF",
+    dark="#681FB1",
+)
+CAM_INDIGO = CamColor(
+    light="#EBEDFB",
+    warm="#B0B9F1",
+    base="#5366E0",
+    dark="#29347A",
+)
+CAM_GREEN = CamColor(
+    light="#DFF2EA",
+    warm="#AFDFCB",
+    base="#4DB78C",
+    dark="#13553A",
+)
+
+
 CAM_SLATE_1 = "#ECEEF1"
 
 

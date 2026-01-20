@@ -16,8 +16,7 @@ from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
 )
 from scripts.thesis.util import (
-    CAM_DARK_BLUE,
-    CAM_WARM_BLUE,
+    CAM_BLUE,
     get_fancy_figure,
     setup_rc_params,
 )
@@ -48,7 +47,7 @@ if __name__ == "__main__":
     fig, ax = get_fancy_figure()
     fig, ax, line = plot_value_list_against_time(data, ax=ax)
     line.set_label("Ideal")
-    line.set_color(CAM_WARM_BLUE)
+    line.set_color(CAM_BLUE.warm)
 
     config = dataclasses.replace(
         config,
@@ -66,7 +65,7 @@ if __name__ == "__main__":
     )
     fig, ax, line = plot_value_list_against_time(data, ax=ax)
     line.set_label("Corrected")
-    line.set_color(CAM_DARK_BLUE)
+    line.set_color(CAM_BLUE.dark)
     legend = ax.legend(
         frameon=False,
         loc="lower right",

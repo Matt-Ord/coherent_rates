@@ -28,20 +28,9 @@ from coherent_rates.isf import (
 from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
 )
+from scripts.thesis.util import CAM_BLUE, CAM_SLATE_1, setup_rc_params
 
-CAM_DARK_BLUE = "#133844"
-CAM_WARM_BLUE = "#00BDB6"
-CAM_SLATE_1 = "#ECEEF1"
-
-plt.rcParams.update(
-    {
-        "text.usetex": True,
-        "font.family": "serif",
-        "font.serif": ["Utopia"],
-        "text.latex.preamble": r"\usepackage{fourier}" + "\n" + r"\usepackage{amsmath}",
-        "font.size": 11,
-    },
-)
+setup_rc_params()
 
 
 def get_fig_size() -> tuple[float, float]:
@@ -134,7 +123,7 @@ def plot_split_value_list_against_time(
             measure=measure,
             ax=ax,
         )
-        fill.set_color(CAM_WARM_BLUE)
+        fill.set_color(CAM_BLUE.warm)
         frac = i / cumulative.shape[0]
         fill.set_alpha(0.2 + 0.8 * (1 - frac))
 

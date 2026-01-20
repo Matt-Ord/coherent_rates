@@ -2,8 +2,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 from scripts.thesis.util import (
-    CAM_DARK_BLUE,
-    CAM_WARM_BLUE,
+    CAM_BLUE,
     get_fancy_figure,
     setup_rc_params,
 )
@@ -30,7 +29,7 @@ ax.plot(
     energy_mev,
     polarization_efficiency,
     marker="x",
-    color=CAM_WARM_BLUE,
+    color=CAM_BLUE.warm,
     linestyle="",
     label="Measured",
 )
@@ -80,7 +79,7 @@ ax.plot(
     x_fit,
     y_fit,
     linestyle="--",
-    color=CAM_DARK_BLUE,
+    color=CAM_BLUE.dark,
     label="Fit",
 )
 legend = ax.legend(
