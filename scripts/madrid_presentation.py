@@ -473,7 +473,8 @@ def _2d_state_evolved_scattered_demo() -> None:
         + hamiltonian["basis"][0].delta_x_stacked[1]
     )
     initial_state = get_coherent_state(
-        hamiltonian["basis"][0],
+        system,
+        config,
         tuple(origin),
         (0, 0),
         sigma_0,

@@ -58,7 +58,9 @@ from coherent_rates.scattering_operator import (
 )
 from coherent_rates.solve import get_hamiltonian
 from coherent_rates.state import (
-    get_coherent_state,
+    LocalizationStrategy,
+    _get_coherent_state_for_basis,
+    get_local_boltzmann_state_from_hamiltonian,
     get_random_boltzmann_state_from_hamiltonian,
     get_random_coherent_coordinates,
 )
@@ -316,12 +318,12 @@ def _get_coherent_isf_from_hamiltonian(  # noqa: PLR0913
     def _calculate_isf(i: int) -> None:
         x0, k0 = get_random_coherent_coordinates(system, config)
 
-        state = get_coherent_state(hamiltonian["basis"][1], x0, k0, sigma_0)
+        state = _get_coherent_state_for_basis(hamiltonian["basis"][1], x0, k0, sigma_0)
         data = _get_isf_from_hamiltonian(hamiltonian, operator, state, times)
         isf_data[i, :] = data["data"]
 
         k0 = tuple([-j for j in k0])
-        state = get_coherent_state(hamiltonian["basis"][1], x0, k0, sigma_0)
+        state = _get_coherent_state_for_basis(hamiltonian["basis"][1], x0, k0, sigma_0)
         data = _get_isf_from_hamiltonian(hamiltonian, operator, state, times)
         isf_data[i + n_repeats, :] = data["data"]
 
@@ -394,6 +396,7 @@ def _get_coherent_rate_against_momentum_data_path(  # noqa: PLR0913
 ) -> Path:
     fit_method = GaussianMethod() if fit_method is None else fit_method
     directions = _get_default_directions(config) if directions is None else directions
+    sigma_0 = (-1,) if sigma_0 is None else sigma_0
     return Path(
         f"data/{hash((system, config))}.{hash(fit_method)}"
         f".{hash((directions[0], directions[-1], len(directions)))}"
@@ -551,6 +554,79 @@ def get_boltzmann_isf(
     )
 
 
+def _get_local_boltzmann_isf_from_hamiltonian(
+    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+    config: PeriodicSystemConfig,
+    times: _BT0,
+    *,
+    n_repeats: int = 1,
+    strategy: LocalizationStrategy | None = None,
+) -> StatisticalValueList[_BT0]:
+    isf_data = np.zeros((n_repeats, times.n), dtype=np.complex128)
+    # Convert the operator to the hamiltonian basis
+    # to prevent conversion in each repeat
+    operator = get_instrument_biased_periodic_x(
+        hamiltonian,
+        direction=config.direction,
+        instrument_function=config.instrument_function,
+    )
+
+    def _calculate_isf(i: int) -> None:
+        state = get_local_boltzmann_state_from_hamiltonian(
+            hamiltonian,
+            config.temperature,
+            strategy=strategy,
+        )
+        data = _get_isf_from_hamiltonian(hamiltonian, operator, state, times)
+        isf_data[i, :] = data["data"]
+
+    for i in range(n_repeats):
+        _calculate_isf(i)
+
+    mean = np.mean(isf_data, axis=0, dtype=np.complex128)
+    sd = np.std(isf_data, axis=0, dtype=np.complex128)
+    return {
+        "data": mean,
+        "basis": times,
+        "standard_deviation": sd,
+    }
+
+
+def _get_local_boltzmann_isf_data_path(
+    system: System,
+    config: PeriodicSystemConfig,
+    times: Any,  # noqa: ANN401
+    *,
+    n_repeats: int = 10,
+    strategy: LocalizationStrategy | None = None,
+) -> Path:
+    strategy_hash = hash(strategy) if strategy is not None else -1
+    return Path(
+        f"data/{hash((system, config))}.{hash(times)}.{n_repeats}.{strategy_hash}"
+        ".local.boltzmann.isf",
+    )
+
+
+@cached(_get_local_boltzmann_isf_data_path)
+@timed
+def get_local_boltzmann_isf(
+    system: System,
+    config: PeriodicSystemConfig,
+    times: _BT0,
+    *,
+    n_repeats: int = 10,
+    strategy: LocalizationStrategy | None = None,
+) -> StatisticalValueList[_BT0]:
+    hamiltonian = get_hamiltonian(system, config)
+    return _get_local_boltzmann_isf_from_hamiltonian(
+        hamiltonian,
+        config,
+        times,
+        n_repeats=n_repeats,
+        strategy=strategy,
+    )
+
+
 def _get_boltzmann_rate_against_momentum_data_path(
     system: System,
     config: PeriodicSystemConfig,
@@ -639,6 +715,84 @@ def get_boltzmann_rate_against_momentum_data(
             config=config.with_direction(direction),
             fit_method=fit_method,
             n_repeats=10,
+        )
+
+    basis = MomentumBasis(get_scattered_momentum(system, config, directions))
+    return {"data": rates.ravel(), "basis": basis}
+
+
+def _get_local_boltzmann_rate_from_hamiltonian(  # noqa: PLR0913
+    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+    system: System,
+    config: PeriodicSystemConfig,
+    fit_method: FitMethod[Any],
+    *,
+    n_repeats: int = 10,
+    strategy: LocalizationStrategy | None = None,
+) -> float:
+    times = fit_method.get_fit_times(
+        system=system,
+        config=config,
+    )
+
+    isf = _get_local_boltzmann_isf_from_hamiltonian(
+        hamiltonian,
+        config,
+        times,
+        n_repeats=n_repeats,
+        strategy=strategy,
+    )
+
+    return fit_method.get_rate_from_isf(
+        isf,
+        system=system,
+        config=config,
+    )
+
+
+def _get_local_boltzmann_rate_against_momentum_data_path(  # noqa: PLR0913
+    system: System,
+    config: PeriodicSystemConfig,
+    *,
+    fit_method: FitMethod[Any] | None = None,
+    directions: list[tuple[int, ...]] | None = None,
+    n_repeats: int = 10,
+    strategy: LocalizationStrategy | None = None,
+) -> Path:
+    fit_method = GaussianMethod() if fit_method is None else fit_method
+    directions = _get_default_directions(config) if directions is None else directions
+    strategy_hash = hash(strategy) if strategy is not None else -1
+    return Path(
+        f"data/{hash((system, config))}.{hash(fit_method)}"
+        f".{hash((directions[0], directions[-1], len(directions), n_repeats))}"
+        f".{strategy_hash}"
+        ".local.rates",
+    )
+
+
+@cached(_get_local_boltzmann_rate_against_momentum_data_path)
+def get_local_boltzmann_rate_against_momentum_data(  # noqa: PLR0913
+    system: System,
+    config: PeriodicSystemConfig,
+    *,
+    fit_method: FitMethod[Any] | None = None,
+    directions: list[tuple[int, ...]] | None = None,
+    n_repeats: int = 10,
+    strategy: LocalizationStrategy | None = None,
+) -> ValueList[MomentumBasis]:
+    fit_method = GaussianMethod() if fit_method is None else fit_method
+    directions = _get_default_directions(config) if directions is None else directions
+
+    rates = np.zeros(len(directions), dtype=np.complex128)
+    hamiltonian = get_hamiltonian(system, config)
+    for i, direction in enumerate(directions):
+        rates[i] = _get_local_boltzmann_rate_from_hamiltonian(
+            hamiltonian,
+            system=system,
+            config=config.with_direction(direction),
+            fit_method=fit_method,
+            n_repeats=n_repeats,
+            strategy=strategy,
         )
 
     basis = MomentumBasis(get_scattered_momentum(system, config, directions))
