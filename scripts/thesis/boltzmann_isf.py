@@ -30,6 +30,7 @@ from coherent_rates.system import (
 )
 from scripts.thesis.bandstructure_plot import CAM_BLUE, CAM_SLATE_1
 from scripts.thesis.util import (
+    CAM_CHERRY,
     format_axis_scientific,
     get_fancy_figure,
     setup_rc_params,
@@ -126,21 +127,11 @@ class PreferentailLocalizationStrategy(ThermalLocalizationStrategy):
         rng = np.random.default_rng()
         parent_params = super().generate_params()
 
-        barrier_energy = self.system.barrier_energy
-        # Ratio between inside and outside
-        ratio = np.exp(-2 * barrier_energy / (Boltzmann * self.config.temperature))
-        x_0_bridge = (0.0,)
-        x_0_hollow = (0.0,)
-
-        x_0 = rng.choice(
-            [x_0_bridge, x_0_hollow],
-            p=[ratio / (1 + ratio), 1 / (1 + ratio)],
-        )
-
-        jitter = rng.random(len(x_0)) * (0.05 * self.system.lattice_constant)
+        x_0_hollow = (0.0,) * len(parent_params.x_0)
+        jitter = rng.random(len(x_0_hollow)) * (0.05 * self.system.lattice_constant)
         return dataclasses.replace(
             parent_params,
-            x_0=tuple(x + j for x, j in zip(x_0, jitter, strict=True)),
+            x_0=tuple(x + j for x, j in zip(x_0_hollow, jitter, strict=True)),
         )
 
     def __hash__(self) -> int:
@@ -153,7 +144,7 @@ def plot_periodic_local_isf() -> None:
     config = PeriodicSystemConfig(
         (400,),
         (100,),
-        direction=(400,),
+        direction=(300,),
         truncation=25,
         temperature=155,
     )
@@ -162,13 +153,15 @@ def plot_periodic_local_isf() -> None:
         system=system,
         config=config,
     )
+    delta_k = get_scattered_momentum(system, config, [config.direction])[0]
+    print(f"Actual delta k:1 {delta_k:0.3e}")  # noqa: T201
 
-    strategy = ThermalLocalizationStrategy(
+    strategy = PreferentailLocalizationStrategy(
         system=system,
         config=config,
         sigma_0=(system.lattice_constant / 30,),
     )
-    isf = get_local_boltzmann_isf.call_cached(
+    isf = get_local_boltzmann_isf(
         system,
         config,
         times,
@@ -186,12 +179,12 @@ def plot_periodic_local_isf() -> None:
 
     fitted_data = GaussianMethod().get_fitted_data(fit, isf["basis"])
     fig, ax, line = plot_value_list_against_time(isf, measure=measure, ax=ax)
-    line.set_label("Simulated")
+    line.set_label("Localized")
     line.set_color(CAM_BLUE.warm)
 
     fig, ax, line = plot_value_list_against_time(fitted_data, ax=ax, measure="abs")
     line.set_label("Gaussian Fit")
-    line.set_color("pink")
+    line.set_color(CAM_BLUE.dark)
     line.set_linestyle("--")
 
     ax.set_xlabel("Time / s")
@@ -199,53 +192,13 @@ def plot_periodic_local_isf() -> None:
 
     isf_nonlocal = get_boltzmann_isf(system, config, times, n_repeats=100)
     fig, ax, line = plot_value_list_against_time(isf_nonlocal, measure=measure, ax=ax)
-    line.set_label("Simulated (NL)")
-    line.set_color(CAM_BLUE.dark)
+    line.set_label("Not Localized")
+    line.set_color(CAM_CHERRY.base)
 
     format_axis_scientific(ax.yaxis)
 
-    legend = ax.legend(
-        frameon=False,
-        loc="center right",
-        fontsize=9,
-        bbox_to_anchor=(1.0, 0.6),
-    )
+    legend = ax.legend(frameon=False, loc="upper right", fontsize=9)
     legend.get_frame().set_alpha(0)
-
-    inset_ax = inset_axes(
-        ax,
-        width="45%",
-        height="45%",
-        loc="lower left",
-        borderpad=1.0,
-        bbox_to_anchor=(0.1, 0, 1, 1),
-        bbox_transform=ax.transAxes,
-    )
-    _, _, inset_line = plot_value_list_against_time(isf, measure="angle", ax=inset_ax)
-    inset_line.set_color(CAM_BLUE.warm)
-    _, _, inset_line = plot_value_list_against_time(
-        isf_nonlocal,
-        measure="angle",
-        ax=inset_ax,
-    )
-    inset_line.set_color(CAM_BLUE.dark)
-
-    inset_ax.set_facecolor((0, 0, 0, 0))
-    inset_ax.spines["top"].set_visible(False)
-    inset_ax.spines["right"].set_visible(False)
-    inset_ax.tick_params(axis="both", which="major", labelsize=8)
-    inset_ax.tick_params(
-        axis="x",
-        which="both",
-        bottom=False,
-        top=False,
-        labelbottom=False,
-        labeltop=False,
-    )
-    inset_ax.set_xlabel("")
-    inset_ax.set_ylabel(r"$\arg{(I(\Delta k, t))}$", fontsize=9, labelpad=-1)
-
-    format_axis_scientific(inset_ax.yaxis)
 
     fig.set_facecolor((0, 0, 0, 0))
     fig.savefig("scripts/thesis/boltzmann_isf.periodic.local.pdf")

@@ -395,7 +395,6 @@ def _get_local_boltzmann_state_from_hamiltonian(
     temperature: float,
     *,
     strategy: LocalizationStrategy | None = None,
-    optimize: bool = False,
 ) -> StateVector[_BB]:
     delta_x_repeat = hamiltonian["basis"][0].wavefunctions["basis"][1].delta_x_stacked
     strategy = (
@@ -417,7 +416,7 @@ def _get_local_boltzmann_state_from_hamiltonian(
 
     initial_phase = np.angle(coherent_state["data"])
 
-    if optimize:
+    if strategy.optimized:
         # This is a very crude way to minimise the width (x-x0)^2
         # It also does not take into account periodic boundaries!
         # Using an external tool like Wannier90 would be much better
@@ -485,6 +484,10 @@ class LocalizationStrategy(ABC):
     @abstractmethod
     def generate_params(self) -> LocalizationParams: ...
 
+    @property
+    @abstractmethod
+    def optimized(self) -> bool: ...
+
 
 class UniformXLocalizationStrategy(LocalizationStrategy):
     """A strategy to generate localization parameters with uniform x0."""
@@ -507,6 +510,10 @@ class UniformXLocalizationStrategy(LocalizationStrategy):
         k0 = (0.0,) * len(x0)
         return LocalizationParams(x_0=x0, k_0=k0, sigma_0=self.sigma_0)
 
+    @property
+    def optimized(self) -> bool:
+        return False
+
     def __hash__(self) -> int:
         return hash((tuple(map(tuple, self.delta_x)), self.sigma_0))
 
@@ -522,6 +529,10 @@ class FixedLocalizationStrategy(LocalizationStrategy):
 
     def generate_params(self) -> LocalizationParams:
         return self.params
+
+    @property
+    def optimized(self) -> bool:
+        return False
 
     def __hash__(self) -> int:
         return hash(self.params)
@@ -559,6 +570,10 @@ class ThermalLocalizationStrategy(LocalizationStrategy):
         )
         return LocalizationParams(x_0=x0, k_0=k0, sigma_0=self.sigma_0)
 
+    @property
+    def optimized(self) -> bool:
+        return False
+
     def __hash__(self) -> int:
         return hash((self.system, self.config, self.sigma_0))
 
@@ -581,7 +596,6 @@ def get_local_boltzmann_state(
     config: PeriodicSystemConfig,
     *,
     strategy: LocalizationStrategy | None = None,
-    optimize: bool = False,
 ) -> StateVector[ExplicitStackedBasisWithLength[Any, Any]]:
     """Generate a local Boltzmann state.
 
@@ -607,5 +621,4 @@ def get_local_boltzmann_state(
         hamiltonian,
         config.temperature,
         strategy=strategy,
-        optimize=optimize,
     )
