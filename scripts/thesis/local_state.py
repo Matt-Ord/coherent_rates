@@ -13,6 +13,7 @@ from coherent_rates.state import (
     LocalizationParams,
     get_coherent_state,
     get_local_boltzmann_state,
+    get_random_boltzmann_state,
 )
 from coherent_rates.system import SODIUM_COPPER_BRIDGE_SYSTEM_1D
 from scripts.thesis.util import (
@@ -127,6 +128,36 @@ def plot_local_state_comparison() -> None:
     fig.savefig("scripts/thesis/local_state.pdf")
 
 
+def plot_random_state() -> None:
+    fig, ax = get_fancy_figure()
+
+    config = PeriodicSystemConfig(
+        (400,),
+        (100,),
+        direction=(100,),
+        truncation=25,
+        temperature=155,
+    )
+
+    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
+    get_hamiltonian.load_or_call_cached(system, config)
+
+    initial_state = get_random_boltzmann_state(
+        system,
+        config,
+    )
+    fig, ax, line = plot_state_1d_x(initial_state, ax=ax)
+    line.set_color(CAM_BLUE.warm)
+    line.set_label("Actual")
+
+    ax.set_xlabel(r"$x$ / $\mathrm{m}$")
+    ax.set_ylabel(r"$|\langle x|\psi\rangle|$")
+    ax.set_xlim(0, 7 * system.lattice_constant)
+
+    fig.savefig("scripts/thesis/local_state.random.pdf")
+
+
 setup_rc_params()
 if __name__ == "__main__":
     plot_local_state_comparison()
+    plot_random_state()

@@ -84,9 +84,12 @@ def get_fig_size() -> tuple[float, float]:
     return plot_width_in, plot_height_in
 
 
-def get_fancy_figure() -> tuple[Figure, Axes]:
+def get_fancy_figure(
+    *,
+    fig_size: tuple[float, float] | None = None,
+) -> tuple[Figure, Axes]:
     fig, ax = plt.subplots(
-        figsize=get_fig_size(),
+        figsize=fig_size or get_fig_size(),
         layout="constrained",
     )
     ax.set_facecolor(CAM_SLATE_1)
