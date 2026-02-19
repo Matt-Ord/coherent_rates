@@ -554,6 +554,142 @@ def get_boltzmann_isf(
     )
 
 
+def _get_v_matrix(
+    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+    config: PeriodicSystemConfig,
+) -> np.ndarray[tuple[int, int, int], np.dtype[np.complex128]]:
+    n_bands, n_k = hamiltonian["basis"][0].wavefunctions["basis"][0].shape
+    energies = hamiltonian["data"].reshape(n_bands, n_k) / hbar
+    # V_(k, band n, band m) = <k, n|S^dagger H S - H) |k, m>
+    k_shape = hamiltonian["basis"][0].wavefunctions["basis"][0][1].shape
+    scatter = get_instrument_biased_periodic_x(
+        hamiltonian,
+        direction=config.direction,
+        instrument_function=config.instrument_function,
+    )
+
+    scattered_energies = np.roll(
+        energies.reshape(n_bands, *k_shape),
+        tuple(-d for d in scatter["direction"]),
+        axis=tuple(range(1, 1 + len(k_shape))),
+    ).reshape(n_bands, n_k)
+    # Calculate <k, n|S^dagger H S |k, m>
+    s_matrix = scatter["data"].reshape(n_bands, n_bands, n_k)
+    v_scatter = np.einsum(
+        "ink,ik,imk->nmk",
+        np.conj(s_matrix),
+        scattered_energies,
+        s_matrix,
+    )
+    # add the -H term to knn
+    n_idx = np.arange(n_bands)
+    v_scatter[n_idx, n_idx] = v_scatter[n_idx, n_idx] - energies
+    return v_scatter
+
+
+def _get_v_matrix_diagonal(
+    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+    config: PeriodicSystemConfig,
+) -> np.ndarray[tuple[int, int, int], np.dtype[np.complex128]]:
+    n_bands, n_k = hamiltonian["basis"][0].wavefunctions["basis"][0].shape
+    energies = hamiltonian["data"].reshape(n_bands, n_k) / hbar
+    # V_(k, band n, band m) = <k, n|S^dagger H S - H) |k, m>
+    k_shape = hamiltonian["basis"][0].wavefunctions["basis"][0][1].shape
+    scatter = get_instrument_biased_periodic_x(
+        hamiltonian,
+        direction=config.direction,
+        instrument_function=config.instrument_function,
+    )
+
+    scattered_energies = np.roll(
+        energies.reshape(n_bands, *k_shape),
+        tuple(-d for d in scatter["direction"]),
+        axis=tuple(range(1, 1 + len(k_shape))),
+    ).reshape(n_bands, n_k)
+    # Calculate <k, n|S^dagger H S |k, m>
+    s_matrix = scatter["data"].reshape(n_bands, n_bands, n_k)
+    v_scatter = np.einsum(
+        "ink,ik,ink->nk",
+        np.conj(s_matrix),
+        scattered_energies,
+        s_matrix,
+    )
+
+    return v_scatter - energies
+
+
+def _get_decay_per_state(
+    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+    config: PeriodicSystemConfig,
+    times: np.ndarray[tuple[int], np.dtype[np.float64]],
+    *,
+    second_order: bool = False,
+) -> np.ndarray[tuple[int, int], np.dtype[np.complex128]]:
+    if not second_order:
+        v_matrix = _get_v_matrix_diagonal(hamiltonian, config)
+        return np.einsum("nk,t->nkt", v_matrix, 1j * times).reshape(
+            -1,
+            times.size,
+        )
+
+    energies = hamiltonian["data"]
+    n_bands, n_k = hamiltonian["basis"][0].wavefunctions["basis"][0].shape
+    energies = energies.reshape(n_bands, n_k) / hbar
+
+    omega_knm = energies.T[:, :, None] - energies.T[:, None, :]
+    # Prefactor of sinc^2(omega_(k, n band, m band) t / 2)
+    sinc_factor = np.sinc(np.einsum("knm,t->knmt", omega_knm, times / 2)) ** 2
+    decay_time_factor = sinc_factor * (times**2 / 2)
+
+    v_nmk = _get_v_matrix(hamiltonian, config)
+    decay_per_state = np.einsum("knmt,nmk->nkt", decay_time_factor, np.abs(v_nmk) ** 2)
+    recoil_per_state = np.einsum("nnk,t->nkt", v_nmk, 1j * times)
+
+    return (recoil_per_state - decay_per_state).reshape(
+        -1,
+        times.size,
+    )
+
+
+def _get_weak_boltzmann_isf_data_path(
+    system: System,
+    config: PeriodicSystemConfig,
+    times: Any,  # noqa: ANN401
+    *,
+    second_order: bool = False,
+) -> Path:
+    prefix = f"{hash((system, config))}.{hash(times)}.{second_order}"
+    return Path(f"data/{prefix}.weak_boltzmann.isf")
+
+
+@cached(_get_weak_boltzmann_isf_data_path)
+@timed
+def get_weak_boltzmann_isf(
+    system: System,
+    config: PeriodicSystemConfig,
+    times: _BT0,
+    *,
+    second_order: bool = False,
+) -> ValueList[_BT0]:
+    hamiltonian = get_hamiltonian.call_cached(system, config)
+
+    isf_per_state = np.exp(
+        _get_decay_per_state(
+            hamiltonian,
+            config,
+            times.times,
+            second_order=second_order,
+        ),
+    )
+
+    kb_t = Boltzmann * config.temperature
+    occupations = np.exp(-hamiltonian["data"] / kb_t)
+    occupations /= np.sum(occupations)
+
+    isf = np.einsum("nj,n->j", isf_per_state, occupations)
+    return {"data": isf, "basis": times}
+
+
 def _get_local_boltzmann_isf_from_hamiltonian(
     hamiltonian: SingleBasisDiagonalOperator[_ESB0],
     config: PeriodicSystemConfig,
