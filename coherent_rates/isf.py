@@ -662,17 +662,13 @@ def _get_weak_boltzmann_isf_data_path(
     return Path(f"data/{prefix}.weak_boltzmann.isf")
 
 
-@cached(_get_weak_boltzmann_isf_data_path)
-@timed
-def get_weak_boltzmann_isf(
-    system: System,
+def _get_weak_boltzmann_isf_from_hamiltonian(
+    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
     config: PeriodicSystemConfig,
     times: _BT0,
     *,
     second_order: bool = False,
 ) -> ValueList[_BT0]:
-    hamiltonian = get_hamiltonian.call_cached(system, config)
-
     isf_per_state = np.exp(
         _get_decay_per_state(
             hamiltonian,
@@ -688,6 +684,25 @@ def get_weak_boltzmann_isf(
 
     isf = np.einsum("nj,n->j", isf_per_state, occupations)
     return {"data": isf, "basis": times}
+
+
+@cached(_get_weak_boltzmann_isf_data_path)
+@timed
+def get_weak_boltzmann_isf(
+    system: System,
+    config: PeriodicSystemConfig,
+    times: _BT0,
+    *,
+    second_order: bool = False,
+) -> ValueList[_BT0]:
+    hamiltonian = get_hamiltonian(system, config)
+
+    return _get_weak_boltzmann_isf_from_hamiltonian(
+        hamiltonian,
+        config,
+        times,
+        second_order=second_order,
+    )
 
 
 def _get_local_boltzmann_isf_from_hamiltonian(
@@ -848,6 +863,71 @@ def get_boltzmann_rate_against_momentum_data(
             config=config.with_direction(direction),
             fit_method=fit_method,
             n_repeats=10,
+        )
+
+    basis = MomentumBasis(get_scattered_momentum(system, config, directions))
+    return {"data": rates.ravel(), "basis": basis}
+
+
+def _get_weak_boltzmann_rate_against_momentum_data_path(
+    system: System,
+    config: PeriodicSystemConfig,
+    *,
+    fit_method: FitMethod[Any] | None = None,
+    directions: list[tuple[int, ...]] | None = None,
+) -> Path:
+    fit_method = GaussianMethod() if fit_method is None else fit_method
+    directions = _get_default_directions(config) if directions is None else directions
+    return Path(
+        f"data/{hash((system, config))}.{hash(fit_method)}"
+        f".{hash((directions[0], directions[-1], len(directions)))}.weak.rates",
+    )
+
+
+@timed
+def _get_weak_boltzmann_rate_from_hamiltonian(
+    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+    system: System,
+    config: PeriodicSystemConfig,
+    fit_method: FitMethod[Any],
+    *,
+    second_order: bool = False,
+) -> float:
+    times = fit_method.get_fit_times(system=system, config=config)
+
+    isf = _get_weak_boltzmann_isf_from_hamiltonian(
+        hamiltonian,
+        config,
+        times,
+        second_order=second_order,
+    )
+
+    return fit_method.get_rate_from_isf(
+        isf,
+        system=system,
+        config=config,
+    )
+
+
+@cached(_get_weak_boltzmann_rate_against_momentum_data_path)
+def get_weak_boltzmann_rate_against_momentum_data(
+    system: System,
+    config: PeriodicSystemConfig,
+    *,
+    fit_method: FitMethod[Any] | None = None,
+    directions: list[tuple[int, ...]] | None = None,
+) -> ValueList[MomentumBasis]:
+    fit_method = GaussianMethod() if fit_method is None else fit_method
+    directions = _get_default_directions(config) if directions is None else directions
+
+    rates = np.zeros(len(directions), dtype=np.complex128)
+    hamiltonian = get_hamiltonian(system, config)
+    for i, direction in enumerate(directions):
+        rates[i] = _get_weak_boltzmann_rate_from_hamiltonian(
+            hamiltonian,
+            system=system,
+            config=config.with_direction(direction),
+            fit_method=fit_method,
         )
 
     basis = MomentumBasis(get_scattered_momentum(system, config, directions))

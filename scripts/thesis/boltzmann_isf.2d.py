@@ -1,8 +1,10 @@
-from typing import Any
+import dataclasses
+from typing import Any, Unpack
 
 import numpy as np
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from scipy.constants import Boltzmann
+from surface_potential_analysis.basis.time_basis_like import EvenlySpacedTimeBasis
 from surface_potential_analysis.state_vector.plot_value_list import (
     plot_split_value_list_against_time,
     plot_value_list_against_time,
@@ -11,6 +13,7 @@ from surface_potential_analysis.state_vector.plot_value_list import (
 from coherent_rates.config import PeriodicSystemConfig
 from coherent_rates.fit import (
     DoubleGaussianMethod,
+    FitInfo,
     GaussianMethod,
     GaussianParameters,
     get_free_particle_time,
@@ -19,10 +22,12 @@ from coherent_rates.isf import (
     get_analytical_isf,
     get_band_resolved_boltzmann_isf,
     get_boltzmann_isf,
+    get_local_boltzmann_isf,
     get_scattered_momentum,
     get_weak_boltzmann_isf,
 )
 from coherent_rates.solve import get_hamiltonian
+from coherent_rates.state import LocalizationParams, ThermalLocalizationStrategy
 from coherent_rates.system import (
     SODIUM_COPPER_SYSTEM_2D,
     PeriodicSystem,
@@ -62,6 +67,28 @@ def plot_periodic_isf_dg_split() -> None:
     fig.savefig("scripts/thesis/boltzmann_isf.2d.periodic.dg.split.pdf")
 
 
+class PreferentialLocalizationStrategy(ThermalLocalizationStrategy):
+    """Localization strategy that preferentially localizes in potential wells."""
+
+    def generate_params(self) -> LocalizationParams:
+        rng = np.random.default_rng()
+        parent_params = super().generate_params()
+
+        x_0_hollow = (
+            self.system.lattice_constant / 3,
+            self.system.lattice_constant / 3,
+        )
+
+        jitter = rng.random(len(x_0_hollow)) * (0.05 * self.system.lattice_constant)
+        return dataclasses.replace(
+            parent_params,
+            x_0=tuple(x + j for x, j in zip(x_0_hollow, jitter, strict=True)),
+        )
+
+    def __hash__(self) -> int:
+        return hash((-11, self.system, self.config, self.sigma_0))
+
+
 def plot_periodic_isf_dg() -> None:
     system = SODIUM_COPPER_SYSTEM_2D
 
@@ -75,7 +102,7 @@ def plot_periodic_isf_dg() -> None:
     config = PeriodicSystemConfig(
         (20, 20),
         (35, 35),
-        direction=(5, 5),
+        direction=(10, 10),
         truncation=625,
         temperature=155,
     )
@@ -86,24 +113,28 @@ def plot_periodic_isf_dg() -> None:
         config=config,
     )
     isf = get_boltzmann_isf(system, config, times, n_repeats=20)
+    # Maybe there are more optimal parameters here
+    strategy = PreferentialLocalizationStrategy(
+        system,
+        config,
+        sigma_0=(system.lattice_constant / 52, system.lattice_constant / 52),
+    )
+    local_isf = get_local_boltzmann_isf(
+        system,
+        config,
+        times,
+        n_repeats=100,
+        strategy=strategy,
+    )
 
     fig, ax = get_fancy_figure()
-
-    fit = DoubleGaussianMethod(measure="abs", ty="Fast").get_fit_from_isf(
-        isf,
-        system=system,
-        config=config,
-    )
-    fitted_data = DoubleGaussianMethod.get_fitted_data(fit, isf["basis"])
 
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("Simulated")
     line.set_color(CAM_BLUE.warm)
-
-    fig, ax, line = plot_value_list_against_time(fitted_data, ax=ax, measure="abs")
-    line.set_label("Double Gaussian Fit")
+    fig, ax, line = plot_value_list_against_time(local_isf, measure="abs", ax=ax)
+    line.set_label("Simulated Local")
     line.set_color(CAM_BLUE.dark)
-    line.set_linestyle("--")
 
     ax.set_xlabel("Time / s")
     ax.set_ylabel(r"$|I(\Delta k, t)|$")
@@ -161,20 +192,20 @@ def plot_periodic_isf() -> None:
         truncation=625,
         temperature=155,
     )
-    config = PeriodicSystemConfig(
-        (20, 20),
-        (35, 35),
-        direction=(2, 2),
-        truncation=625,
-        temperature=155,
-    )
-    config = PeriodicSystemConfig(
-        (20, 20),
-        (35, 35),
-        direction=(5, 5),
-        truncation=625,
-        temperature=155,
-    )
+    # config = PeriodicSystemConfig(
+    #     (20, 20),
+    #     (35, 35),
+    #     direction=(2, 2),
+    #     truncation=625,
+    #     temperature=155,
+    # )
+    # config = PeriodicSystemConfig(
+    #     (20, 20),
+    #     (35, 35),
+    #     direction=(5, 5),
+    #     truncation=625,
+    #     temperature=155,
+    # )
     delta_k = get_scattered_momentum(system, config, [config.direction])[0]
     print(f"Actual delta k: {delta_k:0.3e}")  # noqa: T201
     times = GaussianMethod(measure="abs").get_fit_times(
@@ -247,6 +278,18 @@ def plot_periodic_isf() -> None:
     fig.savefig("scripts/thesis/boltzmann_isf.2d.periodic.pdf")
 
 
+class SlowGaussianMethod(GaussianMethod):
+    """Gaussian method that preferentially localizes in potential wells."""
+
+    def get_fit_times(
+        self,
+        **info: Unpack[FitInfo],
+    ) -> EvenlySpacedTimeBasis[Any, Any, Any]:
+        """Get the times to use for fitting."""
+        original = super().get_fit_times(**info)
+        return EvenlySpacedTimeBasis(100, 1, 0, 2 * original.delta_t)
+
+
 def plot_periodic_weak_isf() -> None:
     system = SODIUM_COPPER_SYSTEM_2D
 
@@ -273,7 +316,7 @@ def plot_periodic_weak_isf() -> None:
     )
     delta_k = get_scattered_momentum(system, config, [config.direction])[0]
     print(f"Actual delta k: {delta_k:0.3e}")  # noqa: T201
-    times = GaussianMethod(measure="abs").get_fit_times(
+    times = SlowGaussianMethod(measure="abs").get_fit_times(
         system=system,
         config=config,
     )
@@ -281,12 +324,12 @@ def plot_periodic_weak_isf() -> None:
 
     fig, ax = get_fancy_figure()
 
-    fit = GaussianMethod(measure="abs").get_fit_from_isf(
+    fit = SlowGaussianMethod(measure="abs").get_fit_from_isf(
         isf,
         system=system,
         config=config,
     )
-    fitted_data = GaussianMethod.get_fitted_data(fit, isf["basis"])
+    fitted_data = SlowGaussianMethod.get_fitted_data(fit, isf["basis"])
 
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("Simulated")
@@ -301,7 +344,7 @@ def plot_periodic_weak_isf() -> None:
         amplitude=fit.amplitude,
         width=get_free_particle_time(system=system, config=config),
     )
-    fitted_data = GaussianMethod.get_fitted_data(free_fit, isf["basis"])
+    fitted_data = SlowGaussianMethod.get_fitted_data(free_fit, isf["basis"])
     fig, ax, line = plot_value_list_against_time(fitted_data, ax=ax, measure="abs")
     line.set_label("Free Gaussian Fit")
     line.set_color(CAM_BLUE.dark)
