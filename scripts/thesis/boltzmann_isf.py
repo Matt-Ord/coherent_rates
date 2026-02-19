@@ -15,15 +15,21 @@ from surface_potential_analysis.state_vector.plot_value_list import (
 from coherent_rates.config import PeriodicSystemConfig
 from coherent_rates.fit import (
     GaussianMethod,
+    GaussianParameters,
+    get_free_particle_time,
 )
 from coherent_rates.isf import (
     get_analytical_isf,
     get_boltzmann_isf,
     get_local_boltzmann_isf,
     get_scattered_momentum,
+    get_weak_boltzmann_isf,
 )
 from coherent_rates.solve import get_hamiltonian
-from coherent_rates.state import LocalizationParams, ThermalLocalizationStrategy
+from coherent_rates.state import (
+    LocalizationParams,
+    ThermalLocalizationStrategy,
+)
 from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
     PeriodicSystem1d,
@@ -120,6 +126,98 @@ def plot_periodic_isf() -> None:
     fig.savefig("scripts/thesis/boltzmann_isf.periodic.pdf")
 
 
+def plot_periodic_weak_isf() -> None:
+    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
+
+    config = PeriodicSystemConfig(
+        (800,),
+        (100,),
+        direction=(201,),
+        truncation=50,
+        temperature=155,
+    )
+    times = EvenlySpacedTimeBasis(100, 1, 0, 1.5e-10)
+    times = GaussianMethod(measure="abs").get_fit_times(
+        system=system,
+        config=config,
+    )
+    isf = get_weak_boltzmann_isf(system, config, times)
+
+    fig, ax = get_fancy_figure()
+
+    fit = GaussianMethod(measure="abs").get_fit_from_isf(
+        isf,
+        system=system,
+        config=config,
+    )
+    fitted_data = GaussianMethod.get_fitted_data(fit, isf["basis"])
+
+    fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
+    line.set_label("Simulated")
+    line.set_color(CAM_BLUE.warm)
+
+    fig, ax, line = plot_value_list_against_time(fitted_data, ax=ax, measure="abs")
+    line.set_label("Gaussian Fit")
+    line.set_color(CAM_BLUE.dark)
+    line.set_linestyle("--")
+
+    free_fit = GaussianParameters(
+        amplitude=fit.amplitude,
+        width=get_free_particle_time(system=system, config=config),
+    )
+    fitted_data = GaussianMethod.get_fitted_data(free_fit, isf["basis"])
+
+    fig, ax, line = plot_value_list_against_time(fitted_data, ax=ax, measure="abs")
+    line.set_label("Free Particle Fit")
+    line.set_color(CAM_BLUE.dark)
+    line.set_linestyle("-.")
+
+    ax.set_xlabel("Time / s")
+    ax.set_ylabel(r"$|I(\Delta k, t)|$")
+
+    format_axis_scientific(ax.yaxis)
+
+    legend = ax.legend(
+        frameon=False,
+        loc="center right",
+        fontsize=9,
+        bbox_to_anchor=(1.0, 0.6),
+    )
+    legend.get_frame().set_alpha(0)
+
+    inset_ax = inset_axes(
+        ax,
+        width="45%",
+        height="45%",
+        loc="lower left",
+        borderpad=1.0,
+        bbox_to_anchor=(0.1, 0, 1, 1),
+        bbox_transform=ax.transAxes,
+    )
+    _, _, inset_line = plot_value_list_against_time(isf, measure="angle", ax=inset_ax)
+    inset_line.set_color(CAM_BLUE.warm)
+
+    inset_ax.set_facecolor((0, 0, 0, 0))
+    inset_ax.spines["top"].set_visible(False)
+    inset_ax.spines["right"].set_visible(False)
+    inset_ax.tick_params(axis="both", which="major", labelsize=8)
+    inset_ax.tick_params(
+        axis="x",
+        which="both",
+        bottom=False,
+        top=False,
+        labelbottom=False,
+        labeltop=False,
+    )
+    inset_ax.set_xlabel("")
+    inset_ax.set_ylabel(r"$\arg{(I(\Delta k, t))}$", fontsize=9, labelpad=-1)
+
+    format_axis_scientific(inset_ax.yaxis)
+
+    fig.set_facecolor((0, 0, 0, 0))
+    fig.savefig("scripts/thesis/boltzmann_isf.periodic.weak.pdf")
+
+
 class PreferentailLocalizationStrategy(ThermalLocalizationStrategy):
     """Localization strategy that preferentially localizes in potential wells."""
 
@@ -153,6 +251,8 @@ def plot_periodic_local_isf() -> None:
         system=system,
         config=config,
     )
+
+    times = EvenlySpacedTimeBasis(100, 1, 0, 2e-13)
     delta_k = get_scattered_momentum(system, config, [config.direction])[0]
     print(f"Actual delta k:1 {delta_k:0.3e}")  # noqa: T201
 
@@ -281,7 +381,10 @@ def plot_free_isf() -> None:
         -(Boltzmann * config.temperature * (1e-10 * delta_k) ** 2) / (2 * system.mass),
     )
     print(f"I: {decayed_isf:0.3e}")  # noqa: T201
-    times = EvenlySpacedTimeBasis(100, 1, 0, 1.5e-10)
+    times = GaussianMethod().get_fit_times(
+        system=system,
+        config=config,
+    )
     isf = get_boltzmann_isf(
         system,
         config,
@@ -304,7 +407,6 @@ def plot_free_isf() -> None:
     line.set_linestyle("--")
     ax.set_xlabel("Time / s")
     ax.set_ylabel(r"$|I(\Delta k, t)|$")
-    ax.set_xlim(0, 1.5e-10)
 
     format_axis_scientific(ax.yaxis)
 
@@ -446,6 +548,7 @@ def plot_free_local_isf() -> None:
 
 if __name__ == "__main__":
     plot_free_isf()
+    plot_periodic_weak_isf()
     plot_free_local_isf()
     plot_periodic_isf()
     plot_periodic_local_isf()

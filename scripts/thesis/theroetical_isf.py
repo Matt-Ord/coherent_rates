@@ -4,8 +4,14 @@ from scripts.thesis.bandstructure_plot import get_fig_size
 from scripts.thesis.util import CAM_BLUE, get_fancy_figure
 
 x, y = get_fig_size()
-fig, ax = get_fancy_figure(fig_size=(2 * x, y))
-delta_k = 2
+
+wide = False
+if wide:
+    fig, ax = get_fancy_figure(fig_size=(2 * x, y))
+    delta_k = 2
+else:
+    fig, ax = get_fancy_figure(fig_size=(x, y))
+    delta_k = 1
 t = np.linspace(0, 8 / delta_k, 1000)
 
 
@@ -13,7 +19,7 @@ isf_vals = np.exp(delta_k * (1 - t - np.exp(-t)))
 (line,) = ax.plot(t, isf_vals)
 line.set_color(CAM_BLUE.warm)
 ax.set_xlabel(r"Time $t$ / $\lambda$")
-ax.set_ylabel(r"ISF $I(\mathbf{Q}, t)$")
+ax.set_ylabel(r"ISF $I(\Delta k, t)$")
 line.set_label("Theoretical")
 
 isf_ballistic = np.exp(-delta_k * t**2 / 2)

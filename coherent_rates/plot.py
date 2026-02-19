@@ -79,6 +79,7 @@ from coherent_rates.isf import (
     get_local_boltzmann_rate_against_momentum_data,
     get_scattered_energy_change_against_k,
     get_thermal_scattered_energy_change_against_k,
+    get_weak_boltzmann_isf,
 )
 from coherent_rates.scattering_operator import (
     apply_scattering_operator_to_state,
@@ -523,6 +524,31 @@ def plot_boltzmann_isf(
     line.set_label("real ISF")
     ax.legend()  # type: ignore library type
     ax.set_title("Plot of the fourier transform of the ISF against time")  # type: ignore library type
+    fig.show()
+
+    input()
+
+
+def plot_weak_boltzmann_isf(
+    system: System,
+    config: PeriodicSystemConfig,
+    times: EvenlySpacedTimeBasis[Any, Any, Any] | None = None,
+) -> None:
+    times = (
+        get_default_isf_times(system=system, config=config) if times is None else times
+    )
+    data = get_weak_boltzmann_isf.call_uncached(system, config, times)
+
+    fig, ax, line = plot_value_list_against_time(data)
+    line.set_label("weak ISF")
+
+    true_data = get_boltzmann_isf(system, config, times)
+
+    fig, ax, line = plot_value_list_against_time(true_data, ax=ax)
+    line.set_label("true ISF")
+
+    ax.set_title("Plot of the ISF against time")  # type: ignore library type
+    ax.legend()
     fig.show()
 
     input()
