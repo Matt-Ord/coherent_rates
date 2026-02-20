@@ -188,7 +188,6 @@ def _2d_boltzmann_mass_weak() -> None:
         fit_method=SlowGaussianMethod(measure="abs"),
         directions=directions,
     )
-    data_112_double = select_idx(data_112_double, list(range(3)))
     fig, ax, line = plot_value_list_against_momentum(data_112_double, ax=ax)
     line.set_label("$11\\bar{2}$")
     line.set_linestyle("")
@@ -210,8 +209,8 @@ def _2d_boltzmann_mass_weak() -> None:
     line.set_linestyle("")
     line.set_marker("x")
 
-    ax.set_xlim(0, 1.5e10)
-    ax.set_ylim(0, 1e13)
+    ax.set_xlim(0, 2e10)
+    ax.set_ylim(0, 0.6e13)
 
     legend = ax.legend(
         frameon=False,
