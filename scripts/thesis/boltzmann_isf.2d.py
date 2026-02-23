@@ -216,12 +216,13 @@ def plot_periodic_isf() -> None:
 
     fig, ax = get_fancy_figure()
 
-    fit = GaussianMethod(measure="abs").get_fit_from_isf(
+    method = GaussianMethod(measure="abs")
+    fit = method.get_fit_from_isf(
         isf,
         system=system,
         config=config,
     )
-    fitted_data = GaussianMethod.get_fitted_data(fit, isf["basis"])
+    fitted_data = method.get_fitted_data(fit, isf["basis"])
 
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("Simulated")
@@ -324,7 +325,8 @@ def plot_periodic_weak_isf() -> None:
 
     fig, ax = get_fancy_figure()
 
-    fit = SlowGaussianMethod(measure="abs").get_fit_from_isf(
+    method = SlowGaussianMethod(measure="abs")
+    fit = method.get_fit_from_isf(
         isf,
         system=system,
         config=config,
@@ -333,7 +335,7 @@ def plot_periodic_weak_isf() -> None:
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("Simulated")
     line.set_color(CAM_BLUE.warm)
-    fitted_data = SlowGaussianMethod.get_fitted_data(
+    fitted_data = method.get_fitted_data(
         fit,
         isf["basis"],
     )
@@ -346,7 +348,7 @@ def plot_periodic_weak_isf() -> None:
         amplitude=fit.amplitude,
         width=get_free_particle_time(system=system, config=config),
     )
-    fitted_data = SlowGaussianMethod.get_fitted_data(free_fit, isf["basis"])
+    fitted_data = method.get_fitted_data(free_fit, isf["basis"])
     fig, ax, line = plot_value_list_against_time(fitted_data, ax=ax, measure="abs")
     line.set_label("Free Gaussian Fit")
     line.set_color(CAM_BLUE.dark)
@@ -420,7 +422,8 @@ def plot_periodic_weak_isf_high_mass() -> None:
 
     fig, ax = get_fancy_figure()
 
-    fit = SlowGaussianMethod(measure="abs").get_fit_from_isf(
+    method = SlowGaussianMethod(measure="abs")
+    fit = method.get_fit_from_isf(
         isf,
         system=system,
         config=config,
@@ -429,7 +432,7 @@ def plot_periodic_weak_isf_high_mass() -> None:
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("Simulated")
     line.set_color(CAM_BLUE.warm)
-    fitted_data = SlowGaussianMethod.get_fitted_data(
+    fitted_data = method.get_fitted_data(
         fit,
         isf["basis"],
     )
@@ -442,7 +445,7 @@ def plot_periodic_weak_isf_high_mass() -> None:
         amplitude=fit.amplitude,
         width=get_free_particle_time(system=system, config=config),
     )
-    fitted_data = SlowGaussianMethod.get_fitted_data(free_fit, isf["basis"])
+    fitted_data = method.get_fitted_data(free_fit, isf["basis"])
     fig, ax, line = plot_value_list_against_time(fitted_data, ax=ax, measure="abs")
     line.set_label("Free Gaussian Fit")
     line.set_color(CAM_BLUE.dark)
