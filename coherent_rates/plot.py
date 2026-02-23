@@ -83,7 +83,7 @@ from coherent_rates.isf import (
 )
 from coherent_rates.scattering_operator import (
     apply_scattering_operator_to_state,
-    get_instrument_biased_periodic_x,
+    get_instrument_biased_periodic_x_from_hamiltonian,
 )
 from coherent_rates.solve import (
     get_bloch_wavefunctions,
@@ -1040,7 +1040,7 @@ def plot_occupation_against_energy_change_with_contition(
             config.temperature,
             phase,
         )
-        operator = get_instrument_biased_periodic_x(
+        operator = get_instrument_biased_periodic_x_from_hamiltonian(
             hamiltonian,
             config.direction,
             config.instrument_function,

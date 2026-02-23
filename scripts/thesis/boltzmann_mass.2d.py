@@ -1,21 +1,32 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Unpack
+import dataclasses
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, TypedDict, Unpack
 
+import scipy
+import scipy.optimize
 from surface_potential_analysis.basis.momentum_basis_like import MomentumBasis
 from surface_potential_analysis.basis.time_basis_like import EvenlySpacedTimeBasis
 from surface_potential_analysis.state_vector.plot_value_list import (
     plot_value_list_against_momentum,
 )
+from surface_potential_analysis.util.decorators import cached
 
 from coherent_rates.config import PeriodicSystemConfig
 from coherent_rates.fit import (
     DoubleGaussianMethod,
     FitInfo,
+    FitMethod,
     GaussianMethod,
+    get_free_particle_rate,
 )
 from coherent_rates.isf import (
+    SimulationCondition,
     get_boltzmann_rate_against_momentum_data,
+    get_conditions_at_mass,
+    get_conditions_at_temperatures,
+    get_weak_boltzmann_rate,
     get_weak_boltzmann_rate_against_momentum_data,
 )
 from coherent_rates.system import (
@@ -48,7 +59,7 @@ def select_idx(
     }
 
 
-def _2d_boltzmann_mass() -> None:
+def _2d_boltzmann_rate() -> None:
     config = PeriodicSystemConfig(
         (20, 20),
         (35, 35),
@@ -145,7 +156,7 @@ def _2d_boltzmann_mass() -> None:
 
 
 class SlowGaussianMethod(GaussianMethod):
-    """Gaussian method that preferentially localizes in potential wells."""
+    """Gaussian method that biases to long times."""
 
     def get_fit_times(
         self,
@@ -156,7 +167,19 @@ class SlowGaussianMethod(GaussianMethod):
         return EvenlySpacedTimeBasis(100, 1, 0, 2 * original.delta_t)
 
 
-def _2d_boltzmann_mass_weak() -> None:
+class SlowDoubleGaussianMethod(DoubleGaussianMethod):
+    """Gaussian method that biases to long times."""
+
+    def get_fit_times(
+        self,
+        **info: Unpack[FitInfo],
+    ) -> EvenlySpacedTimeBasis[Any, Any, Any]:
+        """Get the times to use for fitting."""
+        original = super().get_fit_times(**info)
+        return EvenlySpacedTimeBasis(100, 1, 0, 2 * original.delta_t)
+
+
+def _2d_boltzmann_rate_weak() -> None:
     config = PeriodicSystemConfig(
         (20, 20),
         (35, 35),
@@ -224,6 +247,382 @@ def _2d_boltzmann_mass_weak() -> None:
     fig.savefig("scripts/thesis/boltzmann_mass.2d.weak.pdf")
 
 
+class _RatesData(TypedDict):
+    data: list[float]
+    conditions: list[SimulationCondition]
+
+
+@cached(Path("data/boltzmann_mass.2d.rate_vs_mass"))
+def _get_cached_rates() -> _RatesData:
+    config = PeriodicSystemConfig(
+        (20, 20),
+        (35, 35),
+        direction=(1, 0),
+        truncation=625,
+        temperature=155,
+    )
+    system = SODIUM_COPPER_SYSTEM_2D
+
+    masses = [system.mass * t for t in [0.25, 0.5, *range(1, 11)]]
+    conditions = get_conditions_at_mass(
+        system,
+        config,
+        masses=masses,
+    )
+    methods: list[FitMethod] = [
+        SlowGaussianMethod(measure="abs")
+        if mass < (system.mass * 3.5)
+        else SlowDoubleGaussianMethod(measure="abs", ty="Slow")
+        for mass in masses
+    ]
+    for i in range(len(masses)):
+        condition = conditions[i]
+        mass = condition[0].mass
+        # In the "middle zone" it is cleaner if we use a larger scattering direction
+        # This ensures we correctly capture both the fast and slow timescales
+        if mass > (system.mass * 3.5) and mass < (system.mass * 6.5):
+            conditions[i] = (
+                condition[0],
+                dataclasses.replace(condition[1], direction=(8, 0)),
+                condition[2],
+            )
+    rates = []
+    for condition, method in zip(conditions, methods, strict=False):
+        rate = get_weak_boltzmann_rate(
+            condition[0],
+            condition[1],
+            fit_method=method,
+        )
+        rates.append(rate)
+    for i in range(len(masses)):
+        condition = conditions[i]
+        mass = condition[0].mass
+        # In the "middle zone" it is cleaner if we use a larger scattering direction
+        # This ensures we correctly capture both the fast and slow timescales
+        if mass > (system.mass * 3.5) and mass < (system.mass * 6.5):
+            rates[i] /= 8.0
+            conditions[i] = (
+                condition[0],
+                dataclasses.replace(condition[1], direction=(1, 0)),
+                condition[2],
+            )
+    return {"data": rates, "conditions": conditions}
+
+
+@cached(Path("data/boltzmann_mass.2d.rate_vs_mass.hi_res"))
+def _get_cached_rates_hi_res() -> _RatesData:
+    config = PeriodicSystemConfig(
+        (20, 20),
+        (45, 45),
+        direction=(1, 0),
+        truncation=800,
+        temperature=155,
+    )
+    system = SODIUM_COPPER_SYSTEM_2D
+
+    masses = [system.mass * t for t in [0.25, 0.5, *range(1, 8)]]
+    conditions = get_conditions_at_mass(
+        system,
+        config,
+        masses=masses,
+    )
+
+    rates = []
+    for condition in conditions:
+        rate = get_weak_boltzmann_rate(
+            condition[0],
+            condition[1],
+            fit_method=SlowGaussianMethod(measure="abs"),
+        )
+        rates.append(rate)
+
+    return {"data": rates, "conditions": conditions}
+
+
+@cached(Path("data/boltzmann_mass.2d.rate_vs_mass.slow"))
+def _get_cached_rates_slow() -> _RatesData:
+    config = PeriodicSystemConfig(
+        (20, 20),
+        (35, 35),
+        direction=(8, 8),
+        truncation=625,
+        temperature=155,
+    )
+    system = SODIUM_COPPER_SYSTEM_2D
+
+    masses = [system.mass * t for t in [3.0, 4.0, 5.0, 6.0, 8.0, 10.0]]
+    conditions = get_conditions_at_mass(
+        system,
+        config,
+        masses=masses,
+    )
+
+    rates = []
+    for condition in conditions:
+        rate = get_weak_boltzmann_rate(
+            condition[0],
+            condition[1],
+            fit_method=SlowDoubleGaussianMethod(measure="abs", ty="Fast"),
+        )
+        rates.append(rate)
+    return {"data": rates, "conditions": conditions}
+
+
+def _2d_effective_mass_vs_mass() -> None:
+    data = _get_cached_rates()
+    data_slow = _get_cached_rates_slow()
+    data_hi_res = _get_cached_rates_hi_res()
+    conditions = data["conditions"]
+    masses = [condition[0].mass for condition in conditions]
+    rates = data["data"]
+
+    free_rates = [
+        get_free_particle_rate(system, config) for (system, config, _) in conditions
+    ]
+
+    fig, ax = get_fancy_figure()
+    (line,) = ax.plot(masses, rates, marker="x", linestyle="")
+    line.set_label("Actual rate")
+    (line,) = ax.plot(masses, free_rates, linestyle="--")
+    line.set_label("Free particle rate")
+    (line,) = ax.plot(
+        [condition[0].mass for condition in data_hi_res["conditions"]],
+        data_hi_res["data"],
+        marker="x",
+        linestyle="",
+    )
+    line.set_label("Actual rate (high res)")
+    ax.set_xlabel("Mass / kg")
+    ax.set_ylabel("Rate / $s^{-1}$")
+    ax.set_title("Rate against mass for 2D system")
+    legend = ax.legend(
+        frameon=False,
+        loc="upper right",
+        fontsize=9,
+    )
+    legend.get_frame().set_alpha(0)
+    fig.savefig("scripts/thesis/boltzmann_mass.2d.rate_vs_mass.pdf")
+
+    fig, ax = get_fancy_figure()
+    inverse_rates = [c**-2 for c in rates]
+    (line,) = ax.plot(masses, inverse_rates, marker="x", linestyle="")
+    line.set_label("Actual")
+
+    inverse_rates_slow = [c**-2 for c in data_slow["data"]]
+    masses_slow = [condition[0].mass for condition in data_slow["conditions"]]
+    (line,) = ax.plot(masses_slow, inverse_rates_slow, marker="x", linestyle="")
+    line.set_label("Actual (slow)")
+    (line,) = ax.plot(
+        [condition[0].mass for condition in data_hi_res["conditions"]],
+        [c**-2 for c in data_hi_res["data"]],
+        marker="x",
+        linestyle="",
+    )
+    line.set_label("Actual (high res)")
+
+    # Fit to a straight line
+    def _model(x: float, a: float) -> float:
+        return a * x
+
+    p_opt, _ = scipy.optimize.curve_fit(_model, masses, inverse_rates)
+    (line,) = ax.plot(
+        masses,
+        [_model(x, p_opt[0]) for x in masses],
+        marker="",
+        linestyle="--",
+    )
+    line.set_label(f"Fit to $Y = {p_opt[0]:.2e} x$")
+
+    (line,) = ax.plot(masses, [c**-2 for c in free_rates], linestyle="--")
+    line.set_label("Free particle rate")
+    ax.set_xlabel("Mass / kg")
+    ax.set_ylabel("Rate$^{-2}$ / $s^2$")
+    ax.set_title("Rate against mass for 2D system")
+    legend = ax.legend(
+        frameon=False,
+        loc="upper right",
+        fontsize=9,
+    )
+    legend.get_frame().set_alpha(0)
+    fig.savefig("scripts/thesis/boltzmann_mass.2d.rate_vs_mass.inverse.pdf")
+
+    effective_mass = [
+        (free / actual) ** 2
+        for free, actual, mass in zip(free_rates, rates, masses, strict=False)
+    ]
+    fig, ax = get_fancy_figure()
+    ax.plot(masses, effective_mass, marker="x", linestyle="")
+    hi_res_effective_mass = [
+        (free / actual) ** 2
+        for free, actual in zip(
+            free_rates,
+            data_hi_res["data"],
+            strict=False,
+        )
+    ]
+    ax.plot(
+        [condition[0].mass for condition in data_hi_res["conditions"]],
+        hi_res_effective_mass,
+        marker="x",
+        linestyle="",
+    )
+    ax.set_xlabel("Mass / kg")
+    ax.set_ylabel("Effective mass Factor")
+    ax.set_title("Effective mass against mass for 2D system")
+    fig.savefig("scripts/thesis/boltzmann_mass.2d.effective_mass_vs_mass.pdf")
+
+
+@cached(Path("data/boltzmann_mass.2d.rate_vs_temperature"))
+def _get_cached_rates_vs_temperature() -> _RatesData:
+    config = PeriodicSystemConfig(
+        (20, 20),
+        (35, 35),
+        direction=(8, 0),
+        truncation=625,
+        temperature=155,
+    )
+    system = SODIUM_COPPER_SYSTEM_2D
+
+    temperatures = [
+        config.temperature * t
+        for t in [
+            0.5,
+            0.6,
+            0.7,
+            0.8,
+            0.9,
+            1.0,
+            1.1,
+            1.2,
+            1.3,
+            1.4,
+            1.5,
+            1.6,
+            1.7,
+            1.8,
+            1.9,
+            2.0,
+        ]
+    ]
+    conditions = get_conditions_at_temperatures(
+        system,
+        config,
+        temperatures=temperatures,
+    )
+
+    rates = []
+    for condition in conditions:
+        rate = get_weak_boltzmann_rate(
+            condition[0],
+            condition[1],
+            fit_method=SlowGaussianMethod(measure="abs"),
+        )
+        rates.append(rate)
+
+    return {"data": rates, "conditions": conditions}
+
+
+@cached(Path("data/boltzmann_mass.2d.rate_vs_temperature.hi_res"))
+def _get_cached_rates_vs_temperature_hi_res() -> _RatesData:
+    config = PeriodicSystemConfig(
+        (20, 20),
+        (45, 45),
+        direction=(8, 0),
+        truncation=800,
+        temperature=155,
+    )
+    system = SODIUM_COPPER_SYSTEM_2D
+
+    temperatures = [
+        config.temperature * t
+        for t in [
+            0.5,
+            0.6,
+            0.7,
+            0.8,
+            0.9,
+            1.0,
+            1.1,
+            1.2,
+            1.3,
+            1.4,
+            1.5,
+            1.6,
+            1.7,
+            1.8,
+            1.9,
+            2.0,
+        ]
+    ]
+    conditions = get_conditions_at_temperatures(
+        system,
+        config,
+        temperatures=temperatures,
+    )
+
+    rates = []
+    for condition in conditions:
+        rate = get_weak_boltzmann_rate(
+            condition[0],
+            condition[1],
+            fit_method=SlowGaussianMethod(measure="abs"),
+        )
+        rates.append(rate)
+
+    return {"data": rates, "conditions": conditions}
+
+
+def _2d_effective_mass_vs_temperature() -> None:
+    data = _get_cached_rates_vs_temperature()
+    high_res_data = _get_cached_rates_vs_temperature_hi_res()
+    conditions = data["conditions"]
+    temperatures = [condition[1].temperature for condition in conditions]
+    rates = data["data"]
+
+    free_rates = [
+        get_free_particle_rate(system, config) for (system, config, _) in conditions
+    ]
+
+    fig, ax = get_fancy_figure()
+    (line,) = ax.plot(temperatures, rates, marker="x", linestyle="")
+    line.set_label("Actual rate")
+    (line,) = ax.plot(temperatures, high_res_data["data"], marker="x", linestyle="")
+    line.set_label("Actual rate (high res)")
+    (line,) = ax.plot(temperatures, free_rates, linestyle="--")
+    line.set_label("Free particle rate")
+    ax.set_xlabel("Temperature / K")
+    ax.set_ylabel("Rate / $s^{-1}$")
+    ax.set_title("Rate against temperature for 2D system")
+    legend = ax.legend(
+        frameon=False,
+        loc="upper right",
+        fontsize=9,
+    )
+    legend.get_frame().set_alpha(0)
+    fig.savefig("scripts/thesis/boltzmann_mass.2d.rate_vs_temperature.pdf")
+
+    effective_mass = [
+        (free / actual) ** 2 for free, actual in zip(free_rates, rates, strict=False)
+    ]
+    fig, ax = get_fancy_figure()
+    ax.plot(temperatures, effective_mass, marker="x", linestyle="")
+    hi_res_effective_mass = [
+        (free / actual) ** 2
+        for free, actual in zip(
+            free_rates,
+            high_res_data["data"],
+            strict=False,
+        )
+    ]
+    ax.plot(temperatures, hi_res_effective_mass, marker="x", linestyle="")
+    ax.set_xlabel("Temperature / K")
+    ax.set_ylabel("Effective mass Factor")
+    ax.set_title("Effective mass against temperature for 2D system")
+    fig.savefig("scripts/thesis/boltzmann_mass.2d.effective_mass_vs_temperature.pdf")
+
+
 if __name__ == "__main__":
-    _2d_boltzmann_mass()
-    _2d_boltzmann_mass_weak()
+    _2d_boltzmann_rate()
+    _2d_boltzmann_rate_weak()
+    _2d_effective_mass_vs_mass()
+    _2d_effective_mass_vs_temperature()

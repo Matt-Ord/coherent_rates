@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import dataclasses
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, TypedDict, TypeVar
 
 import numpy as np
@@ -11,12 +13,14 @@ from surface_potential_analysis.state_vector.conversion import (
     convert_state_vector_to_basis,
 )
 from surface_potential_analysis.state_vector.plot import get_periodic_x_operator
-from surface_potential_analysis.util.decorators import timed
+from surface_potential_analysis.util.decorators import cached, timed
 from surface_potential_analysis.wavepacket.get_eigenstate import BlochBasis
 
-from coherent_rates.config import IdealInstrumentFunction
+from coherent_rates.config import IdealInstrumentFunction, PeriodicSystemConfig
+from coherent_rates.solve import get_hamiltonian
 
 if TYPE_CHECKING:
+    from surface_potential_analysis.basis.basis import TruncatedBasis
     from surface_potential_analysis.basis.basis_like import BasisLike
     from surface_potential_analysis.basis.stacked_basis import TupleBasisLike
     from surface_potential_analysis.operator.operator import (
@@ -29,6 +33,7 @@ if TYPE_CHECKING:
     )
 
     from coherent_rates.config import InstrumentFunction
+    from coherent_rates.system import System
 
     _B0 = TypeVar("_B0", bound=BlochBasis[Any])
 
@@ -284,7 +289,7 @@ def get_energy_change_operator_sparse(
 
 
 @timed
-def get_instrument_biased_periodic_x(
+def get_instrument_biased_periodic_x_from_hamiltonian(
     hamiltonian: SingleBasisDiagonalOperator[_B0],
     direction: tuple[int, ...],
     instrument_function: InstrumentFunction,
@@ -300,3 +305,29 @@ def get_instrument_biased_periodic_x(
     periodic_x["data"] *= instrument_factor
 
     return periodic_x
+
+
+def _get_instrument_biased_periodic_x(
+    system: System,
+    config: PeriodicSystemConfig,
+) -> Path:
+    config = dataclasses.replace(config, temperature=0)
+    return Path(
+        f"data/{hash((system, config))}.periodic_x",
+    )
+
+
+@cached(_get_instrument_biased_periodic_x)
+def get_instrument_biased_periodic_x(
+    system: System,
+    config: PeriodicSystemConfig,
+) -> SparseScatteringOperator[
+    BlochBasis[TruncatedBasis[int, int]],
+    BlochBasis[TruncatedBasis[int, int]],
+]:
+    hamiltonian = get_hamiltonian(system, config)
+    return get_instrument_biased_periodic_x_from_hamiltonian(
+        hamiltonian,
+        config.direction,
+        config.instrument_function,
+    )

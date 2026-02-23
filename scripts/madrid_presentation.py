@@ -60,7 +60,7 @@ from coherent_rates.plot import (
 )
 from coherent_rates.scattering_operator import (
     apply_scattering_operator_to_state,
-    get_instrument_biased_periodic_x,
+    get_instrument_biased_periodic_x_from_hamiltonian,
 )
 from coherent_rates.solve import (
     get_bloch_wavefunctions,
@@ -505,7 +505,7 @@ def _2d_state_evolved_scattered_demo() -> None:
     fig.show()
 
     hamiltonian = get_hamiltonian.load_or_call_cached(system, config)
-    scattering_operator = get_instrument_biased_periodic_x(
+    scattering_operator = get_instrument_biased_periodic_x_from_hamiltonian(
         hamiltonian,
         config.direction,
         config.instrument_function,
