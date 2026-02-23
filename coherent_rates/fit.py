@@ -497,7 +497,7 @@ class DoubleGaussianMethod(
             0.5 * free_time,
             decay_height - min_height,
             1.2 * free_time,
-            initial_height,
+            min(initial_height, 1),
         )
 
     @staticmethod

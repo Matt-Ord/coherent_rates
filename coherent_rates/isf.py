@@ -54,7 +54,7 @@ from coherent_rates.scattering_operator import (
     SparseScatteringOperator,
     apply_scattering_operator_to_state,
     apply_scattering_operator_to_states,
-    get_instrument_biased_periodic_x,
+    get_instrument_biased_periodic_x_from_hamiltonian,
 )
 from coherent_rates.solve import get_hamiltonian
 from coherent_rates.state import (
@@ -136,7 +136,7 @@ def get_isf_pair_states(
     StateVectorList[_BT0, StackedBasisWithVolumeLike[Any, Any, Any]],
 ]:
     hamiltonian = get_hamiltonian(system, config)
-    operator = get_instrument_biased_periodic_x(
+    operator = get_instrument_biased_periodic_x_from_hamiltonian(
         hamiltonian,
         direction=config.direction,
         instrument_function=config.instrument_function,
@@ -179,7 +179,7 @@ def get_isf(
     times: _BT0,
 ) -> ValueList[_BT0]:
     hamiltonian = get_hamiltonian(system, config)
-    operator = get_instrument_biased_periodic_x(
+    operator = get_instrument_biased_periodic_x_from_hamiltonian(
         hamiltonian,
         direction=config.direction,
         instrument_function=config.instrument_function,
@@ -259,7 +259,7 @@ def get_band_resolved_boltzmann_isf(
 ) -> StatisticalValueList[TupleBasisLike[BasisLike[Any, Any], _BT0]]:
     hamiltonian = get_hamiltonian(system, config)
     bands = hamiltonian["basis"][0].wavefunctions["basis"][0][0]
-    operator = get_instrument_biased_periodic_x(
+    operator = get_instrument_biased_periodic_x_from_hamiltonian(
         hamiltonian,
         direction=config.direction,
         instrument_function=config.instrument_function,
@@ -307,7 +307,7 @@ def _get_coherent_isf_from_hamiltonian(  # noqa: PLR0913
     isf_data = np.zeros((n_repeats, times.n), dtype=np.complex128)
     # Convert the operator to the hamiltonian basis
     # to prevent conversion in each repeat
-    operator = get_instrument_biased_periodic_x(
+    operator = get_instrument_biased_periodic_x_from_hamiltonian(
         hamiltonian,
         direction=config.direction,
         instrument_function=config.instrument_function,
@@ -498,7 +498,7 @@ def _get_boltzmann_isf_from_hamiltonian(
     isf_data = np.zeros((n_repeats, times.n), dtype=np.complex128)
     # Convert the operator to the hamiltonian basis
     # to prevent conversion in each repeat
-    operator = get_instrument_biased_periodic_x(
+    operator = get_instrument_biased_periodic_x_from_hamiltonian(
         hamiltonian,
         direction=config.direction,
         instrument_function=config.instrument_function,
@@ -556,17 +556,12 @@ def get_boltzmann_isf(
 
 def _get_v_matrix(
     hamiltonian: SingleBasisDiagonalOperator[_ESB0],
-    config: PeriodicSystemConfig,
+    scatter: SparseScatteringOperator[_ESB0, _ESB0],
 ) -> np.ndarray[tuple[int, int, int], np.dtype[np.complex128]]:
     n_bands, n_k = hamiltonian["basis"][0].wavefunctions["basis"][0].shape
     energies = hamiltonian["data"].reshape(n_bands, n_k) / hbar
     # V_(k, band n, band m) = <k, n|S^dagger H S - H) |k, m>
     k_shape = hamiltonian["basis"][0].wavefunctions["basis"][0][1].shape
-    scatter = get_instrument_biased_periodic_x(
-        hamiltonian,
-        direction=config.direction,
-        instrument_function=config.instrument_function,
-    )
 
     scattered_energies = np.roll(
         energies.reshape(n_bands, *k_shape),
@@ -589,17 +584,12 @@ def _get_v_matrix(
 
 def _get_v_matrix_diagonal(
     hamiltonian: SingleBasisDiagonalOperator[_ESB0],
-    config: PeriodicSystemConfig,
+    scatter: SparseScatteringOperator[_ESB0, _ESB0],
 ) -> np.ndarray[tuple[int, int, int], np.dtype[np.complex128]]:
     n_bands, n_k = hamiltonian["basis"][0].wavefunctions["basis"][0].shape
     energies = hamiltonian["data"].reshape(n_bands, n_k) / hbar
     # V_(k, band n, band m) = <k, n|S^dagger H S - H) |k, m>
     k_shape = hamiltonian["basis"][0].wavefunctions["basis"][0][1].shape
-    scatter = get_instrument_biased_periodic_x(
-        hamiltonian,
-        direction=config.direction,
-        instrument_function=config.instrument_function,
-    )
 
     scattered_energies = np.roll(
         energies.reshape(n_bands, *k_shape),
@@ -620,13 +610,13 @@ def _get_v_matrix_diagonal(
 
 def _get_decay_per_state(
     hamiltonian: SingleBasisDiagonalOperator[_ESB0],
-    config: PeriodicSystemConfig,
+    scatter: SparseScatteringOperator[_ESB0, _ESB0],
     times: np.ndarray[tuple[int], np.dtype[np.float64]],
     *,
     second_order: bool = False,
 ) -> np.ndarray[tuple[int, int], np.dtype[np.complex128]]:
     if not second_order:
-        v_matrix = _get_v_matrix_diagonal(hamiltonian, config)
+        v_matrix = _get_v_matrix_diagonal(hamiltonian, scatter)
         return np.einsum("nk,t->nkt", v_matrix, 1j * times).reshape(
             -1,
             times.size,
@@ -641,7 +631,7 @@ def _get_decay_per_state(
     sinc_factor = np.sinc(np.einsum("knm,t->knmt", omega_knm, times / 2)) ** 2
     decay_time_factor = sinc_factor * (times**2 / 2)
 
-    v_nmk = _get_v_matrix(hamiltonian, config)
+    v_nmk = _get_v_matrix(hamiltonian, scatter)
     decay_per_state = np.einsum("knmt,nmk->nkt", decay_time_factor, np.abs(v_nmk) ** 2)
     recoil_per_state = np.einsum("nnk,t->nkt", v_nmk, 1j * times)
 
@@ -664,7 +654,8 @@ def _get_weak_boltzmann_isf_data_path(
 
 def _get_weak_boltzmann_isf_from_hamiltonian(
     hamiltonian: SingleBasisDiagonalOperator[_ESB0],
-    config: PeriodicSystemConfig,
+    scatter: SparseScatteringOperator[_ESB0, _ESB0],
+    temperature: float,
     times: _BT0,
     *,
     second_order: bool = False,
@@ -672,13 +663,13 @@ def _get_weak_boltzmann_isf_from_hamiltonian(
     isf_per_state = np.exp(
         _get_decay_per_state(
             hamiltonian,
-            config,
+            scatter,
             times.times,
             second_order=second_order,
         ),
     )
 
-    kb_t = Boltzmann * config.temperature
+    kb_t = Boltzmann * temperature
     occupations = np.exp(-hamiltonian["data"] / kb_t)
     occupations /= np.sum(occupations)
 
@@ -696,10 +687,16 @@ def get_weak_boltzmann_isf(
     second_order: bool = False,
 ) -> ValueList[_BT0]:
     hamiltonian = get_hamiltonian(system, config)
+    scatter = get_instrument_biased_periodic_x_from_hamiltonian(
+        hamiltonian,
+        direction=config.direction,
+        instrument_function=config.instrument_function,
+    )
 
     return _get_weak_boltzmann_isf_from_hamiltonian(
         hamiltonian,
-        config,
+        scatter,
+        config.temperature,
         times,
         second_order=second_order,
     )
@@ -716,7 +713,7 @@ def _get_local_boltzmann_isf_from_hamiltonian(
     isf_data = np.zeros((n_repeats, times.n), dtype=np.complex128)
     # Convert the operator to the hamiltonian basis
     # to prevent conversion in each repeat
-    operator = get_instrument_biased_periodic_x(
+    operator = get_instrument_biased_periodic_x_from_hamiltonian(
         hamiltonian,
         direction=config.direction,
         instrument_function=config.instrument_function,
@@ -869,6 +866,54 @@ def get_boltzmann_rate_against_momentum_data(
     return {"data": rates.ravel(), "basis": basis}
 
 
+@timed
+def _get_weak_boltzmann_rate_from_hamiltonian(
+    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+    system: System,
+    config: PeriodicSystemConfig,
+    fit_method: FitMethod[Any],
+    *,
+    second_order: bool = False,
+) -> float:
+    times = fit_method.get_fit_times(system=system, config=config)
+    scatter = get_instrument_biased_periodic_x_from_hamiltonian(
+        hamiltonian,
+        direction=config.direction,
+        instrument_function=config.instrument_function,
+    )
+
+    isf = _get_weak_boltzmann_isf_from_hamiltonian(
+        hamiltonian,
+        scatter,
+        config.temperature,
+        times,
+        second_order=second_order,
+    )
+
+    return fit_method.get_rate_from_isf(
+        isf,
+        system=system,
+        config=config,
+    )
+
+
+def get_weak_boltzmann_rate(
+    system: System,
+    config: PeriodicSystemConfig,
+    fit_method: FitMethod[Any],
+    *,
+    second_order: bool = False,
+) -> float:
+    hamiltonian = get_hamiltonian(system, config)
+    return _get_weak_boltzmann_rate_from_hamiltonian(
+        hamiltonian,
+        system,
+        config,
+        fit_method,
+        second_order=second_order,
+    )
+
+
 def _get_weak_boltzmann_rate_against_momentum_data_path(
     system: System,
     config: PeriodicSystemConfig,
@@ -881,31 +926,6 @@ def _get_weak_boltzmann_rate_against_momentum_data_path(
     return Path(
         f"data/{hash((system, config))}.{hash(fit_method)}"
         f".{hash((directions[0], directions[-1], len(directions)))}.weak.rates",
-    )
-
-
-@timed
-def _get_weak_boltzmann_rate_from_hamiltonian(
-    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
-    system: System,
-    config: PeriodicSystemConfig,
-    fit_method: FitMethod[Any],
-    *,
-    second_order: bool = False,
-) -> float:
-    times = fit_method.get_fit_times(system=system, config=config)
-
-    isf = _get_weak_boltzmann_isf_from_hamiltonian(
-        hamiltonian,
-        config,
-        times,
-        second_order=second_order,
-    )
-
-    return fit_method.get_rate_from_isf(
-        isf,
-        system=system,
-        config=config,
     )
 
 
