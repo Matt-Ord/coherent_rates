@@ -16,7 +16,9 @@ from coherent_rates.fit import (
     FitInfo,
     GaussianMethod,
     GaussianParameters,
+    LinearRecoilMethod,
     get_free_particle_time,
+    get_free_recoil,
 )
 from coherent_rates.isf import (
     get_analytical_isf,
@@ -34,6 +36,7 @@ from coherent_rates.system import (
 )
 from scripts.thesis.bandstructure_plot import CAM_BLUE, CAM_SLATE_1
 from scripts.thesis.util import (
+    CAM_CHERRY,
     format_axis_scientific,
     get_fancy_figure,
     setup_rc_params,
@@ -304,14 +307,14 @@ def plot_periodic_weak_isf() -> None:
     config = PeriodicSystemConfig(
         (20, 20),
         (35, 35),
-        direction=(2, 2),
+        direction=(5, 0),
         truncation=625,
         temperature=155,
     )
     config = PeriodicSystemConfig(
         (20, 20),
         (35, 35),
-        direction=(5, 5),
+        direction=(1, 0),
         truncation=625,
         temperature=155,
     )
@@ -393,6 +396,28 @@ def plot_periodic_weak_isf() -> None:
     )
     inset_ax.set_xlabel("")
     inset_ax.set_ylabel(r"$\arg{(I(\Delta k, t))}$", fontsize=9, labelpad=-1)
+
+    inset_ax.plot(
+        times.fundamental_times,
+        get_free_recoil(system, config) * times.fundamental_times,
+        color=CAM_BLUE.dark,
+        linestyle="--",
+        linewidth=2,
+    )
+
+    method = LinearRecoilMethod()
+    fit = method.get_fit_from_isf(
+        isf,
+        system=system,
+        config=config,
+    )
+    fitted_data = method.get_fitted_data(fit, isf["basis"])
+    _, _, inset_line = plot_value_list_against_time(
+        fitted_data,
+        ax=inset_ax,
+        measure="angle",
+    )
+    inset_line.set_color(CAM_CHERRY.dark)
 
     format_axis_scientific(inset_ax.yaxis)
 
@@ -490,6 +515,27 @@ def plot_periodic_weak_isf_high_mass() -> None:
     )
     inset_ax.set_xlabel("")
     inset_ax.set_ylabel(r"$\arg{(I(\Delta k, t))}$", fontsize=9, labelpad=-1)
+    inset_ax.plot(
+        times.fundamental_times,
+        get_free_recoil(system, config) * times.fundamental_times,
+        color=CAM_BLUE.dark,
+        linestyle="--",
+        linewidth=2,
+    )
+
+    method = LinearRecoilMethod()
+    fit = method.get_fit_from_isf(
+        isf,
+        system=system,
+        config=config,
+    )
+    fitted_data = method.get_fitted_data(fit, isf["basis"])
+    _, _, inset_line = plot_value_list_against_time(
+        fitted_data,
+        ax=inset_ax,
+        measure="angle",
+    )
+    inset_line.set_color(CAM_CHERRY.dark)
 
     format_axis_scientific(inset_ax.yaxis)
 
