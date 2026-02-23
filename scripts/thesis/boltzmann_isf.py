@@ -17,6 +17,7 @@ from coherent_rates.fit import (
     GaussianMethod,
     GaussianParameters,
     get_free_particle_time,
+    get_free_recoil,
 )
 from coherent_rates.isf import (
     get_analytical_isf,
@@ -55,7 +56,7 @@ def plot_periodic_isf() -> None:
         truncation=25,
         temperature=155,
     )
-    times = EvenlySpacedTimeBasis(100, 1, 0, 1.5e-10)
+    times = EvenlySpacedTimeBasis(1000, 1, 0, 1.5e-11)
     times = GaussianMethod(measure="abs").get_fit_times(
         system=system,
         config=config,
@@ -64,12 +65,13 @@ def plot_periodic_isf() -> None:
 
     fig, ax = get_fancy_figure()
 
-    fit = GaussianMethod(measure="abs").get_fit_from_isf(
+    method = GaussianMethod(measure="abs")
+    fit = method.get_fit_from_isf(
         isf,
         system=system,
         config=config,
     )
-    fitted_data = GaussianMethod.get_fitted_data(fit, isf["basis"])
+    fitted_data = method.get_fitted_data(fit, isf["basis"])
 
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("Simulated")
@@ -136,7 +138,7 @@ def plot_periodic_weak_isf() -> None:
         truncation=50,
         temperature=155,
     )
-    times = EvenlySpacedTimeBasis(100, 1, 0, 1.5e-10)
+    times = EvenlySpacedTimeBasis(1000, 1, 0, 1.5e-11)
     times = GaussianMethod(measure="abs").get_fit_times(
         system=system,
         config=config,
@@ -144,13 +146,13 @@ def plot_periodic_weak_isf() -> None:
     isf = get_weak_boltzmann_isf(system, config, times)
 
     fig, ax = get_fancy_figure()
-
-    fit = GaussianMethod(measure="abs").get_fit_from_isf(
+    method = GaussianMethod(measure="abs")
+    fit = method.get_fit_from_isf(
         isf,
         system=system,
         config=config,
     )
-    fitted_data = GaussianMethod.get_fitted_data(fit, isf["basis"])
+    fitted_data = method.get_fitted_data(fit, isf["basis"])
 
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("Simulated")
@@ -165,7 +167,7 @@ def plot_periodic_weak_isf() -> None:
         amplitude=fit.amplitude,
         width=get_free_particle_time(system=system, config=config),
     )
-    fitted_data = GaussianMethod.get_fitted_data(free_fit, isf["basis"])
+    fitted_data = method.get_fitted_data(free_fit, isf["basis"])
 
     fig, ax, line = plot_value_list_against_time(fitted_data, ax=ax, measure="abs")
     line.set_label("Free Particle Fit")
@@ -211,6 +213,14 @@ def plot_periodic_weak_isf() -> None:
     )
     inset_ax.set_xlabel("")
     inset_ax.set_ylabel(r"$\arg{(I(\Delta k, t))}$", fontsize=9, labelpad=-1)
+
+    inset_ax.plot(
+        times.fundamental_times,
+        get_free_recoil(system, config) * times.fundamental_times,
+        color=CAM_BLUE.dark,
+        linestyle="--",
+        linewidth=2,
+    )
 
     format_axis_scientific(inset_ax.yaxis)
 
@@ -455,6 +465,98 @@ def plot_free_isf() -> None:
     fig.savefig("scripts/thesis/boltzmann_isf.free.pdf")
 
 
+def plot_free_weak_isf() -> None:
+    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
+    system = system.with_barrier_energy(0)
+
+    config = PeriodicSystemConfig(
+        (400,),
+        (100,),
+        direction=(2,),
+        truncation=25,
+        temperature=155,
+    )
+
+    delta_k = get_scattered_momentum(system, config, [config.direction])[0]
+    print(f"Actual delta k:1 {delta_k:0.3e}")  # noqa: T201
+    print("Decay after 1e-10s")  # noqa: T201
+    decayed_isf = np.exp(
+        -(Boltzmann * config.temperature * (1e-10 * delta_k) ** 2) / (2 * system.mass),
+    )
+    print(f"I: {decayed_isf:0.3e}")  # noqa: T201
+    times = GaussianMethod().get_fit_times(
+        system=system,
+        config=config,
+    )
+    isf = get_weak_boltzmann_isf(
+        system,
+        config,
+        times,
+    )
+    analytical_isf = get_analytical_isf(system, config, times)
+
+    fig, ax = get_fancy_figure()
+    fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
+    line.set_label("Simulated")
+    line.set_color(CAM_BLUE.warm)
+    fig, ax, line = plot_value_list_against_time(
+        analytical_isf,
+        ax=ax,
+        measure="abs",
+    )
+    line.set_label("Analytical")
+    line.set_color(CAM_BLUE.dark)
+    line.set_linestyle("--")
+    ax.set_xlabel("Time / s")
+    ax.set_ylabel(r"$|I(\Delta k, t)|$")
+
+    format_axis_scientific(ax.yaxis)
+
+    legend = ax.legend(
+        frameon=False,
+        loc="upper right",
+        fontsize=9,
+    )
+    legend.get_frame().set_alpha(0)
+
+    inset_ax = inset_axes(
+        ax,
+        width="45%",
+        height="45%",
+        loc="lower right",
+        borderpad=1.0,
+    )
+    _, _, inset_line = plot_value_list_against_time(isf, measure="angle", ax=inset_ax)
+    inset_line.set_color(CAM_BLUE.warm)
+    _, _, inset_line = plot_value_list_against_time(
+        analytical_isf,
+        ax=inset_ax,
+        measure="angle",
+    )
+    inset_line.set_color(CAM_BLUE.dark)
+    inset_line.set_linestyle("--")
+    inset_ax.set_ylim(0, 1.1 * np.max(np.angle(analytical_isf["data"])))
+    inset_ax.set_xlim(ax.get_xlim())
+    inset_ax.set_facecolor(CAM_SLATE_1)
+    inset_ax.spines["top"].set_visible(False)
+    inset_ax.spines["right"].set_visible(False)
+    inset_ax.tick_params(axis="both", which="major", labelsize=8)
+    inset_ax.tick_params(
+        axis="x",
+        which="both",
+        bottom=False,
+        top=False,
+        labelbottom=False,
+        labeltop=False,
+    )
+    inset_ax.set_xlabel("")
+    inset_ax.set_ylabel(r"$\arg{(I(\Delta k, t))}$", fontsize=9)
+
+    format_axis_scientific(inset_ax.yaxis)
+
+    fig.savefig("scripts/thesis/boltzmann_isf.free.weak.pdf")
+
+
 def plot_free_local_isf() -> None:
     system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
     system = system.with_barrier_energy(0)
@@ -548,7 +650,8 @@ def plot_free_local_isf() -> None:
 
 if __name__ == "__main__":
     plot_free_isf()
-    plot_periodic_weak_isf()
+    plot_free_weak_isf()
     plot_free_local_isf()
     plot_periodic_isf()
+    plot_periodic_weak_isf()
     plot_periodic_local_isf()

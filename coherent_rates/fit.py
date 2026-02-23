@@ -17,9 +17,9 @@ from typing import (
 )
 
 import numpy as np
-import scipy.signal  # type: ignore library type
-from scipy.constants import Boltzmann  # type: ignore library type
-from scipy.optimize import curve_fit  # type: ignore library type
+import scipy.signal
+from scipy.constants import Boltzmann, hbar
+from scipy.optimize import curve_fit
 from surface_potential_analysis.basis.time_basis_like import (
     BasisWithTimeLike,
     EvenlySpacedTimeBasis,
@@ -158,21 +158,25 @@ class FitMethod(ABC, Generic[T]):
         fit = self.get_fit_from_isf(data, **info)
         return self.get_rate_from_fit(fit)
 
-    @classmethod
     def get_fitted_data(
-        cls: type[Self],
+        self,
         fit: T,
         basis: _BT0,
     ) -> ValueList[_BT0]:
-        data = cls._fit_fn(basis.times, *cls._params_from_fit(fit))
-        return {"basis": basis, "data": data.astype(np.complex128)}
+        data = self._fit_fn(basis.times, *self._params_from_fit(fit))
+        if self._measure in {"abs", "real"}:
+            return {"basis": basis, "data": data.astype(np.complex128)}
+        if self._measure == "angle":
+            return {"basis": basis, "data": np.exp(1j * data)}
 
-    @classmethod
+        # measure is imag
+        return {"basis": basis, "data": 1j * data.astype(np.complex128)}
+
     def get_function_for_fit(
-        cls: type[Self],
+        self,
         fit: T,
     ) -> Callable[[_BT0], ValueList[_BT0]]:
-        return functools.partial(cls.get_fitted_data, fit)
+        return functools.partial(self.get_fitted_data, fit)
 
     @classmethod
     def n_params(cls: type[Self]) -> int:
@@ -219,6 +223,15 @@ def get_free_particle_rate(
     config: PeriodicSystemConfig,
 ) -> float:
     return 1 / get_free_particle_time(system, config)
+
+
+def get_free_recoil(
+    system: System,
+    config: PeriodicSystemConfig,
+) -> float:
+    k = get_scattered_momentum(system, config, [config.direction])[0]
+
+    return hbar * k**2 / (2 * system.mass)
 
 
 @dataclass
@@ -752,3 +765,86 @@ def get_default_isf_times(
     if include_negative:
         return EvenlySpacedTimeBasis(101, 1, -50, fit_time)
     return EvenlySpacedTimeBasis(100, 1, 0, fit_time)
+
+
+@dataclass
+class RecoilParams:
+    """Parameters for the linear recoil method."""
+
+    rate: float
+    offset: float = 0
+
+
+class LinearRecoilMethod(FitMethod[RecoilParams]):
+    """A method to fit to the recoil rate."""
+
+    def __init__(
+        self: Self,
+    ) -> None:
+        super().__init__(measure="angle")
+
+    def __hash__(self: Self) -> int:
+        h_label = hashlib.sha256(usedforsecurity=False)
+        h_label.update(self.get_rate_label().encode())
+
+        h_method = hashlib.sha256(usedforsecurity=False)
+        h_method.update(self._measure.encode())
+        return hash(
+            (
+                int.from_bytes(h_label.digest(), "big"),
+                int.from_bytes(h_method.digest(), "big"),
+            ),
+        )
+
+    @staticmethod
+    def _fit_fn(
+        x: np.ndarray[Any, np.dtype[np.float64]],
+        *params: *tuple[float, ...],
+    ) -> np.ndarray[Any, np.dtype[np.complex128]]:
+        a, b = params
+        return (a * x + b).astype(np.complex128)
+
+    @staticmethod
+    def _params_from_fit(
+        fit: RecoilParams,
+    ) -> tuple[float, float]:
+        return (fit.rate, fit.offset)
+
+    @staticmethod
+    def _fit_from_params(
+        *params: *tuple[float, ...],
+    ) -> RecoilParams:
+        return RecoilParams(params[0], params[1])
+
+    @staticmethod
+    def _fit_param_bounds() -> tuple[list[float], list[float]]:
+        return ([0, -np.inf], [np.inf, np.inf])
+
+    def _fit_param_initial_guess(
+        self: Self,
+        data: ValueList[_BT0],  # noqa: ARG002
+        **info: Unpack[FitInfo],
+    ) -> tuple[float, float]:
+        return (get_free_recoil(**info), 0)
+
+    @staticmethod
+    def _scale_params(
+        dt: float,
+        params: tuple[float, ...],
+    ) -> tuple[float, float]:
+        return (params[0] / dt, params[1])
+
+    def get_rate_from_fit(
+        self: Self,
+        fit: RecoilParams,
+    ) -> float:
+        return fit.rate
+
+    def get_rate_label(self: Self) -> str:
+        return "Linear Recoil"
+
+    def get_fit_times(
+        self: Self,
+        **info: Unpack[FitInfo],
+    ) -> EvenlySpacedTimeBasis[Any, Any, Any]:
+        return EvenlySpacedTimeBasis(100, 1, 0, 4 * get_free_particle_time(**info))
