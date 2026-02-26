@@ -1,10 +1,9 @@
 import dataclasses
-from typing import Any, Unpack
+from typing import Any
 
 import numpy as np
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from scipy.constants import Boltzmann
-from surface_potential_analysis.basis.time_basis_like import EvenlySpacedTimeBasis
 from surface_potential_analysis.state_vector.plot_value_list import (
     plot_split_value_list_against_time,
     plot_value_list_against_time,
@@ -13,7 +12,6 @@ from surface_potential_analysis.state_vector.plot_value_list import (
 from coherent_rates.config import PeriodicSystemConfig
 from coherent_rates.fit import (
     DoubleGaussianMethod,
-    FitInfo,
     GaussianMethod,
     GaussianParameters,
     LinearRecoilMethod,
@@ -211,7 +209,7 @@ def plot_periodic_isf() -> None:
     )
     delta_k = get_scattered_momentum(system, config, [config.direction])[0]
     print(f"Actual delta k: {delta_k:0.3e}")  # noqa: T201
-    times = SlowGaussianMethod(measure="abs").get_fit_times(
+    times = GaussianMethod(measure="abs", t_factor=8.0).get_fit_times(
         system=system,
         config=config,
     )
@@ -282,18 +280,6 @@ def plot_periodic_isf() -> None:
     fig.savefig("scripts/thesis/boltzmann_isf.2d.periodic.pdf")
 
 
-class SlowGaussianMethod(GaussianMethod):
-    """Gaussian method that uses a longer time range for fitting."""
-
-    def get_fit_times(
-        self,
-        **info: Unpack[FitInfo],
-    ) -> EvenlySpacedTimeBasis[Any, Any, Any]:
-        """Get the times to use for fitting."""
-        original = super().get_fit_times(**info)
-        return EvenlySpacedTimeBasis(100, 1, 0, 2 * original.delta_t)
-
-
 def plot_periodic_weak_isf() -> None:
     system = SODIUM_COPPER_SYSTEM_2D
 
@@ -313,14 +299,15 @@ def plot_periodic_weak_isf() -> None:
     )
     config = PeriodicSystemConfig(
         (20, 20),
-        (35, 35),
+        (45, 45),
         direction=(1, 0),
         truncation=625,
         temperature=155,
     )
+    system = dataclasses.replace(system, barrier_energy=system.barrier_energy * 1.5)
     delta_k = get_scattered_momentum(system, config, [config.direction])[0]
     print(f"Actual delta k: {delta_k:0.3e}")  # noqa: T201
-    times = SlowGaussianMethod(measure="abs").get_fit_times(
+    times = GaussianMethod(measure="abs", t_factor=32.0).get_fit_times(
         system=system,
         config=config,
     )
@@ -328,7 +315,7 @@ def plot_periodic_weak_isf() -> None:
 
     fig, ax = get_fancy_figure()
 
-    method = SlowGaussianMethod(measure="abs")
+    method = GaussianMethod(measure="abs", t_factor=8.0)
     fit = method.get_fit_from_isf(
         isf,
         system=system,
@@ -439,7 +426,7 @@ def plot_periodic_weak_isf_high_mass() -> None:
     delta_k = get_scattered_momentum(system, config, [config.direction])[0]
     print(f"Actual delta k: {delta_k:0.3e}")  # noqa: T201
 
-    times = SlowGaussianMethod(measure="abs").get_fit_times(
+    times = GaussianMethod(measure="abs", t_factor=8.0).get_fit_times(
         system=system,
         config=config,
     )
@@ -447,7 +434,7 @@ def plot_periodic_weak_isf_high_mass() -> None:
 
     fig, ax = get_fancy_figure()
 
-    method = SlowGaussianMethod(measure="abs")
+    method = GaussianMethod(measure="abs", t_factor=8.0)
     fit = method.get_fit_from_isf(
         isf,
         system=system,
@@ -673,9 +660,9 @@ def plot_free_isf() -> None:
 
 
 if __name__ == "__main__":
-    plot_free_isf()
-    plot_periodic_isf()
+    # plot_free_isf()
+    # plot_periodic_isf()
     plot_periodic_weak_isf()
-    plot_periodic_weak_isf_high_mass()
-    plot_periodic_isf_dg()
-    plot_periodic_isf_dg_split()
+    # plot_periodic_weak_isf_high_mass()
+    # plot_periodic_isf_dg()
+    # plot_periodic_isf_dg_split()

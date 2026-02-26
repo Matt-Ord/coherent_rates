@@ -250,8 +250,10 @@ class GaussianMethod(FitMethod[GaussianParameters]):
         *,
         truncate: bool = True,
         measure: Measure = "real",
+        t_factor: float = 4,
     ) -> None:
         self._truncate = truncate
+        self._t_factor = t_factor
         super().__init__(measure=measure)
 
     def __hash__(self: Self) -> int:
@@ -265,6 +267,7 @@ class GaussianMethod(FitMethod[GaussianParameters]):
                 int.from_bytes(h_label.digest(), "big"),
                 int.from_bytes(h_method.digest(), "big"),
                 self._truncate,
+                self._t_factor,
             ),
         )
 
@@ -340,7 +343,12 @@ class GaussianMethod(FitMethod[GaussianParameters]):
         self: Self,
         **info: Unpack[FitInfo],
     ) -> EvenlySpacedTimeBasis[Any, Any, Any]:
-        return EvenlySpacedTimeBasis(100, 1, 0, 4 * get_free_particle_time(**info))
+        return EvenlySpacedTimeBasis(
+            100,
+            1,
+            0,
+            self._t_factor * get_free_particle_time(**info),
+        )
 
 
 @dataclass
