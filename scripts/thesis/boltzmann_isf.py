@@ -128,13 +128,13 @@ def plot_periodic_isf() -> None:
     fig.savefig("scripts/thesis/boltzmann_isf.periodic.pdf")
 
 
-def plot_periodic_weak_isf() -> None:
+def plot_periodic_weak_isf() -> None:  # noqa: PLR0915
     system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
 
     config = PeriodicSystemConfig(
-        (800,),
+        (400,),
         (100,),
-        direction=(201,),
+        direction=(50,),
         truncation=50,
         temperature=155,
     )
@@ -157,6 +157,16 @@ def plot_periodic_weak_isf() -> None:
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("Simulated")
     line.set_color(CAM_BLUE.warm)
+
+    isf_se = get_weak_boltzmann_isf(system, config, times, second_order=True)
+    fig, ax, line = plot_value_list_against_time(isf_se, measure="abs", ax=ax)
+    line.set_label("Simulated (2nd order)")
+    line.set_color(CAM_CHERRY.base)
+
+    isf_full = get_boltzmann_isf(system, config, times)
+    fig, ax, line = plot_value_list_against_time(isf_full, measure="abs", ax=ax)
+    line.set_label("Simulated (Full)")
+    line.set_color(CAM_CHERRY.dark)
 
     fig, ax, line = plot_value_list_against_time(fitted_data, ax=ax, measure="abs")
     line.set_label("Gaussian Fit")
@@ -198,6 +208,19 @@ def plot_periodic_weak_isf() -> None:
     )
     _, _, inset_line = plot_value_list_against_time(isf, measure="angle", ax=inset_ax)
     inset_line.set_color(CAM_BLUE.warm)
+
+    _, _, inset_line = plot_value_list_against_time(
+        isf_se,
+        measure="angle",
+        ax=inset_ax,
+    )
+    inset_line.set_color(CAM_CHERRY.base)
+    _, _, inset_line = plot_value_list_against_time(
+        isf_full,
+        measure="angle",
+        ax=inset_ax,
+    )
+    inset_line.set_color(CAM_CHERRY.dark)
 
     inset_ax.set_facecolor((0, 0, 0, 0))
     inset_ax.spines["top"].set_visible(False)
@@ -492,6 +515,7 @@ def plot_free_weak_isf() -> None:
         system,
         config,
         times,
+        second_order=True,
     )
     analytical_isf = get_analytical_isf(system, config, times)
 

@@ -660,9 +660,9 @@ def plot_free_isf() -> None:
 
 
 if __name__ == "__main__":
-    # plot_free_isf()
-    # plot_periodic_isf()
+    plot_free_isf()
+    plot_periodic_isf()
     plot_periodic_weak_isf()
-    # plot_periodic_weak_isf_high_mass()
-    # plot_periodic_isf_dg()
-    # plot_periodic_isf_dg_split()
+    plot_periodic_weak_isf_high_mass()
+    plot_periodic_isf_dg()
+    plot_periodic_isf_dg_split()
