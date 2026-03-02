@@ -630,6 +630,9 @@ def _get_decay_per_state(
     # Prefactor of sinc^2(omega_(k, n band, m band) t / 2)
     sinc_factor = np.sinc(np.einsum("knm,t->knmt", omega_knm, times / 2)) ** 2
     decay_time_factor = sinc_factor * (times**2 / 2)
+    # Remove diagonal terms which are zero
+    n_idx = np.arange(n_bands)
+    decay_time_factor[:, n_idx, n_idx] = 0
 
     v_nmk = _get_v_matrix(hamiltonian, scatter)
     decay_per_state = np.einsum("knmt,nmk->nkt", decay_time_factor, np.abs(v_nmk) ** 2)
