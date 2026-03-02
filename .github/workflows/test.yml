@@ -31,7 +31,7 @@ jobs:
         run: uv python install
 
       - name: Install the project
-        run: uv sync --all-extras --no-extra sse_solver_py
+        run: uv sync --all-extras
 
       - name: Run lint
         run: uv run ruff check --output-format=github
