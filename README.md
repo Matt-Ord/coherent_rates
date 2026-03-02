@@ -10,6 +10,12 @@ Before building the devcontiner, first call
 git submodule update --init --recursive
 ```
 
+To set up a development environment with uv, run
+
+```
+uv sync --extra dev
+```
+
 ## Profiling
 
 To profile use

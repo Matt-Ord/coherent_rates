@@ -17,8 +17,8 @@ from coherent_rates.solve import get_bloch_wavefunctions
 from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
 )
+from coherent_rates.util import get_fancy_figure, setup_rc_params
 from scripts.thesis.bandstructure_plot import CAM_BLUE
-from scripts.thesis.util import get_fancy_figure, setup_rc_params
 
 setup_rc_params()
 

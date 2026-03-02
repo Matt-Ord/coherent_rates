@@ -5,11 +5,8 @@
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"image": "mcr.microsoft.com/devcontainers/base:bullseye",
 	"features": {
-		"ghcr.io/devcontainers/features/python:1": {
-			"installTools": true,
-			"version": "3.11"
-		},
-		"ghcr.io/devcontainers-extra/features/poetry:2": {
+		"ghcr.io/va-h/devcontainers-features/uv:1": {
+			"shellautocompletion": true,
 			"version": "latest"
 		},
 		"ghcr.io/devcontainers/features/rust:1": {
@@ -56,6 +53,7 @@
 					"coherent_rates",
 					"examples",
 					"tests",
+					"scripts",
 					"lib/surface_potential_analysis/surface_potential_analysis"
 				],
 				"python.analysis.extraPaths": [
@@ -101,5 +99,5 @@
 			]
 		}
 	},
-	"onCreateCommand": "git submodule update --init --recursive && rustup default nightly && pip install maturin && poetry install && sudo apt-get update && sudo apt-get install -y texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended texlive-fonts-extra dvipng ghostscript cm-super"
+	"onCreateCommand": "git submodule update --init --recursive && rustup default nightly && uv sync --all-extras && sudo apt-get update && sudo apt-get install -y texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended texlive-fonts-extra dvipng ghostscript cm-super"
 }

@@ -15,7 +15,7 @@ from coherent_rates.isf import (
 from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
 )
-from scripts.thesis.util import (
+from coherent_rates.util import (
     CAM_BLUE,
     get_fancy_figure,
     setup_rc_params,

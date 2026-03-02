@@ -6,7 +6,7 @@ from coherent_rates.solve import get_bloch_wavefunctions
 from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
 )
-from scripts.thesis.util import CAM_BLUE, CAM_SLATE_1, setup_rc_params
+from coherent_rates.util import CAM_BLUE, CAM_SLATE_1, setup_rc_params
 
 setup_rc_params()
 

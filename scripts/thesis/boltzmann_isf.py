@@ -35,13 +35,13 @@ from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
     PeriodicSystem1d,
 )
-from scripts.thesis.bandstructure_plot import CAM_BLUE, CAM_SLATE_1
-from scripts.thesis.util import (
+from coherent_rates.util import (
     CAM_CHERRY,
     format_axis_scientific,
     get_fancy_figure,
     setup_rc_params,
 )
+from scripts.thesis.bandstructure_plot import CAM_BLUE, CAM_SLATE_1
 
 setup_rc_params()
 

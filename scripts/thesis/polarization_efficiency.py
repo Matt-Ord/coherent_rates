@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.optimize import curve_fit
 
-from scripts.thesis.util import (
+from coherent_rates.util import (
     CAM_BLUE,
     get_fancy_figure,
     setup_rc_params,
