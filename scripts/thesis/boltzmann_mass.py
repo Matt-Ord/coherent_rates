@@ -22,7 +22,7 @@ from coherent_rates.system import (
     FreeSystem,
     System,
 )
-from scripts.thesis.util import (
+from coherent_rates.util import (
     CAM_BLUE,
     format_axis_scientific,
     get_fancy_figure,

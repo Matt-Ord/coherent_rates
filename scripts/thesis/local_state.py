@@ -16,7 +16,7 @@ from coherent_rates.state import (
     get_random_boltzmann_state,
 )
 from coherent_rates.system import SODIUM_COPPER_BRIDGE_SYSTEM_1D
-from scripts.thesis.util import (
+from coherent_rates.util import (
     CAM_BLUE,
     format_axis_scientific,
     get_fancy_figure,

@@ -30,7 +30,7 @@ from coherent_rates.system import (
     SODIUM_COPPER_SYSTEM_2D,
     FreeSystem,
 )
-from scripts.thesis.util import (
+from coherent_rates.util import (
     CAM_BLUE,
     CAM_CHERRY,
     CAM_PURPLE,

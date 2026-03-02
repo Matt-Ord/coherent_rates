@@ -1,20 +1,22 @@
-[tool.poetry]
+[project]
 name = "coherent_rates"
 version = "0.1.0"
 description = ""
-authors = ["Matthew Ord <matthew.ord1@gmail.com>"]
 readme = "README.md"
-packages = [{ include = "coherent_rates" }]
+requires-python = ">=3.11,<3.13"
+authors = [{ name = "Matthew Ord", email = "matthew.ord1@gmail.com" }]
+dependencies = [
+    "pyright>=1.1.407,<2.0.0",
+    "surface-potential-analysis",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.11,<3.13"
-surface-potential-analysis = { path = "lib/surface_potential_analysis", develop = true }
-pyright = "^1.1.407"
+[project.optional-dependencies]
+dev = ["ruff", "pytest>=8.0.1,<9.0.0"]
 
-[tool.poetry.group.dev.dependencies]
-ruff = "^0.14.10"
-pytest = "^8.0.1"
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["coherent_rates*"]
 
 [tool.ruff]
 unsafe-fixes = true
@@ -37,12 +39,10 @@ ignore = [
 ]
 unfixable = ["ERA001", "T201"]
 
-
 [tool.ruff.lint.extend-per-file-ignores]
 "examples/**/*" = ["T201", "INP001"]
 "scripts/**/*" = ["INP001"]
 "tests/**/*" = []
-
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -50,6 +50,9 @@ testpaths = ["tests"]
 [tool.pyright]
 ignore = ["lib"]
 
+[tool.uv.sources]
+"surface-potential-analysis" = { path = "lib/surface_potential_analysis", editable = true }
+
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
