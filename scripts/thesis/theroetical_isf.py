@@ -1,36 +1,19 @@
 import numpy as np
-from matplotlib import pyplot as plt
 
-from coherent_rates.util import CAM_BLUE, get_fancy_figure, get_fig_size
-
-x, y = get_fig_size()
+from coherent_rates.util import (
+    CAM_BLUE,
+    get_paper_figure,
+    get_thesis_fig_size,
+    get_thesis_figure,
+)
 
 wide = False
 if wide:
-    fig, ax = get_fancy_figure(fig_size=(2 * x, y))
+    x, y = get_thesis_fig_size()
+    fig, ax = get_thesis_figure(fig_size=(2 * x, y))
     delta_k = 2
 else:
-    plt.rcParams.update(
-        {
-            "text.usetex": True,  # Use external LaTeX
-            "pgf.rcfonts": False,  # Ignore Matplotlib's internal font settings
-            "font.family": "serif",
-            "font.serif": ["Charter"],  # Match your \usepackage{charter}
-            "text.latex.preamble": r"""
-        \usepackage[T1]{fontenc}
-        \usepackage{charter}                    % Main text font
-        \usepackage{mathptmx}                   % Math font to match your preamble
-        \usepackage{mathtools}                  % For complex math if needed
-    """,
-            "font.size": 9,  # Matches your 9pt document class
-            "figure.figsize": (3, 2.5),  # Standard single-column width (~8.5cm)
-            "axes.labelsize": 9,
-            "legend.fontsize": 8,
-            "xtick.labelsize": 8,
-            "ytick.labelsize": 8,
-        },
-    )
-    fig, ax = get_fancy_figure(fig_size=(3, 2.5))
+    fig, ax = get_paper_figure()
     delta_k = 1
 t = np.linspace(0, 8 / delta_k, 1000)
 

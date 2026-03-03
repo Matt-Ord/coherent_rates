@@ -35,14 +35,11 @@ from coherent_rates.util import (
     CAM_CHERRY,
     CAM_PURPLE,
     format_axis_scientific,
-    get_fancy_figure,
-    setup_rc_params,
+    get_thesis_figure,
 )
 
 if TYPE_CHECKING:
     from surface_potential_analysis.state_vector.eigenstate_list import ValueList
-
-setup_rc_params()
 
 
 def select_idx(
@@ -66,7 +63,7 @@ def _2d_boltzmann_rate() -> None:
     )
     system = SODIUM_COPPER_SYSTEM_2D
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
 
     directions = [(i, i) for i in range(1, 7)]
     data_111_double = get_boltzmann_rate_against_momentum_data(
@@ -162,7 +159,7 @@ def _2d_boltzmann_rate_weak() -> None:
     )
     system = SODIUM_COPPER_SYSTEM_2D
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
 
     directions = [(i, i) for i in range(1, 16)]
     data_111_double = get_weak_boltzmann_rate_against_momentum_data(
@@ -296,7 +293,7 @@ def _2d_effective_mass_vs_mass() -> None:
         get_free_particle_rate(system, config) for (system, config, _) in conditions
     ]
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
     (line,) = ax.plot(masses, rates, marker="x", linestyle="")
     line.set_label("Actual rate")
     (line,) = ax.plot(masses, free_rates, linestyle="--")
@@ -319,7 +316,7 @@ def _2d_effective_mass_vs_mass() -> None:
     legend.get_frame().set_alpha(0)
     fig.savefig("scripts/thesis/boltzmann_mass.2d.rate_vs_mass.pdf")
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
     inverse_rates = [c**-2 for c in rates]
     (line,) = ax.plot(masses, inverse_rates, marker="x", linestyle="")
     line.set_label("Actual")
@@ -361,7 +358,7 @@ def _2d_effective_mass_vs_mass() -> None:
     effective_mass = [
         (free / actual) ** 2 for free, actual in zip(free_rates, rates, strict=False)
     ]
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
     ax.plot(masses, effective_mass, marker="x", linestyle="")
     hi_res_effective_mass = [
         (get_free_particle_rate(c[0], c[1]) / actual) ** 2
@@ -494,7 +491,7 @@ def _2d_effective_mass_vs_temperature() -> None:
         get_free_particle_rate(system, config) for (system, config, _) in conditions
     ]
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
     (line,) = ax.plot(temperatures, rates, marker="x", linestyle="")
     line.set_label("Actual rate")
     (line,) = ax.plot(temperatures, high_res_data["data"], marker="x", linestyle="")
@@ -515,7 +512,7 @@ def _2d_effective_mass_vs_temperature() -> None:
     effective_mass = [
         (free / actual) ** 2 for free, actual in zip(free_rates, rates, strict=False)
     ]
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
     ax.plot(temperatures, effective_mass, marker="x", linestyle="")
     hi_res_effective_mass = [
         (free / actual) ** 2
@@ -625,7 +622,7 @@ def _2d_effective_mass_vs_barrier() -> None:
         get_free_particle_rate(system, config) for (system, config, _) in conditions
     ]
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
     (line,) = ax.plot(barrier_energies, rates, marker="x", linestyle="")
     line.set_label("Actual rate")
     (line,) = ax.plot(barrier_energies, free_rates, linestyle="--")
@@ -644,7 +641,7 @@ def _2d_effective_mass_vs_barrier() -> None:
     effective_mass = [
         (free / actual) ** 2 for free, actual in zip(free_rates, rates, strict=False)
     ]
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
     ax.plot(barrier_energies, effective_mass, marker="x", linestyle="")
     ax.plot(
         [condition[0].barrier_energy for condition in data_slow["conditions"]],

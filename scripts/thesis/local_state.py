@@ -19,8 +19,7 @@ from coherent_rates.system import SODIUM_COPPER_BRIDGE_SYSTEM_1D
 from coherent_rates.util import (
     CAM_BLUE,
     format_axis_scientific,
-    get_fancy_figure,
-    setup_rc_params,
+    get_thesis_figure,
 )
 
 
@@ -37,7 +36,7 @@ def get_random_k0(
 
 
 def plot_local_state_comparison() -> None:
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
 
     config = PeriodicSystemConfig(
         (400,),
@@ -129,7 +128,7 @@ def plot_local_state_comparison() -> None:
 
 
 def plot_random_state() -> None:
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
 
     config = PeriodicSystemConfig(
         (400,),
@@ -157,7 +156,6 @@ def plot_random_state() -> None:
     fig.savefig("scripts/thesis/local_state.random.pdf")
 
 
-setup_rc_params()
 if __name__ == "__main__":
     plot_local_state_comparison()
     plot_random_state()

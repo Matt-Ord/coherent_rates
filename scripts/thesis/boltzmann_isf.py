@@ -36,14 +36,13 @@ from coherent_rates.system import (
     PeriodicSystem1d,
 )
 from coherent_rates.util import (
+    CAM_BLUE,
     CAM_CHERRY,
+    CAM_SLATE_1,
     format_axis_scientific,
-    get_fancy_figure,
-    setup_rc_params,
+    get_paper_figure,
+    get_thesis_figure,
 )
-from scripts.thesis.bandstructure_plot import CAM_BLUE, CAM_SLATE_1
-
-setup_rc_params()
 
 
 def plot_periodic_isf() -> None:
@@ -63,7 +62,7 @@ def plot_periodic_isf() -> None:
     )
     isf = get_boltzmann_isf(system, config, times, n_repeats=100)
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
 
     method = GaussianMethod(measure="abs")
     fit = method.get_fit_from_isf(
@@ -145,7 +144,7 @@ def plot_periodic_weak_isf() -> None:  # noqa: PLR0915
     )
     isf = get_weak_boltzmann_isf(system, config, times)
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
     method = GaussianMethod(measure="abs")
     fit = method.get_fit_from_isf(
         isf,
@@ -302,7 +301,7 @@ def plot_periodic_local_isf() -> None:
         strategy=strategy,
     )
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
     measure = "abs"
     fit = GaussianMethod(measure=measure, truncate=True).get_fit_from_isf(
         isf,
@@ -426,7 +425,7 @@ def plot_free_isf() -> None:
     )
     analytical_isf = get_analytical_isf(system, config, times)
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("Simulated")
     line.set_color(CAM_BLUE.warm)
@@ -519,7 +518,7 @@ def plot_free_weak_isf() -> None:
     )
     analytical_isf = get_analytical_isf(system, config, times)
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("Simulated")
     line.set_color(CAM_BLUE.warm)
@@ -610,7 +609,7 @@ def plot_free_local_isf() -> None:
     )
     analytical_isf = get_analytical_isf(system, config, times)
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("Simulated")
     line.set_color(CAM_BLUE.warm)
@@ -672,10 +671,204 @@ def plot_free_local_isf() -> None:
     fig.savefig("scripts/thesis/boltzmann_isf.local.free.pdf")
 
 
+def plot_free_isf_for_paper() -> None:  # noqa: PLR0915
+    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
+    system = system.with_barrier_energy(0)
+
+    config = PeriodicSystemConfig(
+        (400,),
+        (100,),
+        direction=(2,),
+        truncation=25,
+        temperature=155,
+    )
+    print(f"Missing Occupation {get_occupation_loss(system, config):0.3e}")  # noqa: T201
+    print("Max Band Energy Level:")  # noqa: T201
+    print(f"{get_band_energy(system, config, config.n_bands - 1):0.3e}")  # noqa: T201
+    print(f"Max Simulation Time {get_max_simulation_time(system, config):0.3e}")  # noqa: T201
+    print(f"Max Simulation Time {get_max_simulation_time_thermal(system, config):0.3e}")  # noqa: T201
+
+    delta_k = get_scattered_momentum(system, config, [config.direction])[0]
+    print(f"Actual delta k:1 {delta_k:0.3e}")  # noqa: T201
+    print("Decay after 1e-10s")  # noqa: T201
+    decayed_isf = np.exp(
+        -(Boltzmann * config.temperature * (1e-10 * delta_k) ** 2) / (2 * system.mass),
+    )
+    print(f"I: {decayed_isf:0.3e}")  # noqa: T201
+    times = GaussianMethod().get_fit_times(
+        system=system,
+        config=config,
+    )
+    isf = get_boltzmann_isf(
+        system,
+        config,
+        times,
+        n_repeats=100,
+    )
+    analytical_isf = get_analytical_isf(system, config, times)
+
+    fig, ax = get_paper_figure()
+    fig, ax, line = plot_value_list_against_time(isf, measure="real", ax=ax)
+    line.set_label("Simulated")
+    line.set_color(CAM_BLUE.warm)
+    fig, ax, line = plot_value_list_against_time(
+        analytical_isf,
+        ax=ax,
+        measure="real",
+    )
+    line.set_label("Analytical")
+    line.set_color(CAM_BLUE.dark)
+    line.set_linestyle("--")
+    ax.set_xlabel("Time / s")
+    ax.set_ylabel(r"$\Re{(I(\Delta k, t))}$")
+    ax.set_ylim(0, None)
+
+    format_axis_scientific(ax.yaxis)
+
+    legend = ax.legend(
+        frameon=False,
+        loc="lower left",
+        fontsize=9,
+    )
+    legend.get_frame().set_alpha(0)
+
+    inset_ax = inset_axes(
+        ax,
+        width="45%",
+        height="45%",
+        loc="upper right",
+        borderpad=1.0,
+    )
+    _, _, inset_line = plot_value_list_against_time(isf, measure="imag", ax=inset_ax)
+    inset_line.set_color(CAM_BLUE.warm)
+    _, _, inset_line = plot_value_list_against_time(
+        analytical_isf,
+        ax=inset_ax,
+        measure="imag",
+    )
+    inset_line.set_color(CAM_BLUE.dark)
+    inset_line.set_linestyle("--")
+    inset_ax.set_ylim(0, 1.1 * np.max(np.imag(analytical_isf["data"])))
+    inset_ax.set_xlim(ax.get_xlim())
+    inset_ax.set_facecolor(CAM_SLATE_1)
+    inset_ax.spines["top"].set_visible(False)
+    inset_ax.spines["right"].set_visible(False)
+    inset_ax.tick_params(axis="both", which="major", labelsize=8)
+    inset_ax.tick_params(
+        axis="x",
+        which="both",
+        bottom=True,
+        top=False,
+        labelbottom=False,
+        labeltop=False,
+    )
+    fig.canvas.draw()
+    inset_ax.set_xticks(ax.get_xticks())
+    ax.set_xticks(inset_ax.get_xticks())
+    inset_ax.set_xlabel("")
+    inset_ax.set_ylabel(r"$\Im{(I(\Delta k, t))}$", fontsize=9)
+
+    format_axis_scientific(inset_ax.yaxis)
+    inset_ax.yaxis.get_offset_text().set_va("top")
+    inset_ax.yaxis.get_offset_text().set_position((0.01, 0))
+    fig.savefig("scripts/thesis/boltzmann_isf.free.pdf")
+
+
+def plot_periodic_isf_for_paper() -> None:
+    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
+
+    config = PeriodicSystemConfig(
+        (400,),
+        (100,),
+        direction=(2,),
+        truncation=25,
+        temperature=155,
+    )
+    times = EvenlySpacedTimeBasis(1000, 1, 0, 1.0e-10)
+    delta_k = get_scattered_momentum(system, config, [config.direction])[0]
+    print(f"Actual delta k:1 {delta_k:0.3e}")  # noqa: T201
+
+    isf = get_boltzmann_isf(
+        system,
+        config,
+        times,
+        n_repeats=100,
+    )
+
+    fig, ax = get_paper_figure()
+    fig, ax, line = plot_value_list_against_time(isf, measure="real", ax=ax)
+    line.set_label("Simulated")
+    line.set_color(CAM_BLUE.warm)
+
+    method = GaussianMethod(measure="abs")
+    fit = method.get_fit_from_isf(
+        isf,
+        system=system,
+        config=config,
+    )
+    fitted_data = method.get_fitted_data(fit, isf["basis"])
+    fig, ax, line = plot_value_list_against_time(
+        fitted_data,
+        ax=ax,
+        measure="real",
+    )
+    line.set_label("Fitted")
+    line.set_color(CAM_BLUE.dark)
+    line.set_linestyle("--")
+    ax.set_xlabel("Time / s")
+    ax.set_ylabel(r"$\Re{(I(\Delta k, t))}$")
+    ax.set_ylim(0, 1)
+
+    format_axis_scientific(ax.yaxis)
+
+    legend = ax.legend(
+        frameon=False,
+        loc="upper right",
+        fontsize=9,
+    )
+    legend.get_frame().set_alpha(0)
+
+    inset_ax = inset_axes(
+        ax,
+        width="45%",
+        height="45%",
+        loc="lower right",
+        borderpad=1.0,
+    )
+    _, _, inset_line = plot_value_list_against_time(isf, measure="imag", ax=inset_ax)
+    inset_line.set_color(CAM_BLUE.warm)
+    inset_ax.set_ylim(None, 1.1 * np.max(np.imag(isf["data"])))
+    inset_ax.set_xlim(ax.get_xlim())
+    inset_ax.set_facecolor(CAM_SLATE_1)
+    inset_ax.spines["top"].set_visible(False)
+    inset_ax.spines["right"].set_visible(False)
+    inset_ax.tick_params(axis="both", which="major", labelsize=8)
+    inset_ax.tick_params(
+        axis="x",
+        which="both",
+        bottom=True,
+        top=False,
+        labelbottom=False,
+        labeltop=False,
+    )
+    fig.canvas.draw()
+    inset_ax.set_xticks(ax.get_xticks())
+    ax.set_xticks(inset_ax.get_xticks())
+    inset_ax.set_xlabel("")
+    inset_ax.set_ylabel(r"$\Im{(I(\Delta k, t))}$", fontsize=9)
+
+    format_axis_scientific(inset_ax.yaxis)
+    inset_ax.yaxis.get_offset_text().set_va("top")
+    inset_ax.yaxis.get_offset_text().set_position((0.01, 0))
+    fig.savefig("scripts/thesis/boltzmann_isf.periodic.pdf")
+
+
 if __name__ == "__main__":
-    plot_free_isf()
-    plot_free_weak_isf()
-    plot_free_local_isf()
-    plot_periodic_isf()
-    plot_periodic_weak_isf()
-    plot_periodic_local_isf()
+    plot_free_isf_for_paper()
+    # plot_free_isf()
+    # plot_free_weak_isf()
+    # plot_free_local_isf()
+    plot_periodic_isf_for_paper()
+    # plot_periodic_isf()
+    # plot_periodic_weak_isf()
+    # plot_periodic_local_isf()
