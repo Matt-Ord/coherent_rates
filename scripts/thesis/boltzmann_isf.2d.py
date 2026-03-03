@@ -33,14 +33,12 @@ from coherent_rates.system import (
     PeriodicSystem,
 )
 from coherent_rates.util import (
+    CAM_BLUE,
     CAM_CHERRY,
+    CAM_SLATE_1,
     format_axis_scientific,
-    get_fancy_figure,
-    setup_rc_params,
+    get_thesis_figure,
 )
-from scripts.thesis.bandstructure_plot import CAM_BLUE, CAM_SLATE_1
-
-setup_rc_params()
 
 
 def plot_periodic_isf_dg_split() -> None:
@@ -61,7 +59,7 @@ def plot_periodic_isf_dg_split() -> None:
     )
     isf = get_band_resolved_boltzmann_isf(system, config, times, n_repeats=20)
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
 
     fig, ax = plot_split_value_list_against_time(isf, measure="abs", ax=ax)
 
@@ -128,7 +126,7 @@ def plot_periodic_isf_dg() -> None:
         strategy=strategy,
     )
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
 
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("Simulated")
@@ -215,7 +213,7 @@ def plot_periodic_isf() -> None:
     )
     isf = get_boltzmann_isf(system, config, times, n_repeats=20)
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
 
     method = GaussianMethod(measure="abs")
     fit = method.get_fit_from_isf(
@@ -313,7 +311,7 @@ def plot_periodic_weak_isf() -> None:
     )
     isf = get_weak_boltzmann_isf(system, config, times)
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
 
     method = GaussianMethod(measure="abs", t_factor=8.0)
     fit = method.get_fit_from_isf(
@@ -432,7 +430,7 @@ def plot_periodic_weak_isf_high_mass() -> None:
     )
     isf = get_weak_boltzmann_isf(system, config, times)
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
 
     method = GaussianMethod(measure="abs", t_factor=8.0)
     fit = method.get_fit_from_isf(
@@ -597,7 +595,7 @@ def plot_free_isf() -> None:
     )
     analytical_isf = get_analytical_isf(system, config, times)
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("Simulated")
     line.set_color(CAM_BLUE.warm)

@@ -28,9 +28,7 @@ from coherent_rates.isf import (
 from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
 )
-from coherent_rates.util import CAM_BLUE, CAM_SLATE_1, setup_rc_params
-
-setup_rc_params()
+from coherent_rates.util import CAM_BLUE, CAM_SLATE_1
 
 
 def get_fig_size() -> tuple[float, float]:

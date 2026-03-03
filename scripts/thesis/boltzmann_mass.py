@@ -25,17 +25,13 @@ from coherent_rates.system import (
 from coherent_rates.util import (
     CAM_BLUE,
     format_axis_scientific,
-    get_fancy_figure,
-    setup_rc_params,
+    get_thesis_figure,
 )
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     from coherent_rates.fit import FitMethod
-
-
-setup_rc_params()
 
 
 def _test_convergence_with_shape(
@@ -130,7 +126,7 @@ def _compare_rate_against_free_surface(
     fit_method = GaussianMethod() if fit_method is None else fit_method
     free_fit_method = GaussianMethod() if free_fit_method is None else free_fit_method
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
 
     _, _, line = plot_boltzmann_rate_against_momentum(
         system,
@@ -177,7 +173,7 @@ def _compare_rate_against_free_surface_localized(
     fit_method = GaussianMethod() if fit_method is None else fit_method
     free_fit_method = GaussianMethod() if free_fit_method is None else free_fit_method
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
 
     sigma_0 = (system.lattice_constant / 20,)
     _, _, line = plot_local_boltzmann_rate_against_momentum(
@@ -230,7 +226,7 @@ def _compare_rate_against_corrected_surface(
     corrected_fit_method = (
         GaussianMethod() if corrected_fit_method is None else corrected_fit_method
     )
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
 
     _, _, line = plot_boltzmann_rate_against_momentum(
         system,
@@ -285,7 +281,7 @@ def _compare_rate_against_corrected_surface_localized(
     corrected_fit_method = (
         GaussianMethod() if corrected_fit_method is None else corrected_fit_method
     )
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
 
     _, _, line = plot_boltzmann_rate_against_momentum(
         dataclasses.replace(
@@ -343,7 +339,7 @@ def _compare_rate_against_localized_surface(
     localized_fit_method = (
         GaussianMethod() if localized_fit_method is None else localized_fit_method
     )
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
 
     _, _, line = plot_boltzmann_rate_against_momentum(
         system,

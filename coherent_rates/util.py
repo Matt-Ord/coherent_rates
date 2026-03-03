@@ -58,7 +58,7 @@ CAM_GREEN = CamColor(
 CAM_SLATE_1 = "#ECEEF1"
 
 
-def setup_rc_params() -> None:
+def setup_rc_params_thesis() -> None:
     plt.rcParams.update(
         {
             "text.usetex": True,
@@ -72,7 +72,7 @@ def setup_rc_params() -> None:
     )
 
 
-def get_fig_size() -> tuple[float, float]:
+def get_thesis_fig_size() -> tuple[float, float]:
     total_textwidth_pt = 437.5
     pt_to_inch = 1 / 72.27
 
@@ -84,18 +84,68 @@ def get_fig_size() -> tuple[float, float]:
     return plot_width_in, plot_height_in
 
 
-def get_fancy_figure(
+def get_thesis_figure(
     *,
     fig_size: tuple[float, float] | None = None,
 ) -> tuple[Figure, Axes]:
+    setup_rc_params_thesis()
     fig, ax = plt.subplots(
-        figsize=fig_size or get_fig_size(),
+        figsize=fig_size or get_thesis_fig_size(),
         layout="constrained",
     )
     ax.set_facecolor(CAM_SLATE_1)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     fig.set_facecolor((0, 0, 0, 0))
+    return fig, ax
+
+
+def get_paper_fig_size() -> tuple[float, float]:
+    return (3.3, 2.5)
+
+
+def setup_rc_params_paper() -> None:
+    plt.rcParams.update(
+        {
+            "text.usetex": True,  # Use external LaTeX
+            "pgf.rcfonts": False,  # Ignore Matplotlib's internal font settings
+            "font.family": "serif",
+            "font.serif": ["Charter"],  # Match your \usepackage{charter}
+            "text.latex.preamble": r"""
+        \usepackage[T1]{fontenc}
+        \usepackage{charter}                    % Main text font
+        \usepackage{mathptmx}                   % Math font to match your preamble
+        \usepackage{mathtools}                  % For complex math if needed
+    """,
+            "font.size": 9,  # Matches your 9pt document class
+        },
+    )
+
+
+def get_paper_figure(
+    *,
+    fig_size: tuple[float, float] | None = None,
+) -> tuple[Figure, Axes]:
+    setup_rc_params_paper()
+    fig, ax = plt.subplots(
+        figsize=fig_size or get_paper_fig_size(),
+        layout="constrained",
+    )
+    ax.set_facecolor(CAM_SLATE_1)
+    fig.set_facecolor((0, 0, 0, 0))
+
+    ax.tick_params(
+        axis="both",
+        direction="in",
+        top=True,  # Ticks on top
+        right=True,  # Ticks on right
+        labelsize=8,  # xtick.labelsize and ytick.labelsize
+        which="both",  # Apply to both major and minor ticks if needed
+    )
+
+    # 3. Handle Label Sizes
+    ax.xaxis.label.set_fontsize(9)
+    ax.yaxis.label.set_fontsize(9)
     return fig, ax
 
 

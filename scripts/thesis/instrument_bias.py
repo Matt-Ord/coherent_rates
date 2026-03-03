@@ -17,11 +17,8 @@ from coherent_rates.system import (
 )
 from coherent_rates.util import (
     CAM_BLUE,
-    get_fancy_figure,
-    setup_rc_params,
+    get_thesis_figure,
 )
-
-setup_rc_params()
 
 if __name__ == "__main__":
     config = PeriodicSystemConfig(
@@ -44,7 +41,7 @@ if __name__ == "__main__":
         n_repeats=n_repeats,
     )
 
-    fig, ax = get_fancy_figure()
+    fig, ax = get_thesis_figure()
     fig, ax, line = plot_value_list_against_time(data, ax=ax)
     line.set_label("Ideal")
     line.set_color(CAM_BLUE.warm)

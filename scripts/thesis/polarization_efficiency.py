@@ -3,8 +3,7 @@ from scipy.optimize import curve_fit
 
 from coherent_rates.util import (
     CAM_BLUE,
-    get_fancy_figure,
-    setup_rc_params,
+    get_thesis_figure,
 )
 
 measured_polarization = [
@@ -23,8 +22,8 @@ measured_polarization = [
 energy_mev = np.asarray([x[0] for x in measured_polarization])
 polarization_efficiency = np.asarray([x[1] for x in measured_polarization])
 
-setup_rc_params()
-fig, ax = get_fancy_figure()
+
+fig, ax = get_thesis_figure()
 ax.plot(
     energy_mev,
     polarization_efficiency,
