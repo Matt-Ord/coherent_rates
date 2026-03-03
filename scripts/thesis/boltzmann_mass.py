@@ -25,10 +25,12 @@ from coherent_rates.system import (
 from coherent_rates.util import (
     CAM_BLUE,
     format_axis_scientific,
+    get_paper_figure,
     get_thesis_figure,
 )
 
 if TYPE_CHECKING:
+    from matplotlib.axes import Axes
     from matplotlib.figure import Figure
 
     from coherent_rates.fit import FitMethod
@@ -115,18 +117,17 @@ def _test_convergence_with_truncation(
     fig.show()
 
 
-def _compare_rate_against_free_surface(
+def _compare_rate_against_free_surface(  # noqa: PLR0913
     system: System,
     config: PeriodicSystemConfig,
     *,
     fit_method: FitMethod[Any] | None = None,
     free_fit_method: FitMethod[Any] | None = None,
     directions: list[tuple[int, ...]] | None = None,
-) -> Figure:
+    ax: Axes,
+) -> None:
     fit_method = GaussianMethod() if fit_method is None else fit_method
     free_fit_method = GaussianMethod() if free_fit_method is None else free_fit_method
-
-    fig, ax = get_thesis_figure()
 
     _, _, line = plot_boltzmann_rate_against_momentum(
         system,
@@ -158,8 +159,6 @@ def _compare_rate_against_free_surface(
     ax.set_title("")
     ax.set_ylabel(r"Rate / $\mathrm{s}^{-1}$")
     ax.set_xlabel(r"$\Delta k$ / $\mathrm{m}^{-1}$")
-
-    return fig
 
 
 def _compare_rate_against_free_surface_localized(
@@ -379,7 +378,55 @@ def _compare_rate_against_localized_surface(
     return fig
 
 
-if __name__ == "__main__":
+def _boltzmann_mass_thesis() -> None:
+    config = PeriodicSystemConfig(
+        (400,),
+        (100,),
+        truncation=25,
+        temperature=155,
+    )
+    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
+    print(system.barrier_energy)  # noqa: T201
+    directions = [(i,) for i in [1, 2, *list(range(5, 155, 5))]]
+
+    fig, ax = get_thesis_figure()
+    _compare_rate_against_free_surface(
+        system,
+        config,
+        directions=directions,
+        fit_method=GaussianMethod(measure="abs"),
+        free_fit_method=GaussianMethod(measure="abs"),
+        ax=ax,
+    )
+    fig.savefig("scripts/thesis/boltzmann_mass.1d.pdf")
+
+
+def _boltzmann_mass_paper() -> None:
+    config = PeriodicSystemConfig(
+        (400,),
+        (100,),
+        truncation=25,
+        temperature=155,
+    )
+    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
+    print(system.barrier_energy)  # noqa: T201
+    directions = [(i,) for i in [1, 2, *list(range(5, 155, 5))]]
+
+    fig, ax = get_paper_figure()
+    _compare_rate_against_free_surface(
+        system,
+        config,
+        directions=directions,
+        fit_method=GaussianMethod(measure="abs"),
+        free_fit_method=GaussianMethod(measure="abs"),
+        ax=ax,
+    )
+    ax.set_xlim(0, 1.4e10)
+    ax.set_ylim(0, 6e12)
+    fig.savefig("scripts/thesis/boltzmann_mass.1d.pdf")
+
+
+def _boltzmann_mass_test() -> None:
     config = PeriodicSystemConfig(
         (400,),
         (100,),
@@ -415,12 +462,14 @@ if __name__ == "__main__":
             directions=directions,
             fit_method=GaussianMethod(measure="abs"),
         )
-    fig = _compare_rate_against_free_surface(
+    fig, ax = get_thesis_figure()
+    _compare_rate_against_free_surface(
         system,
         config,
         directions=directions,
         fit_method=GaussianMethod(measure="abs"),
         free_fit_method=GaussianMethod(measure="abs"),
+        ax=ax,
     )
     fig.savefig("scripts/thesis/boltzmann_mass.1d.pdf")
 
@@ -459,3 +508,8 @@ if __name__ == "__main__":
         localized_fit_method=GaussianMethod(measure="abs"),
     )
     fig.savefig("scripts/thesis/boltzmann_mass_vs_localized.1d.pdf")
+
+
+if __name__ == "__main__":
+    _boltzmann_mass_thesis()
+    _boltzmann_mass_paper()
