@@ -278,34 +278,20 @@ def plot_periodic_isf() -> None:
     fig.savefig("scripts/thesis/boltzmann_isf.2d.periodic.pdf")
 
 
-def plot_periodic_weak_isf() -> None:
+def plot_periodic_weak_isf() -> None:  # noqa: PLR0915
     system = SODIUM_COPPER_SYSTEM_2D
 
     config = PeriodicSystemConfig(
         (20, 20),
         (35, 35),
-        direction=(10, 10),
-        truncation=625,
-        temperature=155,
-    )
-    config = PeriodicSystemConfig(
-        (20, 20),
-        (35, 35),
-        direction=(5, 0),
-        truncation=625,
-        temperature=155,
-    )
-    config = PeriodicSystemConfig(
-        (20, 20),
-        (45, 45),
         direction=(1, 0),
         truncation=625,
         temperature=155,
     )
-    system = dataclasses.replace(system, barrier_energy=system.barrier_energy * 1.5)
+    system = dataclasses.replace(system, barrier_energy=system.barrier_energy)
     delta_k = get_scattered_momentum(system, config, [config.direction])[0]
     print(f"Actual delta k: {delta_k:0.3e}")  # noqa: T201
-    times = GaussianMethod(measure="abs", t_factor=32.0).get_fit_times(
+    times = GaussianMethod(measure="abs", t_factor=8.0).get_fit_times(
         system=system,
         config=config,
     )
@@ -344,6 +330,11 @@ def plot_periodic_weak_isf() -> None:
 
     ax.set_xlabel("Time / s")
     ax.set_ylabel(r"$|I(\Delta k, t)|$")
+
+    isf = get_weak_boltzmann_isf(system, config, times, second_order=True)
+    fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
+    line.set_label("Simulated (2nd order)")
+    line.set_color(CAM_CHERRY.dark)
 
     format_axis_scientific(ax.yaxis)
 

@@ -5,10 +5,7 @@ description = ""
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 authors = [{ name = "Matthew Ord", email = "matthew.ord1@gmail.com" }]
-dependencies = [
-    "pyright>=1.1.407,<2.0.0",
-    "surface-potential-analysis",
-]
+dependencies = ["pyright>=1.1.407,<2.0.0", "surface-potential-analysis"]
 
 [project.optional-dependencies]
 dev = ["ruff", "pytest>=8.0.1,<9.0.0"]
@@ -40,9 +37,9 @@ ignore = [
 unfixable = ["ERA001", "T201"]
 
 [tool.ruff.lint.extend-per-file-ignores]
-"examples/**/*" = ["T201", "INP001"]
+"examples/**/*" = ["T201", "INP001", "INP001"]
 "scripts/**/*" = ["INP001"]
-"tests/**/*" = []
+"tests/**/*" = ["INP001"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

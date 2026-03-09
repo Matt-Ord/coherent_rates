@@ -666,7 +666,7 @@ def _get_decay_per_state(
     n_bands, n_k = hamiltonian["basis"][0].wavefunctions["basis"][0].shape
     energies = energies.reshape(n_bands, n_k) / hbar
 
-    omega_knm = (energies.T[:, :, None] - energies.T[:, None, :]).astype(np.float64)
+    omega_knm = np.real(energies.T[:, :, None] - energies.T[:, None, :])
     second_order_time_factor = _second_order_t_factor(times, omega_knm)
 
     v_nmk = _get_v_matrix(hamiltonian, scatter)
@@ -823,12 +823,13 @@ def _get_boltzmann_rate_against_momentum_data_path(
     *,
     fit_method: FitMethod[Any] | None = None,
     directions: list[tuple[int, ...]] | None = None,
+    n_repeats: int = 10,
 ) -> Path:
     fit_method = GaussianMethod() if fit_method is None else fit_method
     directions = _get_default_directions(config) if directions is None else directions
     return Path(
         f"data/{hash((system, config))}.{hash(fit_method)}"
-        f".{hash((directions[0], directions[-1], len(directions)))}.rates",
+        f".{hash((directions[0], directions[-1], len(directions), n_repeats))}.rates",
     )
 
 
@@ -889,6 +890,7 @@ def get_boltzmann_rate_against_momentum_data(
     *,
     fit_method: FitMethod[Any] | None = None,
     directions: list[tuple[int, ...]] | None = None,
+    n_repeats: int = 10,
 ) -> ValueList[MomentumBasis]:
     fit_method = GaussianMethod() if fit_method is None else fit_method
     directions = _get_default_directions(config) if directions is None else directions
@@ -901,7 +903,7 @@ def get_boltzmann_rate_against_momentum_data(
             system=system,
             config=config.with_direction(direction),
             fit_method=fit_method,
-            n_repeats=10,
+            n_repeats=n_repeats,
         )
 
     basis = MomentumBasis(get_scattered_momentum(system, config, directions))
