@@ -608,6 +608,46 @@ def _get_v_matrix_diagonal(
     return v_scatter - energies
 
 
+SMALL_X = 1e-3
+
+
+def _one_minus_sinc_div_x(
+    x: np.ndarray[Any, np.dtype[np.float64]],
+) -> np.ndarray[Any, np.dtype[np.float64]]:
+    """Calculate (1 - sinc(omega * t)) / omega."""
+    x_flat = x.ravel()
+
+    x_squared = x_flat**2
+    with np.errstate(divide="ignore", invalid="ignore"):
+        out = np.where(
+            np.abs(x.ravel()) < SMALL_X,
+            # At x < 1e-3, the omitted Taylor terms are smaller than float64 precision.
+            # equal to x**4/5040 - x**2/120 + 1/6
+            (((1 / 5040) * x_squared - (1 / 120)) * x_squared + (1 / 6)),
+            (1.0 - np.sinc(x_flat / np.pi)) / x_flat,
+        )
+
+    return out.reshape(x.shape)
+
+
+def _second_order_t_factor(
+    times: np.ndarray[tuple[int], np.dtype[np.float64]],
+    omega_knm: np.ndarray[tuple[int, int, int], np.dtype[np.float64]],
+) -> np.ndarray[tuple[int, int, int, int], np.dtype[np.float64]]:
+    omega_t = np.einsum("knm,t->knmt", omega_knm, times)  # cspell: disable-line
+    # Prefactor of sinc^2(omega_(k, n band, m band) t / 2)
+    # Note: np.pi is because np.sinc is normalized as sin(pi x) / (pi x)
+    sinc_factor = np.sinc(omega_t / (2 * np.pi)) ** 2
+    decay_time_factor = sinc_factor
+    second_factor = _one_minus_sinc_div_x(omega_t)
+    decay_time_factor = sinc_factor - 2j * second_factor
+
+    # Remove diagonal terms which are zero
+    n_idx = np.arange(omega_knm.shape[1])
+    decay_time_factor[:, n_idx, n_idx] = 0
+    return decay_time_factor * (-(times**2) / 2)
+
+
 def _get_decay_per_state(
     hamiltonian: SingleBasisDiagonalOperator[_ESB0],
     scatter: SparseScatteringOperator[_ESB0, _ESB0],
@@ -626,19 +666,18 @@ def _get_decay_per_state(
     n_bands, n_k = hamiltonian["basis"][0].wavefunctions["basis"][0].shape
     energies = energies.reshape(n_bands, n_k) / hbar
 
-    omega_knm = energies.T[:, :, None] - energies.T[:, None, :]
-    # Prefactor of sinc^2(omega_(k, n band, m band) t / 2)
-    sinc_factor = np.sinc(np.einsum("knm,t->knmt", omega_knm, times / 2)) ** 2
-    decay_time_factor = sinc_factor * (times**2 / 2)
-    # Remove diagonal terms which are zero
-    n_idx = np.arange(n_bands)
-    decay_time_factor[:, n_idx, n_idx] = 0
+    omega_knm = (energies.T[:, :, None] - energies.T[:, None, :]).astype(np.float64)
+    second_order_time_factor = _second_order_t_factor(times, omega_knm)
 
     v_nmk = _get_v_matrix(hamiltonian, scatter)
-    decay_per_state = np.einsum("knmt,nmk->nkt", decay_time_factor, np.abs(v_nmk) ** 2)
+    decay_per_state = np.einsum(
+        "knmt,nmk->nkt",  # cspell: disable-line
+        second_order_time_factor,
+        np.abs(v_nmk) ** 2,
+    )
     recoil_per_state = np.einsum("nnk,t->nkt", v_nmk, 1j * times)
 
-    return (recoil_per_state - decay_per_state).reshape(
+    return (recoil_per_state + decay_per_state).reshape(
         -1,
         times.size,
     )
