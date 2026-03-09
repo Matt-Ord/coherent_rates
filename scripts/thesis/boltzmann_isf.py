@@ -865,10 +865,10 @@ def plot_periodic_isf_for_paper() -> None:
 
 if __name__ == "__main__":
     plot_free_isf_for_paper()
-    # plot_free_isf()
-    # plot_free_weak_isf()
-    # plot_free_local_isf()
+    plot_free_isf()
+    plot_free_weak_isf()
+    plot_free_local_isf()
     plot_periodic_isf_for_paper()
-    # plot_periodic_isf()
-    # plot_periodic_weak_isf()
-    # plot_periodic_local_isf()
+    plot_periodic_isf()
+    plot_periodic_weak_isf()
+    plot_periodic_local_isf()
