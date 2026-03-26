@@ -21,7 +21,7 @@ t = np.linspace(0, 8 / delta_k, 1000)
 isf_vals = np.exp(delta_k * (1 - t - np.exp(-t)))
 (line,) = ax.plot(t, isf_vals)
 line.set_color(CAM_BLUE.warm)
-ax.set_xlabel(r"Time $t$ / $\gamma$")
+ax.set_xlabel(r"Time $t$ / $\gamma^{-1}$")
 ax.set_ylabel(r"ISF $I(\Delta k, t)$")
 line.set_label("Theoretical")
 
@@ -40,11 +40,7 @@ line.set_label("Diffusive limit")
 ax.set_ylim(0, 1.1)
 ax.set_xlim(0, 4)
 
-legend = ax.legend(
-    frameon=False,
-    loc="upper right",
-    fontsize=8,
-)
+legend = ax.legend(frameon=False, loc="upper right", fontsize=8)
 legend.get_frame().set_alpha(0)
 
 fig.savefig("scripts/thesis/theoretical_isf.pdf")

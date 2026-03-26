@@ -220,10 +220,10 @@ def plot_effective_mass_paper() -> None:
         SymmetricalLogScale(None, linthresh=1e-1),
     )
     ax.set_ylabel(r"Effective Mass \quad $\frac{m_\mathrm{eff} }{m}-1$")
-    ax.set_xlabel("Average Energy / $J$")
+    ax.set_xlabel("Band Energy / $J$")
     ax.set_xlim(0, 3 * system.barrier_energy)
     line.set_color(CAM_CHERRY.dark)
-    line.set_linestyle("-")
+    line.set_linestyle("--")
 
     legend = ax.legend(
         frameon=False,
