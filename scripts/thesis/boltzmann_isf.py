@@ -336,6 +336,64 @@ def plot_periodic_local_isf() -> None:
     fig.savefig("scripts/thesis/boltzmann_isf.periodic.local.pdf")
 
 
+def plot_periodic_local_isf_paper() -> None:
+    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
+
+    config = PeriodicSystemConfig(
+        (400,),
+        (100,),
+        direction=(300,),
+        truncation=25,
+        temperature=155,
+    )
+
+    times = GaussianMethod().get_fit_times(
+        system=system,
+        config=config,
+    )
+
+    times = EvenlySpacedTimeBasis(100, 1, 0, 2e-13)
+    delta_k = get_scattered_momentum(system, config, [config.direction])[0]
+    print(f"Actual delta k:1 {delta_k:0.3e}")  # noqa: T201
+
+    strategy = PreferentailLocalizationStrategy(
+        system=system,
+        config=config,
+        sigma_0=(system.lattice_constant / 30,),
+    )
+    isf = get_local_boltzmann_isf(
+        system,
+        config,
+        times,
+        n_repeats=1000,
+        strategy=strategy,
+    )
+
+    fig, ax = get_paper_figure()
+    measure = "abs"
+
+    fig, ax, line = plot_value_list_against_time(isf, measure=measure, ax=ax)
+    line.set_label("Localized")
+    line.set_color(CAM_BLUE.warm)
+
+    ax.set_xlabel("Time / s")
+    ax.set_ylabel(r"$|I(\Delta k, t)|$")
+
+    isf_nonlocal = get_boltzmann_isf(system, config, times, n_repeats=100)
+    fig, ax, line = plot_value_list_against_time(isf_nonlocal, measure=measure, ax=ax)
+    line.set_label("Not Localized")
+    line.set_color(CAM_BLUE.dark)
+    line.set_linestyle("--")
+
+    format_axis_scientific(ax.yaxis)
+
+    legend = ax.legend(frameon=False, loc="upper right", fontsize=9)
+    legend.get_frame().set_alpha(0)
+
+    fig.set_facecolor((0, 0, 0, 0))
+    fig.savefig("scripts/thesis/boltzmann_isf.periodic.local.pdf")
+
+
 def _get_occupation_probabilities(
     system: PeriodicSystem1d,
     config: PeriodicSystemConfig,
@@ -678,7 +736,7 @@ def plot_free_isf_for_paper() -> None:  # noqa: PLR0915
     config = PeriodicSystemConfig(
         (400,),
         (100,),
-        direction=(2,),
+        direction=(18 * 5,),
         truncation=25,
         temperature=155,
     )
@@ -780,11 +838,11 @@ def plot_periodic_isf_for_paper() -> None:
     config = PeriodicSystemConfig(
         (400,),
         (100,),
-        direction=(2,),
+        direction=(18 * 5,),
         truncation=25,
         temperature=155,
     )
-    times = EvenlySpacedTimeBasis(1000, 1, 0, 1.0e-10)
+    times = EvenlySpacedTimeBasis(1000, 1, 0, 2.0e-12)
     delta_k = get_scattered_momentum(system, config, [config.direction])[0]
     print(f"Actual delta k:1 {delta_k:0.3e}")  # noqa: T201
 
@@ -872,3 +930,4 @@ if __name__ == "__main__":
     plot_periodic_isf()
     plot_periodic_weak_isf()
     plot_periodic_local_isf()
+    plot_periodic_local_isf_paper()

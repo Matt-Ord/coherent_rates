@@ -614,16 +614,15 @@ SMALL_X = 1e-3
 def _one_minus_sinc_div_x(
     x: np.ndarray[Any, np.dtype[np.float64]],
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
-    """Calculate (1 - sinc(omega * t)) / omega."""
+    """Calculate (1 - sinc(x)) / (x)."""
     x_flat = x.ravel()
 
-    x_squared = x_flat**2
     with np.errstate(divide="ignore", invalid="ignore"):
         out = np.where(
             np.abs(x.ravel()) < SMALL_X,
             # At x < 1e-3, the omitted Taylor terms are smaller than float64 precision.
             # equal to x**4/5040 - x**2/120 + 1/6
-            (((1 / 5040) * x_squared - (1 / 120)) * x_squared + (1 / 6)),
+            (-(1 / 120) * x_flat**3 + (1 / 6) * x_flat),
             (1.0 - np.sinc(x_flat / np.pi)) / x_flat,
         )
 
