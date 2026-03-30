@@ -20,6 +20,7 @@ from surface_potential_analysis.basis.stacked_basis import (
 from surface_potential_analysis.basis.time_basis_like import (
     BasisWithTimeLike,
 )
+from surface_potential_analysis.basis.util import BasisUtil
 from surface_potential_analysis.dynamics.schrodinger.solve import (
     solve_schrodinger_equation_diagonal,
 )
@@ -42,7 +43,10 @@ from surface_potential_analysis.state_vector.state_vector_list import (
 from surface_potential_analysis.util.decorators import cached, timed
 from surface_potential_analysis.wavepacket.get_eigenstate import BlochBasis
 
-from coherent_rates.config import PeriodicSystemConfig, SimpleInstrumentFunction
+from coherent_rates.config import (
+    PeriodicSystemConfig,
+    SimpleInstrumentFunction,
+)
 from coherent_rates.fit import (
     FitMethod,
     GaussianMethod,
@@ -55,6 +59,7 @@ from coherent_rates.scattering_operator import (
     apply_scattering_operator_to_state,
     apply_scattering_operator_to_states,
     get_instrument_biased_periodic_x_from_hamiltonian,
+    get_k_operator_sparse,
 )
 from coherent_rates.solve import get_hamiltonian
 from coherent_rates.state import (
@@ -554,159 +559,157 @@ def get_boltzmann_isf(
     )
 
 
-def _get_v_matrix(
-    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
-    scatter: SparseScatteringOperator[_ESB0, _ESB0],
-) -> np.ndarray[tuple[int, int, int], np.dtype[np.complex128]]:
-    n_bands, n_k = hamiltonian["basis"][0].wavefunctions["basis"][0].shape
-    energies = hamiltonian["data"].reshape(n_bands, n_k) / hbar
-    # V_(k, band n, band m) = <k, n|S^dagger H S - H) |k, m>
-    k_shape = hamiltonian["basis"][0].wavefunctions["basis"][0][1].shape
-
-    scattered_energies = np.roll(
-        energies.reshape(n_bands, *k_shape),
-        tuple(-d for d in scatter["direction"]),
-        axis=tuple(range(1, 1 + len(k_shape))),
-    ).reshape(n_bands, n_k)
-    # Calculate <k, n|S^dagger H S |k, m>
-    s_matrix = scatter["data"].reshape(n_bands, n_bands, n_k)
-    v_scatter = np.einsum(
-        "ink,ik,imk->nmk",
-        np.conj(s_matrix),
-        scattered_energies,
-        s_matrix,
-    )
-    # add the -H term to knn
-    n_idx = np.arange(n_bands)
-    v_scatter[n_idx, n_idx] = v_scatter[n_idx, n_idx] - energies
-    return v_scatter
-
-
-def _get_v_matrix_diagonal(
-    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
-    scatter: SparseScatteringOperator[_ESB0, _ESB0],
-) -> np.ndarray[tuple[int, int, int], np.dtype[np.complex128]]:
-    n_bands, n_k = hamiltonian["basis"][0].wavefunctions["basis"][0].shape
-    energies = hamiltonian["data"].reshape(n_bands, n_k) / hbar
-    # V_(k, band n, band m) = <k, n|S^dagger H S - H) |k, m>
-    k_shape = hamiltonian["basis"][0].wavefunctions["basis"][0][1].shape
-
-    scattered_energies = np.roll(
-        energies.reshape(n_bands, *k_shape),
-        tuple(-d for d in scatter["direction"]),
-        axis=tuple(range(1, 1 + len(k_shape))),
-    ).reshape(n_bands, n_k)
-    # Calculate <k, n|S^dagger H S |k, m>
-    s_matrix = scatter["data"].reshape(n_bands, n_bands, n_k)
-    v_scatter = np.einsum(
-        "ink,ik,ink->nk",
-        np.conj(s_matrix),
-        scattered_energies,
-        s_matrix,
-    )
-
-    return v_scatter - energies
-
-
-SMALL_X = 1e-3
-
-
-def _one_minus_sinc_div_x(
-    x: np.ndarray[Any, np.dtype[np.float64]],
-) -> np.ndarray[Any, np.dtype[np.float64]]:
-    """Calculate (1 - sinc(x)) / (x)."""
-    x_flat = x.ravel()
-
-    with np.errstate(divide="ignore", invalid="ignore"):
-        out = np.where(
-            np.abs(x.ravel()) < SMALL_X,
-            # At x < 1e-3, the omitted Taylor terms are smaller than float64 precision.
-            # equal to x**4/5040 - x**2/120 + 1/6
-            (-(1 / 120) * x_flat**3 + (1 / 6) * x_flat),
-            (1.0 - np.sinc(x_flat / np.pi)) / x_flat,
-        )
-
-    return out.reshape(x.shape)
-
-
-def _second_order_t_factor(
-    times: np.ndarray[tuple[int], np.dtype[np.float64]],
-    omega_knm: np.ndarray[tuple[int, int, int], np.dtype[np.float64]],
-) -> np.ndarray[tuple[int, int, int, int], np.dtype[np.float64]]:
-    omega_t = np.einsum("knm,t->knmt", omega_knm, times)  # cspell: disable-line
-    # Prefactor of sinc^2(omega_(k, n band, m band) t / 2)
-    # Note: np.pi is because np.sinc is normalized as sin(pi x) / (pi x)
-    sinc_factor = np.sinc(omega_t / (2 * np.pi)) ** 2
-    decay_time_factor = sinc_factor
-    second_factor = _one_minus_sinc_div_x(omega_t)
-    decay_time_factor = sinc_factor - 2j * second_factor
-
-    # Remove diagonal terms which are zero
-    n_idx = np.arange(omega_knm.shape[1])
-    decay_time_factor[:, n_idx, n_idx] = 0
-    return decay_time_factor * (-(times**2) / 2)
-
-
-def _get_decay_per_state(
-    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
-    scatter: SparseScatteringOperator[_ESB0, _ESB0],
-    times: np.ndarray[tuple[int], np.dtype[np.float64]],
-    *,
-    second_order: bool = False,
+def _get_k_diagonal(
+    operator: SparseScatteringOperator[_ESB0, _ESB0],
 ) -> np.ndarray[tuple[int, int], np.dtype[np.complex128]]:
-    if not second_order:
-        v_matrix = _get_v_matrix_diagonal(hamiltonian, scatter)
-        return np.einsum("nk,t->nkt", v_matrix, 1j * times).reshape(
-            -1,
-            times.size,
-        )
+    band_basis = operator["basis"][0].wavefunctions["basis"][0][0]
+    basis = operator["basis"][0].wavefunctions["basis"][0][1]
+    n_bands = band_basis.n
+    n_k = basis.n
+    if not all(x == 0 for x in operator["direction"]):
+        return np.zeros((n_bands, n_k), dtype=np.complex128)
 
+    data = operator["data"].reshape(n_bands, n_bands, n_k)
+    return np.einsum("aaj->aj", data)
+
+
+def _get_k_scatter(
+    operator: SparseScatteringOperator[_ESB0, _ESB0],
+) -> np.ndarray[tuple[int, int], np.dtype[np.float64]]:
+    """Get |<n|delta k hat(p) / m |m>|^2.
+
+    returns an array of shape (n_bands, n_bands, n_k)
+    where the second index is the band index of m
+
+    """
+    band_basis = operator["basis"][0].wavefunctions["basis"][0][0]
+    basis = operator["basis"][0].wavefunctions["basis"][0][1]
+    n_bands = band_basis.n
+    n_k = basis.n
+    if not all(x == 0 for x in operator["direction"]):
+        return np.zeros((n_bands, n_k), dtype=np.float64)
+
+    data = operator["data"].reshape(n_bands, n_bands, n_k)
+    square_norm = np.abs(data) ** 2
+    n_idx = np.arange(n_bands)
+    square_norm[n_idx, n_idx, :] = 0.0
+    return square_norm.astype(np.float64)
+
+
+def _get_time_factor_first_order(
+    times: np.ndarray[tuple[int], np.dtype[np.float64]],
+    friction: float = 0,
+) -> np.ndarray[tuple[int], np.dtype[np.float64]]:
+    gamma_t = friction * times
+    with np.errstate(divide="ignore", invalid="ignore"):
+        out = (1 - np.exp(-gamma_t)) / friction
+    is_almost_zero = np.isclose(gamma_t, 0)
+    out[is_almost_zero] = times[is_almost_zero] * (1 - (gamma_t[is_almost_zero] / 2))
+    return out
+
+
+def _get_scatter_omega(
+    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+) -> np.ndarray[tuple[int, int], np.dtype[np.float64]]:
+    """Get |<n|delta k hat(p) / m |m>|^2.
+
+    returns an array of shape (n_bands, n_bands, n_k)
+    where the second index is the band index of m
+
+    """
     energies = hamiltonian["data"]
     n_bands, n_k = hamiltonian["basis"][0].wavefunctions["basis"][0].shape
     energies = energies.reshape(n_bands, n_k) / hbar
+    return np.real(energies[:, None, :] - energies[None, :, :])
 
-    omega_knm = np.real(energies.T[:, :, None] - energies.T[:, None, :])
-    second_order_time_factor = _second_order_t_factor(times, omega_knm)
 
-    v_nmk = _get_v_matrix(hamiltonian, scatter)
-    decay_per_state = np.einsum(
-        "knmt,nmk->nkt",  # cspell: disable-line
-        second_order_time_factor,
-        np.abs(v_nmk) ** 2,
+def _get_time_factor_second_order(
+    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+    times: np.ndarray[tuple[int], np.dtype[np.float64]],
+    friction: float = 0,
+) -> np.ndarray[tuple[int], np.dtype[np.float64]]:
+    scatter_omega = _get_scatter_omega(hamiltonian)
+    scatter_omega = scatter_omega.reshape((*scatter_omega.shape, 1))
+    times = times.reshape(1, 1, 1, -1)
+    omega_t = scatter_omega * times
+
+    if np.isclose(friction, 0):
+        return 0.5 * times**2 * np.sinc(omega_t / (2 * np.pi)) ** 2
+
+    gamma_t = friction * times.reshape(1, 1, 1, -1)
+
+    numerator = 1 + np.exp(-2 * gamma_t) - (2 * np.exp(-gamma_t) * np.cos(omega_t))
+    denominator = 2 * (scatter_omega**2 + friction**2)
+    return numerator / denominator
+
+
+def _get_decay_per_state(  # noqa: PLR0913
+    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+    direction: tuple[int, ...],
+    times: np.ndarray[tuple[int], np.dtype[np.float64]],
+    mass: float,
+    friction: float = 0,
+    *,
+    second_order: bool = False,
+) -> np.ndarray[tuple[int, int], np.dtype[np.complex128]]:
+
+    state_basis = hamiltonian["basis"][0]
+    dk = BasisUtil(state_basis).fundamental_dk_stacked
+    direction_k = np.einsum("i,ij->j", direction, dk)
+    scatter_operator = get_k_operator_sparse(
+        state_basis,
+        direction_k * (hbar / mass),
     )
-    recoil_per_state = np.einsum("nnk,t->nkt", v_nmk, 1j * times)
+    recoil = np.sum(np.square(direction_k)) * hbar / (2 * mass)
 
-    return (recoil_per_state + decay_per_state).reshape(
-        -1,
-        times.size,
+    diagonal_k = (recoil - _get_k_diagonal(scatter_operator)).reshape(-1, 1)
+    diagonal_time_factor = (
+        _get_time_factor_first_order(times, friction) if second_order else times
     )
+    diagonal_phase = (1j) * (diagonal_time_factor)[np.newaxis, :]
+    out = diagonal_phase * diagonal_k
+
+    if second_order:
+        time_factor = _get_time_factor_second_order(hamiltonian, times, friction)
+        scatter_k = _get_k_scatter(scatter_operator)
+        scatter_k = scatter_k.reshape((*scatter_k.shape, 1))
+        out -= np.einsum(
+            "abkt->akt",  # cspell: disable-line
+            time_factor * scatter_k,
+        ).reshape(-1, times.size)
+    return out
 
 
 def _get_weak_boltzmann_isf_data_path(
     system: System,
     config: PeriodicSystemConfig,
     times: Any,  # noqa: ANN401
+    friction: float = 0,
     *,
     second_order: bool = False,
 ) -> Path:
-    prefix = f"{hash((system, config))}.{hash(times)}.{second_order}"
+    prefix = f"{hash((system, config))}.{hash(times)}.{second_order}.{friction}"
     return Path(f"data/{prefix}.weak_boltzmann.isf")
 
 
-def _get_weak_boltzmann_isf_from_hamiltonian(
+def _get_weak_boltzmann_isf_from_hamiltonian(  # noqa: PLR0913
     hamiltonian: SingleBasisDiagonalOperator[_ESB0],
-    scatter: SparseScatteringOperator[_ESB0, _ESB0],
+    direction: tuple[int, ...],
     temperature: float,
     times: _BT0,
+    mass: float,
+    friction: float = 0,
     *,
     second_order: bool = False,
 ) -> ValueList[_BT0]:
     isf_per_state = np.exp(
         _get_decay_per_state(
             hamiltonian,
-            scatter,
+            direction,
             times.times,
             second_order=second_order,
+            friction=friction,
+            mass=mass,
         ),
     )
 
@@ -724,22 +727,20 @@ def get_weak_boltzmann_isf(
     system: System,
     config: PeriodicSystemConfig,
     times: _BT0,
+    friction: float = 0,
     *,
     second_order: bool = False,
 ) -> ValueList[_BT0]:
     hamiltonian = get_hamiltonian(system, config)
-    scatter = get_instrument_biased_periodic_x_from_hamiltonian(
-        hamiltonian,
-        direction=config.direction,
-        instrument_function=config.instrument_function,
-    )
 
     return _get_weak_boltzmann_isf_from_hamiltonian(
         hamiltonian,
-        scatter,
+        config.direction,
         config.temperature,
         times,
         second_order=second_order,
+        mass=system.mass,
+        friction=friction,
     )
 
 
@@ -919,18 +920,14 @@ def _get_weak_boltzmann_rate_from_hamiltonian(
     second_order: bool = False,
 ) -> float:
     times = fit_method.get_fit_times(system=system, config=config)
-    scatter = get_instrument_biased_periodic_x_from_hamiltonian(
-        hamiltonian,
-        direction=config.direction,
-        instrument_function=config.instrument_function,
-    )
 
     isf = _get_weak_boltzmann_isf_from_hamiltonian(
         hamiltonian,
-        scatter,
+        config.direction,
         config.temperature,
         times,
         second_order=second_order,
+        mass=system.mass,
     )
 
     return fit_method.get_rate_from_isf(

@@ -14,7 +14,13 @@ from surface_potential_analysis.state_vector.conversion import (
 )
 from surface_potential_analysis.state_vector.plot import get_periodic_x_operator
 from surface_potential_analysis.util.decorators import cached, timed
-from surface_potential_analysis.wavepacket.get_eigenstate import BlochBasis
+from surface_potential_analysis.wavepacket.get_eigenstate import (
+    BlochBasis,
+    get_fundamental_wavepacket,
+)
+from surface_potential_analysis.wavepacket.wavepacket import (
+    get_wavepacket_sample_fractions,
+)
 
 from coherent_rates.config import IdealInstrumentFunction, PeriodicSystemConfig
 from coherent_rates.solve import get_hamiltonian
@@ -331,3 +337,63 @@ def get_instrument_biased_periodic_x(
         config.direction,
         config.instrument_function,
     )
+
+
+@timed
+def get_k_operator_sparse(
+    basis: _B0_co,
+    direction: tuple[float, ...],
+) -> SparseScatteringOperator[_B0_co, _B0_co]:
+    band_basis = basis.wavefunctions["basis"][0][0]
+    bloch_phase_basis = basis.wavefunctions["basis"][0][1]
+    # band (out), band (in), bloch k
+    out = np.zeros(
+        (band_basis.n, band_basis.n, bloch_phase_basis.n),
+        dtype=np.complex128,
+    )
+    wavepacket = get_fundamental_wavepacket(basis.wavefunctions)
+    n_bands = band_basis.n
+    n_k_crystal = wavepacket["basis"][0][1].n
+    n_k_state = wavepacket["basis"][1].n
+    wavepacket_data = wavepacket["data"].reshape(
+        n_bands,
+        n_k_crystal,
+        n_k_state,
+    )
+    # The intrinsic momentum of the state.
+    state_k_points = BasisUtil(wavepacket["basis"][1]).fundamental_stacked_k_points
+    fundamental_dk = BasisUtil(wavepacket["basis"][1]).fundamental_dk_stacked
+    bloch_fractions = get_wavepacket_sample_fractions(wavepacket["basis"][0][1])
+    for i, bloch_fraction in enumerate(bloch_fractions.T):
+        # The state in momentum basis at the given bloch k
+        wavepackets_at_k = wavepacket_data[:, i]
+        # The crystal momentum of the state
+        k_crystal = np.tensordot(fundamental_dk, bloch_fraction, axes=(0, 0))
+
+        # Calculate direction_j * k_(ji) for each state i
+        operator_in_k = np.einsum(
+            "ji,j->i",
+            state_k_points + k_crystal[:, np.newaxis],
+            direction,
+        )
+        # Convert from momentum basis to eigen-basis
+        out[:, :, i] = np.einsum(
+            "ai,i,bi->ab",
+            np.conj(wavepackets_at_k),
+            operator_in_k,
+            wavepackets_at_k,
+        )
+
+    return {
+        "basis": TupleBasis(basis, basis),
+        "data": out.ravel(),
+        "direction": (0, 0, 0),
+    }
+
+
+@timed
+def get_k_from_hamiltonian(
+    hamiltonian: SingleBasisDiagonalOperator[_B0],
+    direction: tuple[float, ...],
+) -> SparseScatteringOperator[_B0, _B0]:
+    return get_k_operator_sparse(hamiltonian["basis"][0], direction)
