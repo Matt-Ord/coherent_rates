@@ -142,8 +142,9 @@ def plot_periodic_weak_isf() -> None:  # noqa: PLR0915
         system=system,
         config=config,
     )
+    delta_k = get_scattered_momentum(system, config, [config.direction])[0]
+    print(f"Actual delta k:1 {delta_k:0.3e}")  # noqa: T201
     isf = get_weak_boltzmann_isf(system, config, times)
-
     fig, ax = get_thesis_figure()
     method = GaussianMethod(measure="abs")
     fit = method.get_fit_from_isf(
@@ -161,6 +162,17 @@ def plot_periodic_weak_isf() -> None:  # noqa: PLR0915
     fig, ax, line = plot_value_list_against_time(isf_se, measure="abs", ax=ax)
     line.set_label("Simulated (2nd order)")
     line.set_color(CAM_CHERRY.base)
+
+    isf_se_friction = get_weak_boltzmann_isf.call_cached(
+        system,
+        config,
+        times,
+        friction=5e12,
+        second_order=True,
+    )
+    fig, ax, line = plot_value_list_against_time(isf_se_friction, measure="abs", ax=ax)
+    line.set_label("Simulated (2nd order w/ friction)")
+    line.set_color(CAM_CHERRY.light)
 
     isf_full = get_boltzmann_isf(system, config, times)
     fig, ax, line = plot_value_list_against_time(isf_full, measure="abs", ax=ax)
@@ -220,6 +232,14 @@ def plot_periodic_weak_isf() -> None:  # noqa: PLR0915
         ax=inset_ax,
     )
     inset_line.set_color(CAM_CHERRY.dark)
+
+    fig, ax, inset_line = plot_value_list_against_time(
+        isf_se_friction,
+        measure="angle",
+        ax=inset_ax,
+    )
+    inset_line.set_label("Simulated (2nd order w/ friction)")
+    inset_line.set_color(CAM_CHERRY.light)
 
     inset_ax.set_facecolor((0, 0, 0, 0))
     inset_ax.spines["top"].set_visible(False)
