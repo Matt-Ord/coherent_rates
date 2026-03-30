@@ -610,34 +610,37 @@ def _get_time_factor_first_order(
 
 def _get_scatter_omega(
     hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+    *,
+    band_idx: int,
 ) -> np.ndarray[tuple[int, int], np.dtype[np.float64]]:
     """Get |<n|delta k hat(p) / m |m>|^2.
 
-    returns an array of shape (n_bands, n_bands, n_k)
-    where the second index is the band index of m
+    returns an array of shape (n_bands, n_k)
+    where the n_bands index is the band m
 
     """
     energies = hamiltonian["data"]
     n_bands, n_k = hamiltonian["basis"][0].wavefunctions["basis"][0].shape
     energies = energies.reshape(n_bands, n_k) / hbar
-    return np.real(energies[:, None, :] - energies[None, :, :])
+    return np.real(energies[band_idx, None, :] - energies[:, :])
 
 
 def _get_time_factor_second_order(
     hamiltonian: SingleBasisDiagonalOperator[_ESB0],
     times: np.ndarray[tuple[int], np.dtype[np.float64]],
     friction: float = 0,
+    *,
+    band_idx: int,
 ) -> np.ndarray[tuple[int], np.dtype[np.float64]]:
-    scatter_omega = _get_scatter_omega(hamiltonian)
+    scatter_omega = _get_scatter_omega(hamiltonian, band_idx=band_idx)
     scatter_omega = scatter_omega.reshape((*scatter_omega.shape, 1))
-    times = times.reshape(1, 1, 1, -1)
+    times = times.reshape(1, 1, -1)
     omega_t = scatter_omega * times
 
     if np.isclose(friction, 0):
         return 0.5 * times**2 * np.sinc(omega_t / (2 * np.pi)) ** 2
 
-    gamma_t = friction * times.reshape(1, 1, 1, -1)
-
+    gamma_t = friction * times
     numerator = 1 + np.exp(-2 * gamma_t) - (2 * np.exp(-gamma_t) * np.cos(omega_t))
     denominator = 2 * (scatter_omega**2 + friction**2)
     return numerator / denominator
@@ -670,13 +673,22 @@ def _get_decay_per_state(  # noqa: PLR0913
     out = diagonal_phase * diagonal_k
 
     if second_order:
-        time_factor = _get_time_factor_second_order(hamiltonian, times, friction)
+        n_bands = state_basis.wavefunctions["basis"][0][0].n
+        out = out.reshape((n_bands, -1, times.size))
         scatter_k = _get_k_scatter(scatter_operator)
         scatter_k = scatter_k.reshape((*scatter_k.shape, 1))
-        out -= np.einsum(
-            "abkt->akt",  # cspell: disable-line
-            time_factor * scatter_k,
-        ).reshape(-1, times.size)
+        for band_idx in range(n_bands):
+            time_factor = _get_time_factor_second_order(
+                hamiltonian,
+                times,
+                friction,
+                band_idx=band_idx,
+            )
+            out[band_idx, :] -= np.einsum(
+                "bkt->kt",  # cspell: disable-line
+                time_factor * scatter_k[band_idx],
+            ).reshape(-1, times.size)
+        out = out.reshape(-1, times.size)
     return out
 
 
