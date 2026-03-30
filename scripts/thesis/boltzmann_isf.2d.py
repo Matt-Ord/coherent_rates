@@ -373,14 +373,6 @@ def plot_periodic_weak_isf() -> None:  # noqa: PLR0915
     inset_ax.set_xlabel("")
     inset_ax.set_ylabel(r"$\arg{(I(\Delta k, t))}$", fontsize=9, labelpad=-1)
 
-    inset_ax.plot(
-        times.fundamental_times,
-        get_free_recoil(system, config) * times.fundamental_times,
-        color=CAM_BLUE.dark,
-        linestyle="--",
-        linewidth=2,
-    )
-
     method = LinearRecoilMethod()
     fit = method.get_fit_from_isf(
         isf,
