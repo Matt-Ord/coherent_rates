@@ -149,6 +149,46 @@ def get_paper_figure(
     return fig, ax
 
 
+def get_paper_isf_figure(
+    *,
+    fig_size: tuple[float, float] | None = None,
+) -> tuple[Figure, tuple[Axes, Axes]]:
+    setup_rc_params_paper()
+    fig, (ax0, ax1) = plt.subplots(
+        nrows=2,
+        figsize=fig_size or get_paper_fig_size(),
+        layout="constrained",
+        sharex=True,
+    )
+    ax0.set_facecolor(CAM_SLATE_1)
+    ax1.set_facecolor(CAM_SLATE_1)
+    fig.set_facecolor((0, 0, 0, 0))
+
+    ax0.tick_params(
+        axis="both",
+        direction="in",
+        top=True,  # Ticks on top
+        right=True,  # Ticks on right
+        labelsize=8,  # xtick.labelsize and ytick.labelsize
+        which="both",  # Apply to both major and minor ticks if needed
+    )
+    ax1.tick_params(
+        axis="both",
+        direction="in",
+        top=True,  # Ticks on top
+        right=True,  # Ticks on right
+        labelsize=8,  # xtick.labelsize and ytick.labelsize
+        which="both",  # Apply to both major and minor ticks if needed
+    )
+
+    # 3. Handle Label Sizes
+    ax0.xaxis.label.set_fontsize(9)
+    ax0.yaxis.label.set_fontsize(9)
+    ax1.xaxis.label.set_fontsize(9)
+    ax1.yaxis.label.set_fontsize(9)
+    return fig, (ax0, ax1)
+
+
 def format_axis_scientific(ax: Axis) -> None:
     formatter = ticker.ScalarFormatter(useMathText=True)
     # 2. Force scientific notation
