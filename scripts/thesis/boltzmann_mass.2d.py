@@ -58,8 +58,8 @@ def _2d_boltzmann_rate() -> None:
     config = PeriodicSystemConfig(
         (20, 20),
         (35, 35),
-        direction=(2, 2),
         truncation=625,
+        direction=(2, 2),
         temperature=155,
     )
     system = SODIUM_COPPER_SYSTEM_2D
