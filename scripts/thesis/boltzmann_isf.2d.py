@@ -3,13 +3,17 @@ from typing import Any
 
 import numpy as np
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-from scipy.constants import Boltzmann
+from scipy.constants import Boltzmann, electron_volt
 from surface_potential_analysis.state_vector.plot_value_list import (
     plot_split_value_list_against_time,
     plot_value_list_against_time,
 )
 
-from coherent_rates.config import PeriodicSystemConfig
+from coherent_rates.config import (
+    ExponentialInstrumentFunction,
+    PeriodicSystemConfig,
+    SquareInstrumentFunction,
+)
 from coherent_rates.fit import (
     DoubleGaussianMethod,
     GaussianMethod,
@@ -284,7 +288,7 @@ def plot_periodic_weak_isf() -> None:  # noqa: PLR0915
     config = PeriodicSystemConfig(
         (20, 20),
         (35, 35),
-        direction=(1, 0),
+        direction=(5, 0),
         truncation=625,
         temperature=155,
     )
@@ -331,10 +335,59 @@ def plot_periodic_weak_isf() -> None:  # noqa: PLR0915
     ax.set_xlabel("Time / s")
     ax.set_ylabel(r"$|I(\Delta k, t)|$")
 
-    isf = get_weak_boltzmann_isf(system, config, times, second_order=True)
-    fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
+    isf_so = get_weak_boltzmann_isf(system, config, times, second_order=True)
+    fig, ax, line = plot_value_list_against_time(isf_so, measure="abs", ax=ax)
     line.set_label("Simulated (2nd order)")
     line.set_color(CAM_CHERRY.dark)
+
+    isf = get_boltzmann_isf(system, config, times, n_repeats=20)
+    # isf_so_friction = get_weak_boltzmann_isf(
+    #     system,
+    #     config,
+    #     times,
+    #     second_order=True,
+    #     friction=1e12,
+    # )
+    # isf_so_friction = get_weak_boltzmann_isf(
+    #     system,
+    #     config,
+    #     times,
+    #     second_order=True,
+    #     friction=0.5e11,
+    # )
+    fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
+    line.set_label("Full ISF")
+    line.set_color(CAM_CHERRY.warm)
+    config_instrument = dataclasses.replace(
+        config,
+        instrument_function=ExponentialInstrumentFunction(
+            width=8.03 * 10**-3 * electron_volt,
+            optimal_energy_out=7.7 * 10**-3 * electron_volt,
+            incoming_energy=8 * 10**-3 * electron_volt,
+        ),
+    )
+    isf_instrument = get_boltzmann_isf(system, config_instrument, times, n_repeats=20)
+    isf_instrument["data"] /= isf_instrument["data"][0]
+    fig, ax, line = plot_value_list_against_time(isf_instrument, measure="abs", ax=ax)
+    line.set_label("Full ISF (instrument)")
+    line.set_color(CAM_BLUE.dark)
+    config_instrument_1 = dataclasses.replace(
+        config,
+        instrument_function=SquareInstrumentFunction(
+            width=8 * 10**-4 * electron_volt,
+            incoming_energy=8 * 10**-3 * electron_volt,
+        ),
+    )
+    isf_instrument_1 = get_boltzmann_isf(
+        system,
+        config_instrument_1,
+        times,
+        n_repeats=20,
+    )
+    isf_instrument_1["data"] /= isf_instrument_1["data"][0]
+    fig, ax, line = plot_value_list_against_time(isf_instrument_1, measure="abs", ax=ax)
+    line.set_label("Full ISF (instrument)")
+    line.set_color(CAM_BLUE.dark)
 
     format_axis_scientific(ax.yaxis)
 
@@ -399,7 +452,7 @@ def plot_periodic_weak_isf_high_mass() -> None:
     config = PeriodicSystemConfig(
         (20, 20),
         (45, 45),
-        direction=(1, 0),
+        direction=(5, 0),
         truncation=800,
         temperature=155,
     )
@@ -641,9 +694,9 @@ def plot_free_isf() -> None:
 
 
 if __name__ == "__main__":
-    plot_free_isf()
-    plot_periodic_isf()
+    # plot_free_isf()
+    # plot_periodic_isf()
     plot_periodic_weak_isf()
-    plot_periodic_weak_isf_high_mass()
-    plot_periodic_isf_dg()
-    plot_periodic_isf_dg_split()
+    # plot_periodic_weak_isf_high_mass()
+    # plot_periodic_isf_dg()
+    # plot_periodic_isf_dg_split()

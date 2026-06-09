@@ -29,7 +29,7 @@ from surface_potential_analysis.basis.util import BasisUtil
 from surface_potential_analysis.util.util import Measure, get_measured_data
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
     from surface_potential_analysis.state_vector.eigenstate_list import ValueList
 
@@ -202,7 +202,7 @@ def _truncate_value_list(
 def get_scattered_momentum(
     system: System,
     config: PeriodicSystemConfig,
-    directions: list[tuple[int, ...]],
+    directions: Sequence[tuple[float, ...] | tuple[int, ...]],
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
     basis = system.get_potential_basis(config.shape, config.resolution)
     dk_stacked = BasisUtil(basis).fundamental_dk_stacked

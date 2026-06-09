@@ -143,7 +143,7 @@ def get_isf_pair_states(
     hamiltonian = get_hamiltonian(system, config)
     operator = get_instrument_biased_periodic_x_from_hamiltonian(
         hamiltonian,
-        direction=config.direction,
+        direction=tuple(int(x) for x in config.direction),
         instrument_function=config.instrument_function,
     )
 
@@ -186,7 +186,7 @@ def get_isf(
     hamiltonian = get_hamiltonian(system, config)
     operator = get_instrument_biased_periodic_x_from_hamiltonian(
         hamiltonian,
-        direction=config.direction,
+        direction=tuple(int(x) for x in config.direction),
         instrument_function=config.instrument_function,
     )
 
@@ -266,7 +266,7 @@ def get_band_resolved_boltzmann_isf(
     bands = hamiltonian["basis"][0].wavefunctions["basis"][0][0]
     operator = get_instrument_biased_periodic_x_from_hamiltonian(
         hamiltonian,
-        direction=config.direction,
+        direction=tuple(int(x) for x in config.direction),
         instrument_function=config.instrument_function,
     )
 
@@ -314,7 +314,7 @@ def _get_coherent_isf_from_hamiltonian(  # noqa: PLR0913
     # to prevent conversion in each repeat
     operator = get_instrument_biased_periodic_x_from_hamiltonian(
         hamiltonian,
-        direction=config.direction,
+        direction=tuple(int(x) for x in config.direction),
         instrument_function=config.instrument_function,
     )
 
@@ -505,7 +505,7 @@ def _get_boltzmann_isf_from_hamiltonian(
     # to prevent conversion in each repeat
     operator = get_instrument_biased_periodic_x_from_hamiltonian(
         hamiltonian,
-        direction=config.direction,
+        direction=tuple(int(x) for x in config.direction),
         instrument_function=config.instrument_function,
     )
 
@@ -648,7 +648,7 @@ def _get_time_factor_second_order(
 
 def _get_decay_per_state(  # noqa: PLR0913
     hamiltonian: SingleBasisDiagonalOperator[_ESB0],
-    direction: tuple[int, ...],
+    direction: tuple[float, ...],
     times: np.ndarray[tuple[int], np.dtype[np.float64]],
     mass: float,
     friction: float = 0,
@@ -706,7 +706,7 @@ def _get_weak_boltzmann_isf_data_path(
 
 def _get_weak_boltzmann_isf_from_hamiltonian(  # noqa: PLR0913
     hamiltonian: SingleBasisDiagonalOperator[_ESB0],
-    direction: tuple[int, ...],
+    direction: tuple[float, ...],
     temperature: float,
     times: _BT0,
     mass: float,
@@ -769,7 +769,7 @@ def _get_local_boltzmann_isf_from_hamiltonian(
     # to prevent conversion in each repeat
     operator = get_instrument_biased_periodic_x_from_hamiltonian(
         hamiltonian,
-        direction=config.direction,
+        direction=tuple(int(x) for x in config.direction),
         instrument_function=config.instrument_function,
     )
 
