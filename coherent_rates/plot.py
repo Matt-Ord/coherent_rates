@@ -41,7 +41,6 @@ from surface_potential_analysis.util.plot import (
     get_figure,
     plot_data_1d,
 )
-from surface_potential_analysis.util.squared_scale import SquaredScale
 from surface_potential_analysis.util.util import Measure
 from surface_potential_analysis.wavepacket.plot import (
     plot_occupation_against_band,
@@ -77,8 +76,6 @@ from coherent_rates.isf import (
     get_isf_pair_states,
     get_linear_fit_effective_mass_against_condition_data,
     get_local_boltzmann_rate_against_momentum_data,
-    get_scattered_energy_change_against_k,
-    get_thermal_scattered_energy_change_against_k,
     get_weak_boltzmann_isf,
 )
 from coherent_rates.scattering_operator import (
@@ -94,10 +91,6 @@ from coherent_rates.state import (
     LocalizationStrategy,
     get_boltzmann_state_from_hamiltonian,
     get_random_boltzmann_state,
-)
-from coherent_rates.system import (
-    FreeSystem,
-    System,
 )
 
 if TYPE_CHECKING:
@@ -119,6 +112,9 @@ if TYPE_CHECKING:
 
     from coherent_rates.config import PeriodicSystemConfig
     from coherent_rates.fit import FitMethod
+    from coherent_rates.system import (
+        System,
+    )
 
     _B0 = TypeVar("_B0", bound=BasisLike[Any, Any])
 
@@ -963,67 +959,6 @@ def plot_linear_fit_effective_mass_against_temperature_comparison(
     input()
 
 
-def plot_thermal_scattered_energy_change_comparison(
-    system: System,
-    config: PeriodicSystemConfig,
-    *,
-    directions: list[tuple[int, ...]] | None = None,
-    n_repeats: int = 10,
-) -> None:
-    bound_data = get_thermal_scattered_energy_change_against_k(
-        system,
-        config,
-        directions=directions,
-        n_repeats=n_repeats,
-    )
-    fig, ax, line = plot_value_list_against_momentum(bound_data)
-    line.set_label("Bound")
-
-    free_system = FreeSystem(system)
-    free_data = get_thermal_scattered_energy_change_against_k(
-        free_system,
-        config,
-        directions=directions,
-        n_repeats=1,
-    )
-    fig, ax, line1 = plot_value_list_against_momentum(free_data, ax=ax)
-    line1.set_label("Free")
-
-    ax.legend()  # type: ignore library type
-    ax.set_xscale(SquaredScale(axis=None))  # type: ignore library type
-    ax.set_ylabel("Energy change /J")  # type: ignore library type
-
-    fig.show()
-    input()
-
-
-def plot_scattered_energy_change_state(
-    system: System,
-    config: PeriodicSystemConfig,
-    state: StateVector[Any],
-    *,
-    directions: list[tuple[int, ...]] | None = None,
-) -> None:
-    bound_data = get_scattered_energy_change_against_k(
-        system,
-        config,
-        state,
-        directions=directions,
-    )
-    fig, ax, _ = plot_value_list_against_momentum(bound_data)
-    ax.set_xscale(SquaredScale(axis=None))  # type: ignore library type
-    ax.set_title("Quadratic")  # type: ignore library type
-    ax.set_ylabel("Energy change /J")  # type: ignore library type
-    fig.show()
-
-    fig, ax, _ = plot_value_list_against_momentum(bound_data)
-    ax.set_title("Linear")  # type: ignore library type
-    ax.set_ylabel("Energy change /J")  # type: ignore library type
-    fig.show()
-
-    input()
-
-
 def plot_occupation_against_energy_change_with_contition(
     conditions: list[SimulationCondition],
 ) -> tuple[Figure, Axes]:
@@ -1042,7 +977,7 @@ def plot_occupation_against_energy_change_with_contition(
         )
         operator = get_instrument_biased_periodic_x_from_hamiltonian(
             hamiltonian,
-            config.direction,
+            tuple(int(x) for x in config.direction),
             config.instrument_function,
         )
         scattered_state = apply_scattering_operator_to_state(operator, state)
@@ -1056,49 +991,3 @@ def plot_occupation_against_energy_change_with_contition(
 
     ax.legend()  # type: ignore library type
     return fig, ax
-
-
-def plot_occupation_against_energy_change_comparison_mass(
-    system: System,
-    config: PeriodicSystemConfig,
-    mass_ratio: float,
-) -> None:
-    conditions = [
-        (system, config, "Normal Mass"),
-        (
-            system.with_mass(mass_ratio * system.mass),
-            config,
-            f"{mass_ratio}$\\times$ mass",
-        ),
-    ]
-
-    fig, ax = plot_occupation_against_energy_change_with_contition(
-        conditions,
-    )
-
-    ax.axvline(system.barrier_energy, color="black", ls="--")  # type: ignore library type
-
-    ax.set_xlim(0, 10 * system.barrier_energy)
-    ax.set_ylim(0)
-    ax.legend()  # type: ignore library type
-    fig.show()
-    input()
-
-
-def plot_occupation_against_energy_change_comparison_temperature(
-    system: System,
-    config: PeriodicSystemConfig,
-    temperatures: tuple[float, float],
-) -> None:
-    conditions = get_conditions_at_temperatures(system, config, temperatures)
-    fig, ax = plot_occupation_against_energy_change_with_contition(
-        conditions,
-    )
-
-    line = ax.axvline(system.barrier_energy, color="black", ls="--")  # type: ignore library type
-    line.set_label("Barrier Energy")
-    ax.set_xlim(0, 10 * system.barrier_energy)
-    ax.set_ylim(0)
-    ax.legend()  # type: ignore library type
-    fig.show()
-    input()

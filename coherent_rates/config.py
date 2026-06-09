@@ -86,6 +86,38 @@ class ExponentialInstrumentFunction(InstrumentFunction):
         )
 
 
+@dataclass(kw_only=True, frozen=True)
+class SquareInstrumentFunction(InstrumentFunction):
+    """An instrument who's response is an exponential decay."""
+
+    width: float
+    optimal_energy_out: float | None = None
+    incoming_energy: float
+
+    def evaluate(
+        self: Self,
+        energy: np.ndarray[Any, np.dtype[np.float64]],
+    ) -> np.ndarray[Any, np.dtype[np.float64]]:
+        energy_out = self.incoming_energy - energy
+        optimal_energy_out = (
+            self.incoming_energy
+            if self.optimal_energy_out is None
+            else self.optimal_energy_out
+        )
+        energy_diff = np.abs(energy_out - optimal_energy_out)
+
+        return np.where(energy_diff < (self.width / 2), 1, 0.0)
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.width,
+                self.optimal_energy_out,
+                self.incoming_energy,
+            ),
+        )
+
+
 @dataclass(frozen=True)
 class PeriodicSystemConfig:
     """Configure the simlation-specific detail of the system."""
@@ -98,7 +130,7 @@ class PeriodicSystemConfig:
         default_factory=IdealInstrumentFunction,
         kw_only=True,
     )
-    direction: tuple[int, ...] = field(default=_DEFAULT_DIRECTION, kw_only=True)
+    direction: tuple[float, ...] = field(default=_DEFAULT_DIRECTION, kw_only=True)
 
     def __post_init__(self: Self) -> None:
         if self.direction is _DEFAULT_DIRECTION:

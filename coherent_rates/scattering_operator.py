@@ -334,7 +334,7 @@ def get_instrument_biased_periodic_x(
     hamiltonian = get_hamiltonian(system, config)
     return get_instrument_biased_periodic_x_from_hamiltonian(
         hamiltonian,
-        config.direction,
+        tuple(int(x) for x in config.direction),
         config.instrument_function,
     )
 
@@ -382,6 +382,7 @@ def get_k_operator_sparse(
             np.conj(wavepackets_at_k),
             operator_in_k,
             wavepackets_at_k,
+            optimize=True,
         )
 
     return {

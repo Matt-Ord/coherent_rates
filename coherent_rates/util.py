@@ -94,9 +94,20 @@ def get_thesis_figure(
         layout="constrained",
     )
     ax.set_facecolor(CAM_SLATE_1)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
     fig.set_facecolor((0, 0, 0, 0))
+
+    ax.tick_params(
+        axis="both",
+        direction="in",
+        top=True,  # Ticks on top
+        right=True,  # Ticks on right
+        labelsize=9,  # xtick.labelsize and ytick.labelsize
+        which="both",  # Apply to both major and minor ticks if needed
+    )
+
+    # 3. Handle Label Sizes
+    ax.xaxis.label.set_fontsize(11)
+    ax.yaxis.label.set_fontsize(11)
     return fig, ax
 
 
