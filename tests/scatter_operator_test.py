@@ -84,11 +84,14 @@ def test_sparse_periodic_x_has_correct_nonzero(
     basis = get_hamiltonian(system, config)["basis"][0]
 
     converted = convert_operator_to_basis(
-        get_periodic_x_operator(basis, config.direction),
+        get_periodic_x_operator(basis, tuple(int(x) for x in config.direction)),
         TupleBasis(basis, basis),
     )
 
-    sparse = get_periodic_x_operator_sparse(basis, config.direction)
+    sparse = get_periodic_x_operator_sparse(
+        basis,
+        tuple(int(x) for x in config.direction),
+    )
 
     np.testing.assert_equal(
         np.count_nonzero(np.logical_not(np.isclose(sparse["data"], 0))),
@@ -115,8 +118,14 @@ def test_sparse_periodic_x_equals_converted_full(
 ) -> None:
     basis = get_hamiltonian(system, config)["basis"][0]
     # Basis of the bloch wavefunction list
-    sparse = get_periodic_x_operator_sparse(basis, config.direction)
-    full_as_sparse = get_periodic_x_operator_as_sparse(basis, config.direction)
+    sparse = get_periodic_x_operator_sparse(
+        basis,
+        tuple(int(x) for x in config.direction),
+    )
+    full_as_sparse = get_periodic_x_operator_as_sparse(
+        basis,
+        tuple(int(x) for x in config.direction),
+    )
     np.testing.assert_array_almost_equal(
         sparse["data"],
         full_as_sparse["data"],
@@ -131,11 +140,14 @@ def test_converted_full_sparse_periodic_x_is_correct_in_momentum_basis(
 
     basis_k = stacked_basis_as_fundamental_momentum_basis(basis)
     full = convert_operator_to_basis(
-        get_periodic_x_operator(basis_k, config.direction),
+        get_periodic_x_operator(basis_k, tuple(int(x) for x in config.direction)),
         TupleBasis(basis_k, basis_k),
     )
     # Basis of the bloch wavefunction list
-    sparse = get_periodic_x_operator_sparse(basis, config.direction)
+    sparse = get_periodic_x_operator_sparse(
+        basis,
+        tuple(int(x) for x in config.direction),
+    )
     sparse_as_full = convert_operator_to_basis(
         as_operator_from_sparse_scattering_operator(sparse),
         TupleBasis(basis_k, basis_k),
@@ -166,8 +178,11 @@ def test_apply_sparse_periodic_x_is_correct(
 
     state = get_random_boltzmann_state(system, config)
 
-    full = get_periodic_x_operator(basis, config.direction)
-    sparse = get_periodic_x_operator_sparse(basis, config.direction)
+    full = get_periodic_x_operator(basis, tuple(int(x) for x in config.direction))
+    sparse = get_periodic_x_operator_sparse(
+        basis,
+        tuple(int(x) for x in config.direction),
+    )
 
     basis_k = stacked_basis_as_fundamental_momentum_basis(basis)
 
