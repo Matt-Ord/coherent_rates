@@ -423,7 +423,7 @@ SODIUM_COPPER_SYSTEM_2D = PeriodicSystem2d(
     lattice_constant=2.558e-10,
     mass=3.8175458e-26,
 )
-SODIUM_COPPER_SYSTEM_1D = PeriodicSystem1d(
+SODIUM_COPPER_TOP_SYSTEM_1D = PeriodicSystem1d(
     id="NaCu",
     barrier_energy=55e-3 * electron_volt,
     lattice_constant=(1 / np.sqrt(3)) * SODIUM_COPPER_SYSTEM_2D.lattice_constant,
@@ -432,7 +432,7 @@ SODIUM_COPPER_SYSTEM_1D = PeriodicSystem1d(
 SODIUM_COPPER_BRIDGE_SYSTEM_1D = PeriodicSystem1d(
     id="NaCuB",
     barrier_energy=SODIUM_COPPER_BRIDGE_ENERGY,
-    lattice_constant=SODIUM_COPPER_SYSTEM_1D.lattice_constant,
+    lattice_constant=SODIUM_COPPER_TOP_SYSTEM_1D.lattice_constant,
     mass=3.8175458e-26,
 )
 SODIUM_COPPER_BRIDGE_SYSTEM_DEEP_1D = PeriodicSystem1dDeep(
@@ -444,13 +444,13 @@ SODIUM_COPPER_BRIDGE_SYSTEM_DEEP_1D = PeriodicSystem1dDeep(
 SODIUM_COPPER_BRIDGE_SYSTEM_GAUSSIAN_1D = PeriodicSystem1dDoubleGaussian(
     id="NaCuGauss",
     barrier_energy=SODIUM_COPPER_BRIDGE_ENERGY,
-    lattice_constant=SODIUM_COPPER_SYSTEM_1D.lattice_constant,
+    lattice_constant=SODIUM_COPPER_TOP_SYSTEM_1D.lattice_constant,
     mass=3.8175458e-26,
 )
 SODIUM_COPPER_BRIDGE_SYSTEM_HALF_RATE_1D = PeriodicSystem1dHalfRate(
     id="NaCuHalfRate",
     barrier_energy=SODIUM_COPPER_BRIDGE_ENERGY,
-    lattice_constant=2 * SODIUM_COPPER_SYSTEM_1D.lattice_constant,
+    lattice_constant=2 * SODIUM_COPPER_TOP_SYSTEM_1D.lattice_constant,
     mass=3.8175458e-26,
     half_rate_energy=0.01 * SODIUM_COPPER_BRIDGE_ENERGY,
 )
