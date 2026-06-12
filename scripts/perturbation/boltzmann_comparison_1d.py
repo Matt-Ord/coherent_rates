@@ -49,8 +49,8 @@ def plot_periodic_comparison() -> None:
 
     config = PeriodicSystemConfig(
         (400,),
-        (100,),
-        direction=(50,),
+        (105,),
+        direction=(68,),
         truncation=50,
         temperature=155,
     )
@@ -107,9 +107,9 @@ def plot_free_comparison() -> None:
 
     config = PeriodicSystemConfig(
         (400,),
-        (100,),
-        direction=(2,),
-        truncation=25,
+        (105,),
+        direction=(68,),
+        truncation=50,
         temperature=155,
     )
 
@@ -240,8 +240,8 @@ def plot_split_band_isf() -> None:
 
     config = PeriodicSystemConfig(
         (400,),
-        (100,),
-        direction=(50,),
+        (105,),
+        direction=(68,),
         truncation=50,
         temperature=155,
     )
