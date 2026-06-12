@@ -209,6 +209,30 @@ def get_scattered_momentum(
     return np.linalg.norm(np.einsum("ij,jk->ik", directions, dk_stacked), axis=1)  # type: ignore library type
 
 
+def get_scattered_direction(
+    system: System,
+    config: PeriodicSystemConfig,
+    momentum: Sequence[float],
+    *,
+    vector: tuple[float, ...] | None = None,
+) -> Sequence[tuple[float, ...]]:
+
+    if vector is None:
+        vector = tuple(1 if i == 0 else 0 for i in range(len(config.shape)))
+
+    basis = system.get_potential_basis(config.shape, config.resolution)
+
+    dk_stacked = BasisUtil(basis).fundamental_dk_stacked
+    v_norm = np.linalg.norm(
+        np.einsum("ij,jk->ik", np.array([vector]), dk_stacked),
+        axis=1,
+    )[0]
+
+    scaling_factors = np.array(momentum) / v_norm
+
+    return [tuple(c * val for val in vector) for c in scaling_factors]
+
+
 def get_free_particle_time(
     system: System,
     config: PeriodicSystemConfig,

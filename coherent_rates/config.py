@@ -123,7 +123,9 @@ class PeriodicSystemConfig:
     """Configure the simlation-specific detail of the system."""
 
     shape: tuple[int, ...]
+    """Number of unit cells in each direction."""
     resolution: tuple[int, ...]
+    """Number of basis functions per unit cell in each direction."""
     truncation: int | None = None
     temperature: float = field(default=150, kw_only=True)
     instrument_function: InstrumentFunction = field(

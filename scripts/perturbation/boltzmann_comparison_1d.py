@@ -49,8 +49,8 @@ def plot_periodic_comparison() -> None:
 
     config = PeriodicSystemConfig(
         (400,),
-        (105,),
-        direction=(68,),
+        (100,),
+        direction=(66,),
         truncation=50,
         temperature=155,
     )
@@ -107,13 +107,14 @@ def plot_free_comparison() -> None:
 
     config = PeriodicSystemConfig(
         (400,),
-        (105,),
-        direction=(68,),
+        (100,),
+        direction=(66,),
         truncation=50,
         temperature=155,
     )
 
     delta_k = get_scattered_momentum(system, config, [config.direction])[0]
+
     print(f"Actual delta k:1 {delta_k:0.3e}")  # noqa: T201
     print("Decay after 1e-10s")  # noqa: T201
     decayed_isf = np.exp(
@@ -240,8 +241,8 @@ def plot_split_band_isf() -> None:
 
     config = PeriodicSystemConfig(
         (400,),
-        (105,),
-        direction=(68,),
+        (100,),
+        direction=(66,),
         truncation=50,
         temperature=155,
     )
