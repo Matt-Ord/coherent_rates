@@ -120,7 +120,7 @@ def plot_delta_k_comparison_2nd() -> None:
     fig.savefig("scripts/perturbation/delta_k_comparison.1d.2nd.pdf")
 
 
-def plot_delta_k_comparison_1st_2d() -> None:
+def plot_delta_k_comparison_1st_2d(*, long_time: bool = False) -> None:
     system = SODIUM_COPPER_SYSTEM_2D
 
     config = PeriodicSystemConfig(
@@ -131,7 +131,7 @@ def plot_delta_k_comparison_1st_2d() -> None:
         temperature=155,
     )
 
-    times = EvenlySpacedTimeBasis(1000, 1, 0, delta_t=2e-12)
+    times = EvenlySpacedTimeBasis(1000, 1, 0, delta_t=4e-12 if long_time else 2e-12)
 
     fig, ax = get_thesis_figure()
 
@@ -160,10 +160,13 @@ def plot_delta_k_comparison_1st_2d() -> None:
     c_bar.ax.tick_params(labelsize=8)
 
     fig.set_facecolor((0, 0, 0, 0))
-    fig.savefig("scripts/perturbation/delta_k_comparison.2d.1st.pdf")
+    fig.savefig(
+        "scripts/perturbation/delta_k_comparison.2d.1st"
+        f"{'.lt' if long_time else ''}.pdf",
+    )
 
 
-def plot_delta_k_comparison_2nd_2d() -> None:
+def plot_delta_k_comparison_2nd_2d(*, long_time: bool = False) -> None:
     system = SODIUM_COPPER_SYSTEM_2D
 
     config = PeriodicSystemConfig(
@@ -174,7 +177,7 @@ def plot_delta_k_comparison_2nd_2d() -> None:
         temperature=155,
     )
 
-    times = EvenlySpacedTimeBasis(1000, 1, 0, delta_t=2e-12)
+    times = EvenlySpacedTimeBasis(200, 1, 0, delta_t=4e-12 if long_time else 2e-12)
 
     fig, ax = get_thesis_figure()
 
@@ -211,11 +214,16 @@ def plot_delta_k_comparison_2nd_2d() -> None:
     c_bar.ax.tick_params(labelsize=8)
 
     fig.set_facecolor((0, 0, 0, 0))
-    fig.savefig("scripts/perturbation/delta_k_comparison.2d.2nd.pdf")
+    fig.savefig(
+        "scripts/perturbation/delta_k_comparison.2d.2nd"
+        f"{'.lt' if long_time else ''}.pdf",
+    )
 
 
 if __name__ == "__main__":
     plot_delta_k_comparison_1st()
     plot_delta_k_comparison_2nd()
-    # plot_delta_k_comparison_1st_2d()
-    # plot_delta_k_comparison_2nd_2d()
+    plot_delta_k_comparison_1st_2d()
+    plot_delta_k_comparison_2nd_2d()
+    plot_delta_k_comparison_1st_2d(long_time=True)
+    plot_delta_k_comparison_2nd_2d(long_time=True)
