@@ -59,17 +59,17 @@ def plot_periodic_comparison() -> None:
 
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("First Order")
-    line.set_color(CAM_BLUE.warm)
+    line.set_color(CAM_CHERRY.base)
 
     isf_se = get_weak_boltzmann_isf(system, config, times, second_order=True)
     fig, ax, line = plot_value_list_against_time(isf_se, measure="abs", ax=ax)
     line.set_label("Second Order")
-    line.set_color(CAM_CHERRY.base)
+    line.set_color(CAM_CHERRY.dark)
 
     isf_full = get_boltzmann_isf(system, config, times)
     fig, ax, line = plot_value_list_against_time(isf_full, measure="abs", ax=ax)
     line.set_label("Complete Simulation")
-    line.set_color(CAM_CHERRY.dark)
+    line.set_color(CAM_BLUE.warm)
 
     ax.set_ylim(0.9 * np.abs(fitted_data["data"][-1]), 1)
     ax.set_xlabel("Time / s")
