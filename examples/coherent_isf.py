@@ -15,12 +15,12 @@ from coherent_rates.isf import (
 from coherent_rates.solve import get_hamiltonian, solve_schrodinger_equation
 from coherent_rates.state import get_coherent_state
 from coherent_rates.system import (
-    SODIUM_COPPER_SYSTEM_1D,
+    SODIUM_COPPER_TOP_SYSTEM_1D,
 )
 
 if __name__ == "__main__":
     config = PeriodicSystemConfig((20,), (50,), temperature=155, direction=(2,))
-    system = SODIUM_COPPER_SYSTEM_1D.with_barrier_energy(0)
+    system = SODIUM_COPPER_TOP_SYSTEM_1D.with_barrier_energy(0)
     times = EvenlySpacedTimeBasis(151, 1, -75, 5e-11)
 
     # Plot of a coherent state against time
