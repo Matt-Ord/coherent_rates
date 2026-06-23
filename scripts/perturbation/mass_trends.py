@@ -7,7 +7,7 @@ from scipy.constants import Boltzmann, hbar
 from surface_potential_analysis.state_vector.plot_value_list import (
     plot_value_list_against_time,
 )
-from surface_potential_analysis.util.decorators import cached
+from surface_potential_analysis.util.decorators import cached, disabled_timing
 
 from coherent_rates.config import PeriodicSystemConfig
 from coherent_rates.fit import GaussianMethod, get_free_particle_isf
@@ -45,93 +45,94 @@ def _assess_isf_validity() -> None:
     barrier_ratios = np.linspace(0, 4, 5)
     kinetic_ratios = np.linspace(0.05, 1, 5)
 
-    for (barrier_ratio, kinetic_ratio), ax in zip(
-        itertools.product(
-            barrier_ratios,
-            kinetic_ratios,
-        ),
-        _axes.ravel(),
-        strict=True,
-    ):
-        # 2. Calculate target mass: kinetic_ratio = E_kinetic / E_thermal
-        # Since E_kinetic = (2*pi*hbar)^2 / (2 * m * a^2), we solve for m:
-        target_kinetic_energy = kinetic_ratio * thermal_energy
-        target_mass = (2 * np.pi * hbar) ** 2 / (
-            2 * target_kinetic_energy * system.lattice_constant**2
-        )
+    with disabled_timing():
+        for (barrier_ratio, kinetic_ratio), ax in zip(
+            itertools.product(
+                barrier_ratios,
+                kinetic_ratios,
+            ),
+            _axes.ravel(),
+            strict=True,
+        ):
+            # 2. Calculate target mass: kinetic_ratio = E_kinetic / E_thermal
+            # Since E_kinetic = (2*pi*hbar)^2 / (2 * m * a^2), we solve for m:
+            target_kinetic_energy = kinetic_ratio * thermal_energy
+            target_mass = (2 * np.pi * hbar) ** 2 / (
+                2 * target_kinetic_energy * system.lattice_constant**2
+            )
 
-        system = system.with_mass(target_mass)
-        system = system.with_barrier_energy(barrier_ratio * thermal_energy)
+            system = system.with_mass(target_mass)
+            system = system.with_barrier_energy(barrier_ratio * thermal_energy)
 
-        times = GaussianMethod(measure="abs").get_fit_times(
-            system=system,
-            config=config,
-        )
+            times = GaussianMethod(measure="abs").get_fit_times(
+                system=system,
+                config=config,
+            )
 
-        isf = get_weak_boltzmann_isf(system, config, times)
-        _, _, _line = plot_value_list_against_time(isf, measure="abs", ax=ax)
+            isf = get_weak_boltzmann_isf(system, config, times)
+            _, _, _line = plot_value_list_against_time(isf, measure="abs", ax=ax)
 
-        total_occupation, effective_mass = get_momentum_threshold_effective_mass(
-            system,
-            config,
-        )
-        (_line,) = ax.plot(
-            times.times,
-            get_free_particle_isf(
+            total_occupation, effective_mass = get_momentum_threshold_effective_mass(
                 system,
                 config,
+            )
+            (_line,) = ax.plot(
                 times.times,
-                offset=1 - total_occupation,
-            ),
-            color=CAM_CHERRY.warm,
-            linestyle="--",
-            label="Effective Mass",
-        )
-        (_line,) = ax.plot(
-            times.times,
-            get_free_particle_isf(
-                system.with_mass(effective_mass),
-                config,
+                get_free_particle_isf(
+                    system,
+                    config,
+                    times.times,
+                    offset=1 - total_occupation,
+                ),
+                color=CAM_CHERRY.warm,
+                linestyle="--",
+                label="Effective Mass",
+            )
+            (_line,) = ax.plot(
                 times.times,
-                offset=1 - total_occupation,
-            ),
-            color=CAM_CHERRY.dark,
-            linestyle="--",
-            label="Effective Mass",
-        )
-        ax.set_ylim(((1 - 1.1 * total_occupation), 1))
-        ax.set_title(
-            f"Barrier: {barrier_ratio:.2f}, Kinetic: {kinetic_ratio:.2f}",
-            fontsize=8,
-        )
+                get_free_particle_isf(
+                    system.with_mass(effective_mass),
+                    config,
+                    times.times,
+                    offset=1 - total_occupation,
+                ),
+                color=CAM_CHERRY.dark,
+                linestyle="--",
+                label="Effective Mass",
+            )
+            ax.set_ylim(((1 - 1.1 * total_occupation), 1))
+            ax.set_title(
+                f"Barrier: {barrier_ratio:.2f}, Kinetic: {kinetic_ratio:.2f}",
+                fontsize=8,
+            )
 
-        hamiltonian = get_hamiltonian(system, config)
-        energies_per_band = hamiltonian["data"].reshape(config.n_bands, -1)
-        occupations = np.exp(
-            -energies_per_band / (Boltzmann * config.temperature),
-        )
-        occupations /= np.sum(occupations)
-        missing_occupation = 1 - np.sum(occupations[:50])
-        print("Missing occupation:", missing_occupation)  # noqa: T201
+            hamiltonian = get_hamiltonian(system, config)
+            energies_per_band = hamiltonian["data"].reshape(config.n_bands, -1)
+            occupations = np.exp(
+                -energies_per_band / (Boltzmann * config.temperature),
+            )
+            occupations /= np.sum(occupations)
+            missing_occupation = 1 - np.sum(occupations[:50])
+            print("Missing occupation:", missing_occupation)  # noqa: T201
 
-        min_isf = np.min(np.abs(isf["data"]))
-        total_occupation, effective_mass = get_occupation_threshold_effective_mass(
-            system,
-            config,
-            threshold=1 - min_isf,
-        )
-        (_line,) = ax.plot(
-            times.times,
-            get_free_particle_isf(
-                system.with_mass(effective_mass),
+            min_isf = np.min(np.abs(isf["data"]))
+            total_occupation, effective_mass = get_occupation_threshold_effective_mass(
+                system,
                 config,
+                threshold=1 - min_isf,
+            )
+            (_line,) = ax.plot(
                 times.times,
-                offset=1 - total_occupation,
-            ),
-            color=CAM_BLUE.dark,
-            linestyle=":",
-            label="Effective Mass",
-        )
+                get_free_particle_isf(
+                    system.with_mass(effective_mass),
+                    config,
+                    times.times,
+                    offset=1 - total_occupation,
+                ),
+                color=CAM_BLUE.dark,
+                linestyle=":",
+                label="Effective Mass",
+            )
 
     fig.savefig("scripts/perturbation/mass_trends.validity.pdf")
 
@@ -210,18 +211,20 @@ def get_all_mass_ratios() -> dict[str, np.ndarray]:
     for i, (barrier, kinetic) in enumerate(
         zip(xv.flat, yv.flat, strict=True),
     ):
-        mass_ratios.flat[i] = _get_threshold_mass_ratio(
-            system,
-            config,
-            barrier,
-            kinetic,
-        )
-        occupation_mass_ratios.flat[i] = _get_occupation_mass_ratio(
-            system,
-            config,
-            barrier,
-            kinetic,
-        )
+        print(f"i: {i}")
+        with disabled_timing():
+            mass_ratios.flat[i] = _get_threshold_mass_ratio(
+                system,
+                config,
+                barrier,
+                kinetic,
+            )
+            occupation_mass_ratios.flat[i] = _get_occupation_mass_ratio(
+                system,
+                config,
+                barrier,
+                kinetic,
+            )
     return {
         "xv": xv,
         "yv": yv,
