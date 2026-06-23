@@ -724,6 +724,78 @@ def get_momentum_squared_per_state(
     }
 
 
+def _get_ordered_momentum(
+    system: System,
+    config: PeriodicSystemConfig,
+) -> tuple[
+    np.ndarray[Any, np.dtype[np.float64]],
+    np.ndarray[Any, np.dtype[np.float64]],
+]:
+
+    hamiltonian = get_hamiltonian(system, config)
+    momentum = get_momentum_squared_per_state(
+        hamiltonian,
+        config.direction,
+    )["data"]
+    energy_per_state = hamiltonian["data"]
+    scaled_momentum = momentum / (2 * system.mass * energy_per_state)
+    sorted_idx = np.argsort(scaled_momentum)[::-1]
+
+    # From the largest to smallest (low mass to high mass)
+    momentum = np.real(momentum[sorted_idx])
+    energy_per_state = np.real(energy_per_state[sorted_idx])
+
+    return momentum, energy_per_state
+
+
+def get_momentum_threshold_effective_mass(
+    system: System,
+    config: PeriodicSystemConfig,
+    *,
+    threshold: float = 0.01,
+) -> tuple[float, float]:
+    momentum, energy_per_state = _get_ordered_momentum(system, config)
+
+    thermal_factors = np.exp(-energy_per_state / (Boltzmann * config.temperature))
+    thermal_factors /= np.sum(thermal_factors)
+
+    scaled_momentum = momentum / (2 * system.mass * energy_per_state)
+    cut_idx = np.argmax(scaled_momentum < threshold)
+    thermal_factors = thermal_factors[:cut_idx]
+    momentum = momentum[:cut_idx]
+
+    total_occupation = np.sum(thermal_factors)
+    prefactor = 1 / (config.temperature * Boltzmann * system.mass**2)
+    inverse_mass = np.sum(thermal_factors * momentum * prefactor)
+    inverse_mass /= total_occupation
+
+    return total_occupation, 1 / inverse_mass
+
+
+def get_occupation_threshold_effective_mass(
+    system: System,
+    config: PeriodicSystemConfig,
+    *,
+    threshold: float,
+) -> tuple[float, float]:
+
+    momentum, energy_per_state = _get_ordered_momentum(system, config)
+
+    thermal_factors = np.exp(-energy_per_state / (Boltzmann * config.temperature))
+    thermal_factors /= np.sum(thermal_factors)
+
+    cut_idx = np.argmax(np.cumsum(thermal_factors) > threshold)
+    thermal_factors = thermal_factors[:cut_idx]
+    momentum = momentum[:cut_idx]
+
+    total_occupation = np.sum(thermal_factors)
+    prefactor = 1 / (config.temperature * Boltzmann * system.mass**2)
+    inverse_mass = np.sum(thermal_factors * momentum * prefactor)
+    inverse_mass /= total_occupation
+
+    return total_occupation, 1 / inverse_mass
+
+
 def _get_weak_boltzmann_isf_data_path(
     system: System,
     config: PeriodicSystemConfig,
