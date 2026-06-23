@@ -133,12 +133,15 @@ class PeriodicSystemConfig:
         kw_only=True,
     )
     direction: tuple[float, ...] = field(default=_DEFAULT_DIRECTION, kw_only=True)
+    offset: tuple[float, ...] = field(default=_DEFAULT_DIRECTION, kw_only=True)
 
     def __post_init__(self: Self) -> None:
         if self.direction is _DEFAULT_DIRECTION:
             object.__setattr__(self, "direction", tuple(0 for _ in self.shape))
+        if self.offset is _DEFAULT_DIRECTION:
+            object.__setattr__(self, "offset", tuple(0 for _ in self.shape))
 
-    def with_direction(self: Self, direction: tuple[int, ...]) -> Self:
+    def with_direction(self: Self, direction: tuple[float, ...]) -> Self:
         return dataclasses.replace(self, direction=direction)
 
     def with_temperature(self: Self, temperature: float) -> Self:
@@ -173,6 +176,7 @@ class PeriodicSystemConfig:
         )
 
     def __hash__(self: Self) -> int:
+
         return hash(
             (
                 self.shape,
@@ -181,5 +185,6 @@ class PeriodicSystemConfig:
                 self.temperature,
                 self.direction,
                 self.instrument_function,
+                self.offset,
             ),
         )

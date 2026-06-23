@@ -84,7 +84,7 @@ def _get_bloch_wavefunctions_path(
     config: PeriodicSystemConfig,
 ) -> Path:
     return Path(
-        f"data/{hash((system,(config.shape,config.resolution,config.n_bands)))}.wavefunctions.wavefunctions",
+        f"data/{hash((system, (config.shape, config.resolution, config.n_bands)))}.wavefunctions.wavefunctions",
     )
 
 
@@ -97,6 +97,9 @@ def get_bloch_wavefunctions(
     TupleBasisLike[*tuple[FundamentalTransformedBasis[Any], ...]],
     StackedBasisWithVolumeLike[Any, Any, Any],
 ]:
+
+    offset = np.array([o / s for o, s in zip(config.offset, config.shape, strict=True)])
+
     def hamiltonian_generator(
         bloch_fraction: np.ndarray[tuple[Literal[1]], np.dtype[np.float64]],
     ) -> SingleBasisOperator[StackedBasisWithVolumeLike[Any, Any, Any]]:
@@ -104,7 +107,7 @@ def get_bloch_wavefunctions(
             system,
             tuple(1 for _ in config.shape),
             config.resolution,
-            bloch_fraction=bloch_fraction,
+            bloch_fraction=bloch_fraction + offset,
         )
 
     return generate_wavepacket(
@@ -118,7 +121,9 @@ def _get_hamiltonian_path(
     system: System,
     config: PeriodicSystemConfig,
 ) -> Path:
-    filename = hash((system, (config.shape, config.resolution, config.n_bands)))
+    filename = hash(
+        (system, (config.shape, config.resolution, config.n_bands, config.offset)),
+    )
     return Path(f"data/{filename}.hamiltonian")
 
 
