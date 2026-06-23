@@ -84,7 +84,7 @@ def _get_bloch_wavefunctions_path(
     config: PeriodicSystemConfig,
 ) -> Path:
     return Path(
-        f"data/{hash((system, (config.shape, config.resolution, config.n_bands)))}.wavefunctions.wavefunctions",
+        f"data/{hash((system, (config.shape, config.resolution, config.n_bands)))}.wavefunctions.wavefunctions",  # noqa: E501
     )
 
 
