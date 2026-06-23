@@ -6,6 +6,7 @@ from surface_potential_analysis.state_vector.plot_value_list import (
     plot_value_list_against_momentum,
 )
 from surface_potential_analysis.state_vector.state_vector import StateVector
+from surface_potential_analysis.state_vector.state_vector_list import get_state_vector
 from surface_potential_analysis.util.squared_scale import SquaredScale
 
 from coherent_rates.config import PeriodicSystemConfig
@@ -159,24 +160,24 @@ if __name__ == "__main__":
     directions = [(n + b * i,) for i in range(10)]
 
     # # For low state k, the dE vs dk plot is quadratic
-    # state = get_state_vector(wavefunctions, 0)
-    # fig, ax = plot_scattered_energy_change_state(
-    #     system,
-    #     config,
-    #     state,
-    #     directions=directions,
-    # )
-    # fig.savefig("scattered_energy_change.small_k.pdf")
+    state = get_state_vector(wavefunctions, 0)
+    fig, ax = plot_scattered_energy_change_state(
+        system,
+        config,
+        state,
+        directions=directions,
+    )
+    fig.savefig("scattered_energy_change.small_k.pdf")
 
     # # For high state k, the dE vs dk plot is linear
-    # state = get_state_vector(wavefunctions, 230)
-    # fig, ax = plot_scattered_energy_change_state(
-    #     system,
-    #     config,
-    #     state,
-    #     directions=directions,
-    # )
-    # fig.savefig("scattered_energy_change.large_k.pdf")
+    state = get_state_vector(wavefunctions, 230)
+    fig, ax = plot_scattered_energy_change_state(
+        system,
+        config,
+        state,
+        directions=directions,
+    )
+    fig.savefig("scattered_energy_change.large_k.pdf")
 
     # Since dE is proportional to (k+dk)^2 - k^2 = 2k*dk +(dk)^2,
     # for low bands, k is small so dE~(dk)^2
