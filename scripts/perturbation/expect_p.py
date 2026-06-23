@@ -7,9 +7,13 @@ from surface_potential_analysis.state_vector.plot_value_list import (
 
 from coherent_rates.config import PeriodicSystemConfig
 from coherent_rates.fit import GaussianMethod, get_free_particle_isf
-from coherent_rates.isf import get_momentum_squared_per_state, get_weak_boltzmann_isf
+from coherent_rates.isf import (
+    get_momentum_squared_per_state,
+    get_momentum_threshold_effective_mass,
+    get_weak_boltzmann_isf,
+)
 from coherent_rates.solve import get_hamiltonian
-from coherent_rates.system import SODIUM_COPPER_BRIDGE_SYSTEM_1D, System
+from coherent_rates.system import SODIUM_COPPER_BRIDGE_SYSTEM_1D
 from coherent_rates.util import (
     CAM_BLUE,
     CAM_CHERRY,
@@ -81,41 +85,6 @@ def _plot_momentum_squared() -> None:
     fig.savefig("scripts/perturbation/expect_p.pdf", bbox_inches="tight")
 
 
-def _get_momentum_threshold_effective_mass(
-    system: System,
-    config: PeriodicSystemConfig,
-    *,
-    threshold: float = 0.01,
-) -> tuple[float, float]:
-    hamiltonian = get_hamiltonian(system, config)
-    momentum = get_momentum_squared_per_state(
-        hamiltonian,
-        config.direction,
-    )["data"]
-    energy_per_state = hamiltonian["data"]
-    scaled_momentum = momentum / (2 * system.mass * energy_per_state)
-    sorted_idx = np.argsort(scaled_momentum)[::-1]
-
-    # From the largest to smallest (low mass to high mass)
-    scaled_momentum = scaled_momentum[sorted_idx]
-    momentum = np.real_if_close(momentum[sorted_idx])
-    energy_per_state = np.real_if_close(energy_per_state[sorted_idx])
-
-    thermal_factors = np.exp(-energy_per_state / (Boltzmann * config.temperature))
-    thermal_factors /= np.sum(thermal_factors)
-
-    cut_idx = np.argmax(scaled_momentum < threshold)
-    thermal_factors = thermal_factors[:cut_idx]
-    momentum = momentum[:cut_idx]
-
-    total_occupation = np.sum(thermal_factors)
-    prefactor = 1 / (config.temperature * Boltzmann * system.mass**2)
-    inverse_mass = np.sum(thermal_factors * momentum * prefactor)
-    inverse_mass /= total_occupation
-
-    return total_occupation, 1 / inverse_mass
-
-
 def _plot_best_fit_mass(
     *,
     temperature: float = 155,
@@ -154,7 +123,7 @@ def _plot_best_fit_mass(
 
     get_hamiltonian.load_or_call_cached(system, config)
 
-    total_occupation, effective_mass = _get_momentum_threshold_effective_mass(
+    total_occupation, effective_mass = get_momentum_threshold_effective_mass(
         system,
         config,
     )
