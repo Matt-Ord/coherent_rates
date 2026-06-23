@@ -249,6 +249,17 @@ def get_free_particle_rate(
     return 1 / get_free_particle_time(system, config)
 
 
+def get_free_particle_isf(
+    system: System,
+    config: PeriodicSystemConfig,
+    times: np.ndarray[Any, np.dtype[np.float64]],
+    *,
+    offset: float = 0,
+) -> np.ndarray[Any, np.dtype[np.floating]]:
+    free_time = get_free_particle_time(system, config)
+    return offset + (1 - offset) * np.exp(-(times**2) / (2 * free_time**2))
+
+
 def get_free_recoil(
     system: System,
     config: PeriodicSystemConfig,

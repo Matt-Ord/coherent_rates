@@ -559,24 +559,10 @@ def get_boltzmann_isf(
     )
 
 
-def _get_k_diagonal(
-    operator: SparseScatteringOperator[_ESB0, _ESB0],
-) -> np.ndarray[tuple[int, int], np.dtype[np.complex128]]:
-    band_basis = operator["basis"][0].wavefunctions["basis"][0][0]
-    basis = operator["basis"][0].wavefunctions["basis"][0][1]
-    n_bands = band_basis.n
-    n_k = basis.n
-    if not all(x == 0 for x in operator["direction"]):
-        return np.zeros((n_bands, n_k), dtype=np.complex128)
-
-    data = operator["data"].reshape(n_bands, n_bands, n_k)
-    return np.einsum("aaj->aj", data)
-
-
 def _get_k_scatter(
     operator: SparseScatteringOperator[_ESB0, _ESB0],
-) -> np.ndarray[tuple[int, int], np.dtype[np.float64]]:
-    """Get |<n|delta k hat(p) / m |m>|^2.
+) -> np.ndarray[tuple[int, int, int], np.dtype[np.complex128]]:
+    """Get |<n|delta k hat(p) / m |m>|.
 
     returns an array of shape (n_bands, n_bands, n_k)
     where the second index is the band index of m
@@ -586,12 +572,38 @@ def _get_k_scatter(
     basis = operator["basis"][0].wavefunctions["basis"][0][1]
     n_bands = band_basis.n
     n_k = basis.n
-    if not all(x == 0 for x in operator["direction"]):
-        return np.zeros((n_bands, n_k), dtype=np.float64)
 
-    data = operator["data"].reshape(n_bands, n_bands, n_k)
+    if not all(x == 0 for x in operator["direction"]):
+        return np.zeros((n_bands, n_bands, n_k), dtype=np.complex128)
+
+    return operator["data"].reshape(n_bands, n_bands, n_k)
+
+
+def _get_k_diagonal(
+    operator: SparseScatteringOperator[_ESB0, _ESB0],
+) -> np.ndarray[tuple[int, int], np.dtype[np.complex128]]:
+    """Get <n|delta k hat(p) / m |n>.
+
+    returns an array of shape (n_bands, n_k)
+    """
+    return np.einsum("aaj->aj", _get_k_scatter(operator))
+
+
+def _get_k_scatter_square(
+    operator: SparseScatteringOperator[_ESB0, _ESB0],
+) -> np.ndarray[tuple[int, int, int], np.dtype[np.float64]]:
+    """Get |<n|delta k hat(p) / m |m>|^2.
+
+    returns an array of shape (n_bands, n_bands, n_k)
+    where the second index is the band index of m
+
+    The terms where n == m are set to 0.
+
+    """
+    data = _get_k_scatter(operator)
+
     square_norm = np.abs(data) ** 2
-    n_idx = np.arange(n_bands)
+    n_idx = np.arange(data.shape[0])
     square_norm[n_idx, n_idx, :] = 0.0
     return square_norm.astype(np.float64)
 
@@ -675,7 +687,7 @@ def _get_decay_per_state(  # noqa: PLR0913
     if second_order:
         n_bands = state_basis.wavefunctions["basis"][0][0].n
         out = out.reshape((n_bands, -1, times.size))
-        scatter_k = _get_k_scatter(scatter_operator)
+        scatter_k = _get_k_scatter_square(scatter_operator)
         scatter_k = scatter_k.reshape((*scatter_k.shape, 1))
         for band_idx in range(n_bands):
             time_factor = _get_time_factor_second_order(
@@ -690,6 +702,26 @@ def _get_decay_per_state(  # noqa: PLR0913
             ).reshape(-1, times.size)
         out = out.reshape(-1, times.size)
     return out
+
+
+def get_momentum_squared_per_state(
+    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+    direction: tuple[float, ...],
+) -> ValueList[_ESB0]:
+    state_basis = hamiltonian["basis"][0]
+    dk = BasisUtil(state_basis).fundamental_dk_stacked
+    direction_k = np.einsum("i,ij->j", direction, dk)
+    direction_k /= np.linalg.norm(direction_k)
+    scatter_operator = get_k_operator_sparse(
+        state_basis,
+        direction_k * (hbar),
+    )
+    diagonal_k = _get_k_diagonal(scatter_operator).ravel()
+
+    return {
+        "basis": state_basis,
+        "data": np.abs(diagonal_k).astype(np.complex128) ** 2,
+    }
 
 
 def _get_weak_boltzmann_isf_data_path(
