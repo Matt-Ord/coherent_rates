@@ -341,20 +341,7 @@ def plot_periodic_weak_isf() -> None:  # noqa: PLR0915
     line.set_color(CAM_CHERRY.dark)
 
     isf = get_boltzmann_isf(system, config, times, n_repeats=20)
-    # isf_so_friction = get_weak_boltzmann_isf(
-    #     system,
-    #     config,
-    #     times,
-    #     second_order=True,
-    #     friction=1e12,
-    # )
-    # isf_so_friction = get_weak_boltzmann_isf(
-    #     system,
-    #     config,
-    #     times,
-    #     second_order=True,
-    #     friction=0.5e11,
-    # )
+
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("Full ISF")
     line.set_color(CAM_CHERRY.warm)
@@ -694,9 +681,9 @@ def plot_free_isf() -> None:
 
 
 if __name__ == "__main__":
-    # plot_free_isf()
-    # plot_periodic_isf()
+    plot_free_isf()
+    plot_periodic_isf()
     plot_periodic_weak_isf()
-    # plot_periodic_weak_isf_high_mass()
-    # plot_periodic_isf_dg()
-    # plot_periodic_isf_dg_split()
+    plot_periodic_weak_isf_high_mass()
+    plot_periodic_isf_dg()
+    plot_periodic_isf_dg_split()
