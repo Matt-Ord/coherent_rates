@@ -2,6 +2,7 @@ import itertools
 from pathlib import Path
 
 import numpy as np
+import scipy.optimize
 from matplotlib import pyplot as plt
 from scipy.constants import Boltzmann, hbar
 from surface_potential_analysis.state_vector.plot_value_list import (
@@ -10,10 +11,15 @@ from surface_potential_analysis.state_vector.plot_value_list import (
 from surface_potential_analysis.util.decorators import cached, disabled_timing
 
 from coherent_rates.config import PeriodicSystemConfig
-from coherent_rates.fit import GaussianMethod, get_free_particle_isf
+from coherent_rates.fit import (
+    GaussianMethod,
+    get_free_particle_isf,
+    get_free_particle_time,
+)
 from coherent_rates.isf import (
     get_momentum_threshold_effective_mass,
     get_occupation_threshold_effective_mass,
+    get_ordered_momentum,
     get_weak_boltzmann_isf,
 )
 from coherent_rates.solve import get_hamiltonian
@@ -133,6 +139,62 @@ def _assess_isf_validity() -> None:
                 linestyle=":",
                 label="Effective Mass",
             )
+            get_ordered_momentum.load_or_call_cached(system, config)
+
+            def loss_function(threshold_guess: float) -> float:
+                if threshold_guess <= 0:
+                    return float("inf")
+                tot_occ, eff_mass = get_momentum_threshold_effective_mass(
+                    system,
+                    config,
+                    threshold=threshold_guess,
+                )
+                fit_system = system.with_mass(eff_mass)
+
+                free_time = get_free_particle_time(fit_system, config)
+                t_cutoff = np.sqrt(2) * free_time
+                time_mask = times.times <= t_cutoff
+
+                predicted_isf = get_free_particle_isf(
+                    fit_system,
+                    config,
+                    times.times[time_mask],
+                    offset=1 - tot_occ,
+                )
+                return float(
+                    np.mean((np.abs(isf["data"][time_mask]) - predicted_isf) ** 2),
+                )
+
+            optimization_result = scipy.optimize.minimize(
+                loss_function,
+                x0=[0.01],
+                bounds=[(1e-6, None)],
+                method="L-BFGS-B",
+            )
+
+            optimal_threshold = (
+                optimization_result.x[0] if optimization_result.success else 0.01
+            )
+
+            # Extract final parameters using the optimal threshold
+            total_occupation, effective_mass = get_momentum_threshold_effective_mass(
+                system,
+                config,
+                threshold=optimal_threshold,
+            )
+            (_line,) = ax.plot(
+                times.times,
+                get_free_particle_isf(
+                    system.with_mass(effective_mass),
+                    config,
+                    times.times,
+                    offset=1 - total_occupation,
+                ),
+                color=CAM_BLUE.warm,
+                linestyle=":",
+                label="Effective Mass",
+            )
+            print("Missing occupation:", 1 - total_occupation)
 
     fig.savefig("scripts/perturbation/mass_trends.validity.pdf")
 
@@ -140,37 +202,19 @@ def _assess_isf_validity() -> None:
 def _get_threshold_mass_ratio(
     system: System,
     config: PeriodicSystemConfig,
-    barrier: float,
-    kinetic: float,
 ) -> float:
-    thermal_energy = Boltzmann * config.temperature
-    target_kinetic_energy = kinetic * thermal_energy
-    target_mass = (2 * np.pi * hbar) ** 2 / (
-        2 * target_kinetic_energy * system.lattice_constant**2
-    )
-    system = system.with_mass(target_mass)
-    system = system.with_barrier_energy(barrier * thermal_energy)
 
     _total_occupation, effective_mass = get_momentum_threshold_effective_mass(
         system,
         config,
     )
-    return effective_mass / target_mass
+    return effective_mass / system.mass
 
 
 def _get_occupation_mass_ratio(
     system: System,
     config: PeriodicSystemConfig,
-    barrier: float,
-    kinetic: float,
 ) -> float:
-    thermal_energy = Boltzmann * config.temperature
-    target_kinetic_energy = kinetic * thermal_energy
-    target_mass = (2 * np.pi * hbar) ** 2 / (
-        2 * target_kinetic_energy * system.lattice_constant**2
-    )
-    system = system.with_mass(target_mass)
-    system = system.with_barrier_energy(barrier * thermal_energy)
 
     isf = get_weak_boltzmann_isf(
         system,
@@ -182,7 +226,62 @@ def _get_occupation_mass_ratio(
         config,
         threshold=1 - np.min(np.abs(isf["data"])),
     )
-    return effective_mass / target_mass
+    return effective_mass / system.mass
+
+
+def _get_optimal_mass_ratio(
+    system: System,
+    config: PeriodicSystemConfig,
+) -> float:
+
+    times = GaussianMethod(measure="abs").get_fit_times(
+        system=system,
+        config=config,
+    )
+    isf = get_weak_boltzmann_isf(system, config, times)
+
+    def loss_function(threshold_guess: float) -> float:
+        if threshold_guess <= 0:
+            return float("inf")
+        tot_occ, eff_mass = get_momentum_threshold_effective_mass(
+            system,
+            config,
+            threshold=threshold_guess,
+        )
+        fit_system = system.with_mass(eff_mass)
+
+        free_time = get_free_particle_time(fit_system, config)
+        t_cutoff = np.sqrt(2) * free_time
+        time_mask = times.times <= t_cutoff
+
+        predicted_isf = get_free_particle_isf(
+            fit_system,
+            config,
+            times.times[time_mask],
+            offset=1 - tot_occ,
+        )
+        return float(
+            np.mean((np.abs(isf["data"][time_mask]) - predicted_isf) ** 2),
+        )
+
+    optimization_result = scipy.optimize.minimize(
+        loss_function,
+        x0=[0.01],
+        bounds=[(1e-6, None)],
+        method="L-BFGS-B",
+    )
+
+    optimal_threshold = (
+        optimization_result.x[0] if optimization_result.success else 0.01
+    )
+
+    # Extract final parameters using the optimal threshold
+    _total_occupation, effective_mass = get_momentum_threshold_effective_mass(
+        system,
+        config,
+        threshold=optimal_threshold,
+    )
+    return effective_mass / system.mass
 
 
 def _all_mass_ratio_path() -> Path:
@@ -208,28 +307,42 @@ def get_all_mass_ratios() -> dict[str, np.ndarray]:
 
     mass_ratios = np.zeros_like(xv)
     occupation_mass_ratios = np.zeros_like(xv)
+    optimal_mass_ratios = np.zeros_like(xv)
     for i, (barrier, kinetic) in enumerate(
         zip(xv.flat, yv.flat, strict=True),
     ):
         print(f"i: {i}")
         with disabled_timing():
+            thermal_energy = Boltzmann * config.temperature
+            target_kinetic_energy = kinetic * thermal_energy
+            target_mass = (2 * np.pi * hbar) ** 2 / (
+                2 * target_kinetic_energy * system.lattice_constant**2
+            )
+            system = system.with_mass(target_mass)
+            system = system.with_barrier_energy(barrier * thermal_energy)
+
+            get_ordered_momentum.load_or_call_cached(system, config)
             mass_ratios.flat[i] = _get_threshold_mass_ratio(
                 system,
                 config,
-                barrier,
-                kinetic,
             )
             occupation_mass_ratios.flat[i] = _get_occupation_mass_ratio(
                 system,
                 config,
-                barrier,
-                kinetic,
             )
+
+            optimal_mass_ratios.flat[i] = _get_optimal_mass_ratio(
+                system,
+                config,
+            )
+
+            get_ordered_momentum.delete_cache(system, config)
     return {
         "xv": xv,
         "yv": yv,
         "mass_ratios": mass_ratios,
         "occupation_mass_ratios": occupation_mass_ratios,
+        "optimal_mass_ratios": optimal_mass_ratios,
     }
 
 
