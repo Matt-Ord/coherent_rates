@@ -364,8 +364,8 @@ def _plot_isf_mass_ratios() -> None:
         optimal_mass_ratios,
         shading="nearest",
     )
-    ax.set_xlabel(r"Barrier Energy / $k_bT$")
-    ax.set_ylabel(r"Kinetic Energy $\frac{m}{m_0}$")
+    ax.set_xlabel(r"Barrier Energy $\frac{E_b}{k_bT}$")
+    ax.set_ylabel(r"Mass $\frac{m}{m_0}$")
     mesh.set_clim(0, 1)
 
     ax.set_xlim(np.min(xv), np.max(xv))
