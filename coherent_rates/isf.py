@@ -72,6 +72,7 @@ from coherent_rates.state import (
 from coherent_rates.system import (
     System,
 )
+from coherent_rates.util import cached as new_cached
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -724,7 +725,15 @@ def get_momentum_squared_per_state(
     }
 
 
-def _get_ordered_momentum(
+def _get_ordered_momentum_path(
+    system: System,
+    config: PeriodicSystemConfig,
+) -> Path:
+    return Path(f"data/{hash((system, config))}.ordered_momentum")
+
+
+@new_cached(_get_ordered_momentum_path, default_call="load_or_call_uncached")
+def get_ordered_momentum(
     system: System,
     config: PeriodicSystemConfig,
 ) -> tuple[
@@ -754,7 +763,7 @@ def get_momentum_threshold_effective_mass(
     *,
     threshold: float = 0.01,
 ) -> tuple[float, float]:
-    momentum, energy_per_state = _get_ordered_momentum(system, config)
+    momentum, energy_per_state = get_ordered_momentum(system, config)
 
     thermal_factors = np.exp(-energy_per_state / (Boltzmann * config.temperature))
     thermal_factors /= np.sum(thermal_factors)
@@ -779,7 +788,7 @@ def get_occupation_threshold_effective_mass(
     threshold: float,
 ) -> tuple[float, float]:
 
-    momentum, energy_per_state = _get_ordered_momentum(system, config)
+    momentum, energy_per_state = get_ordered_momentum(system, config)
 
     thermal_factors = np.exp(-energy_per_state / (Boltzmann * config.temperature))
     thermal_factors /= np.sum(thermal_factors)
@@ -787,6 +796,31 @@ def get_occupation_threshold_effective_mass(
     cut_idx = np.argmax(np.cumsum(thermal_factors) > threshold)
     thermal_factors = thermal_factors[:cut_idx]
     momentum = momentum[:cut_idx]
+
+    total_occupation = np.sum(thermal_factors)
+    prefactor = 1 / (config.temperature * Boltzmann * system.mass**2)
+    inverse_mass = np.sum(thermal_factors * momentum * prefactor)
+    inverse_mass /= total_occupation
+
+    return total_occupation, 1 / inverse_mass
+
+
+def get_energy_threshold_effective_mass(
+    system: System,
+    config: PeriodicSystemConfig,
+    *,
+    threshold: float | None = None,
+) -> tuple[float, float]:
+
+    momentum, energy_per_state = get_ordered_momentum(system, config)
+
+    thermal_factors = np.exp(-energy_per_state / (Boltzmann * config.temperature))
+    thermal_factors /= np.sum(thermal_factors)
+
+    if threshold is not None:
+        cut_idx = np.argmax(energy_per_state < threshold)
+        thermal_factors = thermal_factors[:cut_idx]
+        momentum = momentum[:cut_idx]
 
     total_occupation = np.sum(thermal_factors)
     prefactor = 1 / (config.temperature * Boltzmann * system.mass**2)
