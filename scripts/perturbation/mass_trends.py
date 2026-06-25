@@ -70,6 +70,8 @@ def _assess_isf_validity() -> None:
             system = system.with_mass(target_mass)
             system = system.with_barrier_energy(barrier_ratio * thermal_energy)
 
+            get_ordered_momentum.load_or_call_cached(system, config)
+
             times = GaussianMethod(measure="abs").get_fit_times(
                 system=system,
                 config=config,
@@ -139,7 +141,6 @@ def _assess_isf_validity() -> None:
                 linestyle=":",
                 label="Effective Mass",
             )
-            get_ordered_momentum.load_or_call_cached(system, config)
 
             def loss_function(threshold_guess: float) -> float:
                 if threshold_guess <= 0:
@@ -195,6 +196,8 @@ def _assess_isf_validity() -> None:
                 label="Effective Mass",
             )
             print("Missing occupation:", 1 - total_occupation)
+
+            get_ordered_momentum.delete_cache(system, config)
 
     fig.savefig("scripts/perturbation/mass_trends.validity.pdf")
 
@@ -360,17 +363,18 @@ def _plot_isf_mass_ratios() -> None:
     fig, ax = get_thesis_figure()
 
     data = get_all_mass_ratios()
-    xv, yv, mass_ratios, _occupation_mass_ratios = (
+    xv, yv, _mass_ratios, _occupation_mass_ratios, optimal_mass_ratios = (
         data["xv"],
         data["yv"],
         data["mass_ratios"],
         data["occupation_mass_ratios"],
+        data["optimal_mass_ratios"],
     )
 
     mesh = ax.pcolormesh(
         xv,
         yv,
-        mass_ratios,
+        optimal_mass_ratios,
         shading="nearest",
     )
     ax.set_xlabel(r"Barrier Energy / $k_bT$")
