@@ -39,8 +39,6 @@ def _assess_isf_validity() -> None:
         offset=(0.01,),  # Breaks some of the symmetry
     )
 
-    thermal_energy = Boltzmann * config.temperature
-
     fig, _axes = plt.subplots(
         layout="constrained",
         nrows=5,
@@ -49,26 +47,24 @@ def _assess_isf_validity() -> None:
     )
 
     barrier_ratios = np.linspace(0, 4, 5)
-    kinetic_ratios = np.linspace(0.05, 1, 5)
+    mass_ratios = np.linspace(1, 20, 5)
+
+    m_0 = (2 * np.pi * hbar) ** 2 / (
+        2 * Boltzmann * config.temperature * system.lattice_constant**2
+    )
+    v_0 = Boltzmann * config.temperature
 
     with disabled_timing():
-        for (barrier_ratio, kinetic_ratio), ax in zip(
+        for (barrier_ratio, mass_ratio), ax in zip(
             itertools.product(
                 barrier_ratios,
-                kinetic_ratios,
+                mass_ratios,
             ),
             _axes.ravel(),
             strict=True,
         ):
-            # 2. Calculate target mass: kinetic_ratio = E_kinetic / E_thermal
-            # Since E_kinetic = (2*pi*hbar)^2 / (2 * m * a^2), we solve for m:
-            target_kinetic_energy = kinetic_ratio * thermal_energy
-            target_mass = (2 * np.pi * hbar) ** 2 / (
-                2 * target_kinetic_energy * system.lattice_constant**2
-            )
-
-            system = system.with_mass(target_mass)
-            system = system.with_barrier_energy(barrier_ratio * thermal_energy)
+            system = system.with_mass(m_0 * mass_ratio)
+            system = system.with_barrier_energy(v_0 * barrier_ratio)
 
             get_ordered_momentum.load_or_call_cached(system, config)
 
@@ -110,7 +106,7 @@ def _assess_isf_validity() -> None:
             )
             ax.set_ylim(((1 - 1.1 * total_occupation), 1))
             ax.set_title(
-                f"Barrier: {barrier_ratio:.2f}, Kinetic: {kinetic_ratio:.2f}",
+                f"Barrier: {barrier_ratio:.2f}, Mass: {mass_ratio:.2f}",
                 fontsize=8,
             )
 
@@ -166,16 +162,14 @@ def _assess_isf_validity() -> None:
                     np.mean((np.abs(isf["data"][time_mask]) - predicted_isf) ** 2),
                 )
 
-            optimization_result = scipy.optimize.minimize(
+            optimization_result = scipy.optimize.brute(
                 loss_function,
-                x0=[0.01],
-                bounds=[(1e-6, None)],
-                method="L-BFGS-B",
+                ranges=[(0.005, 0.5)],
             )
 
-            optimal_threshold = (
-                optimization_result.x[0] if optimization_result.success else 0.01
-            )
+            print("Optimization result:", optimization_result)  # noqa: T201
+
+            optimal_threshold = float(optimization_result[0])
 
             # Extract final parameters using the optimal threshold
             total_occupation, effective_mass = get_momentum_threshold_effective_mass(
@@ -267,17 +261,12 @@ def _get_optimal_mass_ratio(
             np.mean((np.abs(isf["data"][time_mask]) - predicted_isf) ** 2),
         )
 
-    optimization_result = scipy.optimize.minimize(
+    optimization_result = scipy.optimize.brute(
         loss_function,
-        x0=[0.01],
-        bounds=[(1e-6, None)],
-        method="L-BFGS-B",
+        ranges=[(0.005, 0.5)],
     )
 
-    optimal_threshold = (
-        optimization_result.x[0] if optimization_result.success else 0.01
-    )
-
+    optimal_threshold = float(optimization_result[0])
     # Extract final parameters using the optimal threshold
     _total_occupation, effective_mass = get_momentum_threshold_effective_mass(
         system,
@@ -305,24 +294,23 @@ def get_all_mass_ratios() -> dict[str, np.ndarray]:
     )
 
     barrier_ratios = np.linspace(0, 4, 50)
-    kinetic_ratios = np.linspace(0.05, 1, 50)
-    xv, yv = np.meshgrid(barrier_ratios, kinetic_ratios)
+    mass_ratios = np.linspace(1, 20, 50)
+    m_0 = (2 * np.pi * hbar) ** 2 / (
+        2 * Boltzmann * config.temperature * system.lattice_constant**2
+    )
+    v_0 = Boltzmann * config.temperature
+    xv, yv = np.meshgrid(barrier_ratios, mass_ratios)
 
     mass_ratios = np.zeros_like(xv)
     occupation_mass_ratios = np.zeros_like(xv)
     optimal_mass_ratios = np.zeros_like(xv)
-    for i, (barrier, kinetic) in enumerate(
+    for i, (barrier_ratio, mass_ratio) in enumerate(
         zip(xv.flat, yv.flat, strict=True),
     ):
         print(f"i: {i}")
         with disabled_timing():
-            thermal_energy = Boltzmann * config.temperature
-            target_kinetic_energy = kinetic * thermal_energy
-            target_mass = (2 * np.pi * hbar) ** 2 / (
-                2 * target_kinetic_energy * system.lattice_constant**2
-            )
-            system = system.with_mass(target_mass)
-            system = system.with_barrier_energy(barrier * thermal_energy)
+            system = system.with_mass(m_0 * mass_ratio)
+            system = system.with_barrier_energy(v_0 * barrier_ratio)
 
             get_ordered_momentum.load_or_call_cached(system, config)
             mass_ratios.flat[i] = _get_threshold_mass_ratio(
@@ -378,7 +366,7 @@ def _plot_isf_mass_ratios() -> None:
         shading="nearest",
     )
     ax.set_xlabel(r"Barrier Energy / $k_bT$")
-    ax.set_ylabel(r"Kinetic Energy $\frac{\hbar^2 k^2}{2m k_b T}$")
+    ax.set_ylabel(r"Kinetic Energy $\frac{m}{m_0}$")
     mesh.set_clim(0, 1)
 
     ax.set_xlim(np.min(xv), np.max(xv))
@@ -389,5 +377,5 @@ def _plot_isf_mass_ratios() -> None:
 
 
 if __name__ == "__main__":
-    _assess_isf_validity()
+    # _assess_isf_validity()
     _plot_isf_mass_ratios()
