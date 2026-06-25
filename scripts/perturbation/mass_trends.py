@@ -142,24 +142,24 @@ def _assess_isf_validity() -> None:
                 if threshold_guess <= 0:
                     return float("inf")
                 tot_occ, eff_mass = get_momentum_threshold_effective_mass(
-                    system,
+                    system,  # noqa: B023
                     config,
                     threshold=threshold_guess,
                 )
-                fit_system = system.with_mass(eff_mass)
+                fit_system = system.with_mass(eff_mass)  # noqa: B023
 
                 free_time = get_free_particle_time(fit_system, config)
                 t_cutoff = np.sqrt(2) * free_time
-                time_mask = times.times <= t_cutoff
+                time_mask = times.times <= t_cutoff  # noqa: B023
 
                 predicted_isf = get_free_particle_isf(
                     fit_system,
                     config,
-                    times.times[time_mask],
+                    times.times[time_mask],  # noqa: B023
                     offset=1 - tot_occ,
                 )
                 return float(
-                    np.mean((np.abs(isf["data"][time_mask]) - predicted_isf) ** 2),
+                    np.mean((np.abs(isf["data"][time_mask]) - predicted_isf) ** 2),  # noqa: B023
                 )
 
             optimization_result = scipy.optimize.brute(
@@ -189,7 +189,6 @@ def _assess_isf_validity() -> None:
                 linestyle=":",
                 label="Effective Mass",
             )
-            print("Missing occupation:", 1 - total_occupation)
 
             get_ordered_momentum.delete_cache(system, config)
 
@@ -307,7 +306,7 @@ def get_all_mass_ratios() -> dict[str, np.ndarray]:
     for i, (barrier_ratio, mass_ratio) in enumerate(
         zip(xv.flat, yv.flat, strict=True),
     ):
-        print(f"i: {i}")
+        print(f"i: {i}")  # noqa: T201
         with disabled_timing():
             system = system.with_mass(m_0 * mass_ratio)
             system = system.with_barrier_energy(v_0 * barrier_ratio)
@@ -377,5 +376,5 @@ def _plot_isf_mass_ratios() -> None:
 
 
 if __name__ == "__main__":
-    # _assess_isf_validity()
+    _assess_isf_validity()
     _plot_isf_mass_ratios()
