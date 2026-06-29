@@ -1,4 +1,5 @@
 import dataclasses
+from typing import Literal
 
 import matplotlib as mpl
 import numpy as np
@@ -13,9 +14,7 @@ from coherent_rates.config import (
     PeriodicSystemConfig,
 )
 from coherent_rates.fit import get_scattered_direction
-from coherent_rates.isf import (
-    get_weak_boltzmann_isf,
-)
+from coherent_rates.isf import get_weak_boltzmann_isf
 from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
     SODIUM_COPPER_SYSTEM_2D,
@@ -69,7 +68,7 @@ def plot_delta_k_comparison_1st() -> None:
     fig.savefig("scripts/perturbation/delta_k_comparison.1d.1st.pdf")
 
 
-def plot_delta_k_comparison_2nd() -> None:
+def plot_delta_k_comparison_2nd(ty: Literal["add", "mul"] = "add") -> None:
     system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
 
     config = PeriodicSystemConfig(
@@ -96,7 +95,9 @@ def plot_delta_k_comparison_2nd() -> None:
 
         _, _, line = plot_value_list_against_time(
             {
-                "data": (isf_2o["data"] + (1 - isf["data"])),
+                "data": (isf_2o["data"] + (1 - isf["data"]))
+                if ty == "add"
+                else isf_2o["data"] / isf["data"],
                 "basis": isf["basis"],
             },
             measure="abs",
@@ -117,7 +118,10 @@ def plot_delta_k_comparison_2nd() -> None:
     c_bar.ax.tick_params(labelsize=8)
 
     fig.set_facecolor((0, 0, 0, 0))
-    fig.savefig("scripts/perturbation/delta_k_comparison.1d.2nd.pdf")
+    fig.savefig(
+        "scripts/perturbation/delta_k_comparison.1d.2nd"
+        f"{'' if ty == 'add' else '.mul'}.pdf",
+    )
 
 
 def plot_delta_k_comparison_1st_2d(*, long_time: bool = False) -> None:
@@ -166,7 +170,11 @@ def plot_delta_k_comparison_1st_2d(*, long_time: bool = False) -> None:
     )
 
 
-def plot_delta_k_comparison_2nd_2d(*, long_time: bool = False) -> None:
+def plot_delta_k_comparison_2nd_2d(
+    *,
+    long_time: bool = False,
+    ty: Literal["add", "mul"] = "add",
+) -> None:
     system = SODIUM_COPPER_SYSTEM_2D
 
     config = PeriodicSystemConfig(
@@ -193,7 +201,9 @@ def plot_delta_k_comparison_2nd_2d(*, long_time: bool = False) -> None:
 
         _, _, line = plot_value_list_against_time(
             {
-                "data": (isf_2o["data"] + (1 - isf["data"])),
+                "data": (isf_2o["data"] + (1 - isf["data"]))
+                if ty == "add"
+                else isf_2o["data"] / isf["data"],
                 "basis": isf["basis"],
             },
             measure="abs",
@@ -216,14 +226,17 @@ def plot_delta_k_comparison_2nd_2d(*, long_time: bool = False) -> None:
     fig.set_facecolor((0, 0, 0, 0))
     fig.savefig(
         "scripts/perturbation/delta_k_comparison.2d.2nd"
-        f"{'.lt' if long_time else ''}.pdf",
+        f"{'.lt' if long_time else ''}"
+        f"{'' if ty == 'add' else '.mul'}.pdf",
     )
 
 
 if __name__ == "__main__":
     plot_delta_k_comparison_1st()
     plot_delta_k_comparison_2nd()
+    plot_delta_k_comparison_2nd(ty="mul")
     plot_delta_k_comparison_1st_2d()
     plot_delta_k_comparison_2nd_2d()
     plot_delta_k_comparison_1st_2d(long_time=True)
     plot_delta_k_comparison_2nd_2d(long_time=True)
+    plot_delta_k_comparison_2nd_2d(ty="mul")
