@@ -20,6 +20,7 @@ from coherent_rates.system import (
     SODIUM_COPPER_SYSTEM_2D,
 )
 from coherent_rates.util import (
+    CAM_BLUE,
     format_axis_scientific,
     get_thesis_figure,
 )
@@ -122,6 +123,44 @@ def plot_delta_k_comparison_2nd(ty: Literal["add", "mul"] = "add") -> None:
         "scripts/perturbation/delta_k_comparison.1d.2nd"
         f"{'' if ty == 'add' else '.mul'}.pdf",
     )
+
+
+def plot_max_2nd_order_contribution() -> None:
+    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
+
+    config = PeriodicSystemConfig(
+        (20,),
+        (100,),
+        direction=(10,),
+        truncation=50,
+        temperature=155,
+    )
+
+    times = EvenlySpacedTimeBasis(1000, 1, 0, delta_t=2e-12)
+
+    fig, ax = get_thesis_figure()
+
+    contributions = []
+    k_points = np.linspace(0, 2, 50, endpoint=True)[1::]
+    k_points = np.linspace(0, 0.5, 50, endpoint=True)[1::]
+
+    for delta_k in k_points:
+        direction = get_scattered_direction(system, config, [10**10 * delta_k])[0]
+
+        config = dataclasses.replace(config, direction=direction)
+        isf = get_weak_boltzmann_isf(system, config, times)
+        isf_2o = get_weak_boltzmann_isf(system, config, times, second_order=True)
+
+        contributions.append(np.max(np.abs(isf["data"] - isf_2o["data"])))
+
+    (line,) = ax.plot(k_points, contributions)
+    line.set_marker("x")
+    line.set_color(CAM_BLUE.warm)
+
+    format_axis_scientific(ax.yaxis)
+
+    fig.set_facecolor((0, 0, 0, 0))
+    fig.savefig("scripts/perturbation/delta_k_comparison.1d.2nd.max.pdf")
 
 
 def plot_delta_k_comparison_1st_2d(*, long_time: bool = False) -> None:
@@ -235,6 +274,7 @@ if __name__ == "__main__":
     plot_delta_k_comparison_1st()
     plot_delta_k_comparison_2nd()
     plot_delta_k_comparison_2nd(ty="mul")
+    plot_max_2nd_order_contribution()
     plot_delta_k_comparison_1st_2d()
     plot_delta_k_comparison_2nd_2d()
     plot_delta_k_comparison_1st_2d(long_time=True)
