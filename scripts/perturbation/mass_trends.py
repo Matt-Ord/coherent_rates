@@ -79,6 +79,7 @@ def _assess_isf_validity() -> None:
             total_occupation, effective_mass = get_momentum_threshold_effective_mass(
                 system,
                 config,
+                threshold=0.01,
             )
             (_line,) = ax.plot(
                 times.times,
@@ -193,6 +194,7 @@ def _get_threshold_mass_ratio(
     total_occupation, effective_mass = get_momentum_threshold_effective_mass(
         system,
         config,
+        threshold=0.01,
     )
     return total_occupation, effective_mass / system.mass
 

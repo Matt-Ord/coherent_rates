@@ -126,6 +126,7 @@ def _plot_best_fit_mass(
     total_occupation, effective_mass = get_momentum_threshold_effective_mass(
         system,
         config,
+        threshold=0.01,
     )
 
     ax.axhline(1 - total_occupation, color=CAM_CHERRY.dark, linestyle="--")
@@ -167,6 +168,85 @@ def _plot_best_fit_mass(
     fig.savefig("scripts/perturbation/expect_p.best_fit_mass.pdf")
 
 
+def _plot_best_fit_mass_zero_offset(
+    *,
+    temperature: float = 155,
+    mass_factor: float = 1,
+    energy_factor: float = 1,
+) -> None:
+
+    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
+    system = system.with_barrier_energy(energy_factor * system.barrier_energy)
+    system = system.with_mass(mass_factor * system.mass)
+
+    config = PeriodicSystemConfig(
+        (200,),
+        (100,),
+        direction=(1,),
+        truncation=50,
+        temperature=temperature,
+    )
+
+    times = GaussianMethod(measure="abs").get_fit_times(
+        system=system,
+        config=config,
+    )
+
+    isf = get_weak_boltzmann_isf(system, config, times)
+    fig, ax = get_thesis_figure()
+
+    fig, ax, line_first_order = plot_value_list_against_time(isf, measure="abs", ax=ax)
+    line_first_order.set_label("Elastic ISF")
+    line_first_order.set_color(CAM_CHERRY.base)
+
+    ax.set_xlabel("Time / s")
+    ax.set_ylabel(r"$|I(\Delta k, t)|$")
+
+    format_axis_scientific(ax.yaxis)
+
+    get_hamiltonian.load_or_call_cached(system, config)
+
+    _, effective_mass = get_momentum_threshold_effective_mass(
+        system,
+        config,
+    )
+
+    (line_effective_mass,) = ax.plot(
+        times.times,
+        get_free_particle_isf(
+            system.with_mass(effective_mass),
+            config,
+            times.times,
+        ),
+        color=CAM_CHERRY.dark,
+        linestyle="--",
+        label="Effective Mass",
+    )
+
+    (line_real_mass,) = ax.plot(
+        times.times,
+        get_free_particle_isf(
+            system,
+            config,
+            times.times,
+        ),
+        color=CAM_BLUE.warm,
+        linestyle="--",
+        label="Actual Mass",
+    )
+
+    ax.set_ylim((0.9 * np.min(np.abs(isf["data"])), 1))
+
+    ax.legend(
+        loc="upper right",
+        handles=[line_real_mass, line_effective_mass, line_first_order],
+        fontsize=9,
+    )
+
+    fig.savefig("scripts/perturbation/expect_p.best_fit_mass.zero_offset.pdf")
+
+
 if __name__ == "__main__":
     _plot_momentum_squared()
     _plot_best_fit_mass()
+    _plot_best_fit_mass_zero_offset()

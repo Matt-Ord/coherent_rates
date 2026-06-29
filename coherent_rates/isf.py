@@ -761,7 +761,7 @@ def get_momentum_threshold_effective_mass(
     system: System,
     config: PeriodicSystemConfig,
     *,
-    threshold: float = 0.01,
+    threshold: float | None = None,
 ) -> tuple[float, float]:
     momentum, energy_per_state = get_ordered_momentum(system, config)
 
@@ -769,9 +769,10 @@ def get_momentum_threshold_effective_mass(
     thermal_factors /= np.sum(thermal_factors)
 
     scaled_momentum = momentum / (2 * system.mass * energy_per_state)
-    cut_idx = np.argmax(scaled_momentum < threshold)
-    thermal_factors = thermal_factors[:cut_idx]
-    momentum = momentum[:cut_idx]
+    if threshold is not None:
+        cut_idx = np.argmax(scaled_momentum < threshold)
+        thermal_factors = thermal_factors[:cut_idx]
+        momentum = momentum[:cut_idx]
 
     total_occupation = np.sum(thermal_factors)
     prefactor = 1 / (config.temperature * Boltzmann * system.mass**2)
