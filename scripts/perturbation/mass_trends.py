@@ -1,5 +1,6 @@
 import itertools
 from pathlib import Path
+from typing import TypedDict
 
 import numpy as np
 import scipy.optimize
@@ -22,7 +23,6 @@ from coherent_rates.isf import (
     get_ordered_momentum,
     get_weak_boltzmann_isf,
 )
-from coherent_rates.solve import get_hamiltonian
 from coherent_rates.system import SODIUM_COPPER_BRIDGE_SYSTEM_1D, System
 from coherent_rates.util import CAM_BLUE, CAM_CHERRY, get_thesis_figure
 
@@ -110,15 +110,6 @@ def _assess_isf_validity() -> None:
                 fontsize=8,
             )
 
-            hamiltonian = get_hamiltonian(system, config)
-            energies_per_band = hamiltonian["data"].reshape(config.n_bands, -1)
-            occupations = np.exp(
-                -energies_per_band / (Boltzmann * config.temperature),
-            )
-            occupations /= np.sum(occupations)
-            missing_occupation = 1 - np.sum(occupations[:50])
-            print("Missing occupation:", missing_occupation)  # noqa: T201
-
             min_isf = np.min(np.abs(isf["data"]))
             total_occupation, effective_mass = get_occupation_threshold_effective_mass(
                 system,
@@ -167,8 +158,6 @@ def _assess_isf_validity() -> None:
                 ranges=[(0.005, 0.5)],
             )
 
-            print("Optimization result:", optimization_result)  # noqa: T201
-
             optimal_threshold = float(optimization_result[0])
 
             # Extract final parameters using the optimal threshold
@@ -177,6 +166,7 @@ def _assess_isf_validity() -> None:
                 config,
                 threshold=optimal_threshold,
             )
+            print(m_0 * mass_ratio, effective_mass, effective_mass / (m_0 * mass_ratio))
             (_line,) = ax.plot(
                 times.times,
                 get_free_particle_isf(
@@ -198,37 +188,37 @@ def _assess_isf_validity() -> None:
 def _get_threshold_mass_ratio(
     system: System,
     config: PeriodicSystemConfig,
-) -> float:
+) -> tuple[float, float]:
 
-    _total_occupation, effective_mass = get_momentum_threshold_effective_mass(
+    total_occupation, effective_mass = get_momentum_threshold_effective_mass(
         system,
         config,
     )
-    return effective_mass / system.mass
+    return total_occupation, effective_mass / system.mass
 
 
 def _get_occupation_mass_ratio(
     system: System,
     config: PeriodicSystemConfig,
-) -> float:
+) -> tuple[float, float]:
 
     isf = get_weak_boltzmann_isf(
         system,
         config,
         GaussianMethod().get_fit_times(system=system, config=config),
     )
-    _total_occupation, effective_mass = get_occupation_threshold_effective_mass(
+    total_occupation, effective_mass = get_occupation_threshold_effective_mass(
         system,
         config,
         threshold=1 - np.min(np.abs(isf["data"])),
     )
-    return effective_mass / system.mass
+    return total_occupation, effective_mass / system.mass
 
 
 def _get_optimal_mass_ratio(
     system: System,
     config: PeriodicSystemConfig,
-) -> float:
+) -> tuple[float, float]:
 
     times = GaussianMethod(measure="abs").get_fit_times(
         system=system,
@@ -266,21 +256,30 @@ def _get_optimal_mass_ratio(
     )
 
     optimal_threshold = float(optimization_result[0])
-    # Extract final parameters using the optimal threshold
-    _total_occupation, effective_mass = get_momentum_threshold_effective_mass(
+
+    total_occupation, effective_mass = get_momentum_threshold_effective_mass(
         system,
         config,
         threshold=optimal_threshold,
     )
-    return effective_mass / system.mass
+    return total_occupation, effective_mass / system.mass
 
 
 def _all_mass_ratio_path() -> Path:
     return Path("scripts/perturbation/mass_trends.all_mass_ratios.npz")
 
 
+class _MassRatioData(TypedDict):
+    xv: np.ndarray
+    yv: np.ndarray
+    mass_ratios: tuple[np.ndarray, np.ndarray]
+    occupation_mass_ratios: tuple[np.ndarray, np.ndarray]
+    optimal_mass_ratios: tuple[np.ndarray, np.ndarray]
+    shape: tuple[int, int]
+
+
 @cached(_all_mass_ratio_path)
-def get_all_mass_ratios() -> dict[str, np.ndarray]:
+def get_all_mass_ratios() -> _MassRatioData:
     system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
 
     config = PeriodicSystemConfig(
@@ -299,12 +298,19 @@ def get_all_mass_ratios() -> dict[str, np.ndarray]:
     )
     v_0 = Boltzmann * config.temperature
     xv, yv = np.meshgrid(barrier_ratios, mass_ratios)
+    xv = xv.ravel()
+    yv = yv.ravel()
 
-    mass_ratios = np.zeros_like(xv)
-    occupation_mass_ratios = np.zeros_like(xv)
-    optimal_mass_ratios = np.zeros_like(xv)
+    out: _MassRatioData = {
+        "xv": xv,
+        "yv": yv,
+        "mass_ratios": (np.zeros_like(xv), np.zeros_like(xv)),
+        "occupation_mass_ratios": (np.zeros_like(xv), np.zeros_like(xv)),
+        "optimal_mass_ratios": (np.zeros_like(xv), np.zeros_like(xv)),
+        "shape": (50, 50),
+    }
     for i, (barrier_ratio, mass_ratio) in enumerate(
-        zip(xv.flat, yv.flat, strict=True),
+        zip(xv, yv, strict=True),
     ):
         print(f"i: {i}")  # noqa: T201
         with disabled_timing():
@@ -312,28 +318,28 @@ def get_all_mass_ratios() -> dict[str, np.ndarray]:
             system = system.with_barrier_energy(v_0 * barrier_ratio)
 
             get_ordered_momentum.load_or_call_cached(system, config)
-            mass_ratios.flat[i] = _get_threshold_mass_ratio(
-                system,
-                config,
+            out["mass_ratios"][0][i], out["mass_ratios"][1][i] = (
+                _get_threshold_mass_ratio(
+                    system,
+                    config,
+                )
             )
-            occupation_mass_ratios.flat[i] = _get_occupation_mass_ratio(
-                system,
-                config,
+            out["occupation_mass_ratios"][0][i], out["occupation_mass_ratios"][1][i] = (
+                _get_occupation_mass_ratio(
+                    system,
+                    config,
+                )
             )
 
-            optimal_mass_ratios.flat[i] = _get_optimal_mass_ratio(
-                system,
-                config,
+            out["optimal_mass_ratios"][0][i], out["optimal_mass_ratios"][1][i] = (
+                _get_optimal_mass_ratio(
+                    system,
+                    config,
+                )
             )
 
             get_ordered_momentum.delete_cache(system, config)
-    return {
-        "xv": xv,
-        "yv": yv,
-        "mass_ratios": mass_ratios,
-        "occupation_mass_ratios": occupation_mass_ratios,
-        "optimal_mass_ratios": optimal_mass_ratios,
-    }
+    return out
 
 
 def _plot_isf_mass_ratios() -> None:
@@ -347,8 +353,6 @@ def _plot_isf_mass_ratios() -> None:
         offset=(0.01,),  # Breaks some of the symmetry
     )
 
-    fig, ax = get_thesis_figure()
-
     data = get_all_mass_ratios()
     xv, yv, _mass_ratios, _occupation_mass_ratios, optimal_mass_ratios = (
         data["xv"],
@@ -358,14 +362,16 @@ def _plot_isf_mass_ratios() -> None:
         data["optimal_mass_ratios"],
     )
 
+    fig, ax = get_thesis_figure()
     mesh = ax.pcolormesh(
-        xv,
-        yv,
-        optimal_mass_ratios,
+        xv.reshape(50, 50),
+        yv.reshape(50, 50),
+        optimal_mass_ratios[1].reshape(50, 50),
         shading="nearest",
     )
     ax.set_xlabel(r"Barrier Energy $\frac{E_b}{k_bT}$")
     ax.set_ylabel(r"Mass $\frac{m}{m_0}$")
+    ax.set_title("Intrinsic Mass")
     mesh.set_clim(0, 1)
 
     ax.set_xlim(np.min(xv), np.max(xv))
@@ -373,6 +379,25 @@ def _plot_isf_mass_ratios() -> None:
 
     fig.colorbar(mesh, ax=ax)
     fig.savefig("scripts/perturbation/mass_trends.pdf")
+
+    fig, ax = get_thesis_figure()
+    mesh = ax.pcolormesh(
+        xv.reshape(50, 50),
+        yv.reshape(50, 50),
+        # If we fit to a Gaussian which ends at 0, what do we
+        # think the mass will be?
+        (optimal_mass_ratios[1] / optimal_mass_ratios[0]).reshape(50, 50),
+        shading="nearest",
+    )
+    ax.set_xlabel(r"Barrier Energy $\frac{E_b}{k_bT}$")
+    ax.set_ylabel(r"Mass $\frac{m}{m_0}$")
+    ax.set_title("Empirical Mass")
+
+    ax.set_xlim(np.min(xv), np.max(xv))
+    ax.set_ylim(np.min(yv), np.max(yv))
+
+    fig.colorbar(mesh, ax=ax)
+    fig.savefig("scripts/perturbation/mass_trends.empirical.pdf")
 
 
 if __name__ == "__main__":
