@@ -125,7 +125,7 @@ def plot_delta_k_comparison_2nd(ty: Literal["add", "mul"] = "add") -> None:
     )
 
 
-def plot_max_2nd_order_contribution() -> None:
+def plot_max_2nd_order_contribution(ty: Literal["add", "mul"] = "add") -> None:
     system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
 
     config = PeriodicSystemConfig(
@@ -151,7 +151,12 @@ def plot_max_2nd_order_contribution() -> None:
         isf = get_weak_boltzmann_isf(system, config, times)
         isf_2o = get_weak_boltzmann_isf(system, config, times, second_order=True)
 
-        contributions.append(np.max(np.abs(isf["data"] - isf_2o["data"])))
+        contribution = (
+            np.abs(isf["data"] - isf_2o["data"])
+            if ty == "add"
+            else np.abs(isf_2o["data"] / isf["data"] - 1)
+        )
+        contributions.append(np.max(contribution))
 
     (line,) = ax.plot(k_points, contributions)
     line.set_marker("x")
