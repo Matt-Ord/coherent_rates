@@ -22,6 +22,7 @@ from coherent_rates.isf import (
     get_ordered_momentum,
     get_weak_boltzmann_isf,
 )
+from coherent_rates.solve import get_hamiltonian
 from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
     SODIUM_COPPER_SYSTEM_2D,
@@ -50,9 +51,11 @@ def _get_zero_threshold_mass_ratio(
 def _get_optimal_threshold_mass_ratio(
     system: System,
     config: PeriodicSystemConfig,
+    *,
+    t_factor: float = 4,
 ) -> tuple[float, float]:
 
-    times = GaussianMethod(measure="abs").get_fit_times(
+    times = GaussianMethod(measure="abs", t_factor=t_factor).get_fit_times(
         system=system,
         config=config,
     )
@@ -375,11 +378,13 @@ def _plot_isf_mass_fit_1d(
 
     format_axis_scientific(ax.yaxis)
 
+    get_ordered_momentum.load_or_call_cached(system, config)
     total_occupation, effective_mass = (
         _get_zero_threshold_mass_ratio(system, config)
         if ty == "zero"
         else _get_optimal_threshold_mass_ratio(system, config)
     )
+    get_ordered_momentum.delete_cache(system, config)
 
     (line_effective_mass,) = ax.plot(
         times.times,
@@ -441,8 +446,9 @@ def _plot_isf_mass_fit_2d(
         temperature=155,
     )
     config = config.with_temperature(temperature)
+    get_hamiltonian.load_or_call_cached(system, config)
 
-    times = GaussianMethod(measure="abs").get_fit_times(
+    times = GaussianMethod(measure="abs", t_factor=32).get_fit_times(
         system=system,
         config=config,
     )
@@ -459,11 +465,13 @@ def _plot_isf_mass_fit_2d(
 
     format_axis_scientific(ax.yaxis)
 
+    get_ordered_momentum.load_or_call_cached(system, config)
     total_occupation, effective_mass = (
         _get_zero_threshold_mass_ratio(system, config)
         if ty == "zero"
-        else _get_optimal_threshold_mass_ratio(system, config)
+        else _get_optimal_threshold_mass_ratio(system, config, t_factor=32)
     )
+    get_ordered_momentum.delete_cache(system, config)
 
     (line_effective_mass,) = ax.plot(
         times.times,
