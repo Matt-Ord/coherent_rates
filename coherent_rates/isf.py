@@ -707,9 +707,20 @@ def _get_decay_per_state(  # noqa: PLR0913
 
 def get_momentum_squared_per_state(
     hamiltonian: SingleBasisDiagonalOperator[_ESB0],
-    direction: tuple[float, ...],
+    direction: tuple[float, ...] | None = None,
 ) -> ValueList[_ESB0]:
     state_basis = hamiltonian["basis"][0]
+
+    # TODO: aaa
+    out = np.zeros(state_basis.n, dtype=np.complex128)
+    if direction is None:
+        ndim = BasisUtil(state_basis).ndim
+
+        for i in range(ndim):
+            direction = tuple(int(j == i) for j in range(ndim))
+            out += get_momentum_squared_per_state(hamiltonian, direction)["data"]
+        return {"basis": state_basis, "data": out}
+
     dk = BasisUtil(state_basis).fundamental_dk_stacked
     direction_k = np.einsum("i,ij->j", direction, dk)
     direction_k /= np.linalg.norm(direction_k)
@@ -758,6 +769,40 @@ def get_ordered_momentum(
 
 
 def get_momentum_threshold_effective_mass(
+    system: System,
+    config: PeriodicSystemConfig,
+    *,
+    threshold: float | None = None,
+) -> tuple[float, float]:
+    momentum, energy_per_state = get_ordered_momentum(system, config)
+    prefactor = 1 / (config.temperature * Boltzmann * system.mass)
+
+    momentum *= prefactor
+
+    sort_idx = np.argsort(momentum)[::-1]
+    momentum = momentum[sort_idx]
+    energy_per_state = energy_per_state[sort_idx]
+
+    thermal_factors = np.exp(-energy_per_state / (Boltzmann * config.temperature))
+    thermal_factors /= np.sum(thermal_factors)
+
+    assert np.isclose(np.sum(thermal_factors), 1.0), "Thermal factors do not sum to 1"
+
+    if threshold is not None:
+        cut_idx = np.argmax(momentum < threshold)
+        thermal_factors = thermal_factors[:cut_idx]
+        momentum = momentum[:cut_idx]
+
+    total_occupation = np.sum(thermal_factors)
+    inverse_mass = np.sum(thermal_factors * momentum / system.mass)
+    inverse_mass /= total_occupation
+
+    assert len(momentum) != 0, "Momentum array is empty after thresholding"
+
+    return total_occupation, 1 / inverse_mass
+
+
+def get_scaled_momentum_threshold_effective_mass(
     system: System,
     config: PeriodicSystemConfig,
     *,

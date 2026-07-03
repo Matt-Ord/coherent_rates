@@ -18,7 +18,7 @@ from coherent_rates.system import (
 
 if __name__ == "__main__":
     config = PeriodicSystemConfig(
-        (20, 20),
+        (2, 2),
         (30, 30),
         truncation=150,
         direction=(3, 0),

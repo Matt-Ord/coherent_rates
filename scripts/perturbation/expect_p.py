@@ -100,7 +100,6 @@ def _plot_momentum_squared_2d() -> None:
     n_bands = hamiltonian["basis"][0].wavefunctions["basis"][0].shape[0]
     momentum = get_momentum_squared_per_state(
         hamiltonian,
-        config.direction,
     )["data"].reshape(n_bands, -1)
 
     energy_per_state = hamiltonian["data"]
