@@ -707,19 +707,9 @@ def _get_decay_per_state(  # noqa: PLR0913
 
 def get_momentum_squared_per_state(
     hamiltonian: SingleBasisDiagonalOperator[_ESB0],
-    direction: tuple[float, ...] | None = None,
+    direction: tuple[float, ...],
 ) -> ValueList[_ESB0]:
     state_basis = hamiltonian["basis"][0]
-
-    # TODO: aaa
-    out = np.zeros(state_basis.n, dtype=np.complex128)
-    if direction is None:
-        ndim = BasisUtil(state_basis).ndim
-
-        for i in range(ndim):
-            direction = tuple(int(j == i) for j in range(ndim))
-            out += get_momentum_squared_per_state(hamiltonian, direction)["data"]
-        return {"basis": state_basis, "data": out}
 
     dk = BasisUtil(state_basis).fundamental_dk_stacked
     direction_k = np.einsum("i,ij->j", direction, dk)
@@ -786,7 +776,7 @@ def get_momentum_threshold_effective_mass(
     thermal_factors = np.exp(-energy_per_state / (Boltzmann * config.temperature))
     thermal_factors /= np.sum(thermal_factors)
 
-    assert np.isclose(np.sum(thermal_factors), 1.0), "Thermal factors do not sum to 1"
+    assert np.isclose(np.sum(thermal_factors), 1.0), "Thermal factors do not sum to 1"  # noqa: S101
 
     if threshold is not None:
         cut_idx = np.argmax(momentum < threshold)
@@ -797,7 +787,7 @@ def get_momentum_threshold_effective_mass(
     inverse_mass = np.sum(thermal_factors * momentum / system.mass)
     inverse_mass /= total_occupation
 
-    assert len(momentum) != 0, "Momentum array is empty after thresholding"
+    assert len(momentum) != 0, "Momentum array is empty after thresholding"  # noqa: S101
 
     return total_occupation, 1 / inverse_mass
 
