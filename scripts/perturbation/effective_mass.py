@@ -21,7 +21,6 @@ from coherent_rates.isf import (
     get_scaled_momentum_threshold_effective_mass,
     get_weak_boltzmann_isf,
 )
-from coherent_rates.solve import get_hamiltonian
 from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
     SODIUM_COPPER_SYSTEM_2D,
@@ -802,7 +801,6 @@ def _plot_isf_mass_fit_2d(
         temperature=155,
     )
     config = config.with_temperature(temperature)
-    get_hamiltonian.load_or_call_cached(system, config)
 
     times = GaussianMethod(measure="abs", t_factor=8).get_fit_times(
         system=system,

@@ -86,12 +86,12 @@ def _plot_momentum_squared_2d() -> None:
     system = SODIUM_COPPER_SYSTEM_2D
 
     config = PeriodicSystemConfig(
-        (5, 5),
+        (20, 20),
         (35, 35),
         direction=(1, 0),
         truncation=625,
         temperature=155,
-        offset=(0.01, 0.01),  # Breaks some of the symmetry
+        # offset=(0.01, 0.01),  # Breaks some of the symmetry
     )
 
     fig, ax = get_thesis_figure()
@@ -100,21 +100,27 @@ def _plot_momentum_squared_2d() -> None:
     n_bands = hamiltonian["basis"][0].wavefunctions["basis"][0].shape[0]
     momentum = get_momentum_squared_per_state(
         hamiltonian,
+        config.direction,
     )["data"].reshape(n_bands, -1)
 
     energy_per_state = hamiltonian["data"]
 
     energies_2d = energy_per_state.reshape((n_bands, -1))
     energies_2d = np.real_if_close(energies_2d)
-    scaled_momentum = (momentum / (2 * system.mass * energies_2d)).reshape(
-        (n_bands, -1),
-    )
+    scaled_momentum = (
+        momentum / (system.mass * config.temperature * Boltzmann)
+    ).reshape((n_bands, -1))
 
-    for b in range(n_bands):
+    scaled_energy = (energies_2d - system.barrier_energy) / (
+        Boltzmann * config.temperature
+    )
+    average_energy = np.mean(scaled_energy, axis=1)
+    _u = average_energy < 2
+    print(np.argmin(average_energy < 2))
+    for b in range(100):
         sort_idx = np.argsort(energies_2d[b, :])
         (line,) = ax.plot(
-            (energies_2d[b, sort_idx] - system.barrier_energy)
-            / (Boltzmann * config.temperature),
+            scaled_energy[b, sort_idx],
             np.real_if_close(scaled_momentum[b, sort_idx]),
             label=f"Band {b}",
         )
