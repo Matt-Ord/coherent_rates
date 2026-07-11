@@ -22,20 +22,21 @@ from coherent_rates.util import (
 )
 
 # We could also look at
-# config = PeriodicSystemConfig(
-#     (390,),
-#     (100,),
-#     direction=(26,),
-#     truncation=50,
-#     temperature=155,
-# )
-# config = PeriodicSystemConfig(
-#     (20, 20),
-#     (35, 35),
-#     direction=(2, 0),
-#     truncation=625,
-#     temperature=155,
-# )
+# ! config = PeriodicSystemConfig(
+# !     (390,),
+# !     (100,),
+# !     direction=(26,),
+# !     truncation=50,
+# !     temperature=155,
+# ! )
+# ! and for 2D
+# ! config = PeriodicSystemConfig(
+# !     (20, 20),
+# !     (35, 35),
+# !     direction=(2, 0),
+# !     truncation=625,
+# !     temperature=155,
+# ! )
 
 
 def _plot_instrument_bias() -> None:
@@ -88,7 +89,7 @@ def _plot_instrument_bias() -> None:
     line.set_color(CAM_BLUE.dark)
     legend = ax.legend(
         frameon=False,
-        loc="lower right",
+        loc="upper right",
         fontsize=9,
     )
     legend.get_frame().set_alpha(0)

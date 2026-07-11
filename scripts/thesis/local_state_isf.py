@@ -33,6 +33,7 @@ def _load_isf() -> tuple[
 
 def plot_periodic_isf() -> None:
     system = LITHIUM_COPPER_BRIDGE_SYSTEM_1D
+    print(f"system.barrier_energy: {system.barrier_energy:.2e}")  # noqa: T201
 
     config = PeriodicSystemConfig(
         (400,),
@@ -89,7 +90,7 @@ def plot_periodic_isf() -> None:
     ax.set_xlabel("Time / s")
     ax.set_ylabel(r"$|I(\Delta k, t)|$")
     ax.set_ylim(0.9, 1.0)
-    ax.set_xlim(0, times.delta_t)
+    ax.set_xlim(0, 0.5e-12)
 
     legend = ax.legend(
         frameon=False,
