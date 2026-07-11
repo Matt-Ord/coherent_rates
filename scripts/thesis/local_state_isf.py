@@ -1,10 +1,12 @@
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from typing import Any
+
+import numpy as np
 from surface_potential_analysis.state_vector.plot_value_list import (
     plot_value_list_against_time,
 )
 
 from coherent_rates.config import PeriodicSystemConfig
-from coherent_rates.fit import GaussianMethod
+from coherent_rates.fit import GaussianMethod, get_scattered_momentum
 from coherent_rates.isf import get_boltzmann_isf, get_local_boltzmann_isf
 from coherent_rates.state import (
     ThermalLocalizationStrategy,
@@ -14,9 +16,19 @@ from coherent_rates.system import (
 )
 from coherent_rates.util import (
     CAM_BLUE,
-    format_axis_scientific,
+    CAM_CHERRY,
     get_thesis_figure,
 )
+
+
+# Gererated by
+# scripts/ballistic/ballistic_demo.py
+def _load_isf() -> tuple[
+    np.ndarray[Any, np.dtype[np.floating]],
+    np.ndarray[Any, np.dtype[np.float64]],
+]:
+    data = np.load("scripts/thesis/isf_serialized.npz")
+    return data["isf"], data["times"]
 
 
 def plot_periodic_isf() -> None:
@@ -28,6 +40,10 @@ def plot_periodic_isf() -> None:
         direction=(66,),
         truncation=50,
         temperature=155,
+    )
+
+    print(  # noqa: T201
+        f"delta k: {get_scattered_momentum(system, config, [config.direction])[0]:.2e}",
     )
 
     times = GaussianMethod(measure="abs").get_fit_times(
@@ -63,49 +79,24 @@ def plot_periodic_isf() -> None:
     )
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
     line.set_label("Localized")
-    line.set_color(CAM_BLUE.warm)
+    line.set_color(CAM_BLUE.dark)
+
+    classical_isf, times_classical = _load_isf()
+    (line,) = ax.plot(times_classical, classical_isf, "--")
+    line.set_label("Classical")
+    line.set_color(CAM_CHERRY.dark)
 
     ax.set_xlabel("Time / s")
     ax.set_ylabel(r"$|I(\Delta k, t)|$")
-
-    format_axis_scientific(ax.yaxis)
+    ax.set_ylim(0.9, 1.0)
+    ax.set_xlim(0, times.delta_t)
 
     legend = ax.legend(
         frameon=False,
-        loc="center right",
+        loc="lower left",
         fontsize=9,
-        bbox_to_anchor=(1.0, 0.6),
     )
     legend.get_frame().set_alpha(0)
-
-    inset_ax = inset_axes(
-        ax,
-        width="45%",
-        height="45%",
-        loc="lower left",
-        borderpad=1.0,
-        bbox_to_anchor=(0.1, 0, 1, 1),
-        bbox_transform=ax.transAxes,
-    )
-    _, _, inset_line = plot_value_list_against_time(isf, measure="angle", ax=inset_ax)
-    inset_line.set_color(CAM_BLUE.warm)
-
-    inset_ax.set_facecolor((0, 0, 0, 0))
-    inset_ax.spines["top"].set_visible(False)
-    inset_ax.spines["right"].set_visible(False)
-    inset_ax.tick_params(axis="both", which="major", labelsize=8)
-    inset_ax.tick_params(
-        axis="x",
-        which="both",
-        bottom=False,
-        top=False,
-        labelbottom=False,
-        labeltop=False,
-    )
-    inset_ax.set_xlabel("")
-    inset_ax.set_ylabel(r"$\arg{(I(\Delta k, t))}$", fontsize=9, labelpad=-1)
-
-    format_axis_scientific(inset_ax.yaxis)
 
     fig.set_facecolor((0, 0, 0, 0))
     fig.savefig("scripts/thesis/local_state_isf.pdf")

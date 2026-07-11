@@ -461,7 +461,7 @@ LITHIUM_COPPER_BRIDGE_ENERGY = (477.16 - 471.41) * 1e3 / Avogadro
 LITHIUM_COPPER_SYSTEM_2D = PeriodicSystem2d(
     id="LiCu",
     barrier_energy=9 * LITHIUM_COPPER_BRIDGE_ENERGY,
-    lattice_constant=3.615e-10,
+    lattice_constant=2.558e-10,
     mass=1.152414898e-26,
 )
 LITHIUM_COPPER_SYSTEM_1D = PeriodicSystem1d(
