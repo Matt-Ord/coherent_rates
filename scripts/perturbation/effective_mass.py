@@ -57,7 +57,7 @@ def _get_optimal_threshold_mass_ratio(
         system=system,
         config=config,
     )
-    isf = get_weak_boltzmann_isf(system, config, times)
+    isf = get_weak_boltzmann_isf.call_uncached(system, config, times)
 
     def loss_function(threshold_guess: float) -> float:
         if threshold_guess <= 0:
@@ -124,7 +124,7 @@ def _get_optimal_threshold_mass_ratio_alt(
         system=system,
         config=config,
     )
-    isf = np.abs(get_weak_boltzmann_isf(system, config, times)["data"])
+    isf = np.abs(get_weak_boltzmann_isf.call_uncached(system, config, times)["data"])
 
     momentum, energy_per_state = get_ordered_momentum(system, config)
     prefactor = 1 / (config.temperature * Boltzmann * system.mass)
@@ -239,7 +239,7 @@ def _assess_isf_validity() -> None:
                 config=config,
             )
 
-            isf = get_weak_boltzmann_isf(system, config, times)
+            isf = get_weak_boltzmann_isf.call_uncached(system, config, times)
             _, _, _line = plot_value_list_against_time(isf, measure="abs", ax=ax)
 
             total_occupation, effective_mass = _get_zero_threshold_mass_ratio(
@@ -364,7 +364,7 @@ def _assess_isf_validity_2d() -> None:
                 config=config,
             )
 
-            isf = get_weak_boltzmann_isf(system, config, times)
+            isf = get_weak_boltzmann_isf.call_uncached(system, config, times)
             _, _, _line = plot_value_list_against_time(isf, measure="abs", ax=ax)
 
             total_occupation, effective_mass = _get_zero_threshold_mass_ratio(
@@ -711,7 +711,7 @@ def _plot_isf_mass_fit_1d(
     )
 
     get_ordered_momentum.load_or_call_cached(system, config)
-    isf = get_weak_boltzmann_isf(system, config, times)
+    isf = get_weak_boltzmann_isf.call_uncached(system, config, times)
     if ty == "alt":
         total_occupation, effective_mass = _get_optimal_threshold_mass_ratio_alt(
             system,
@@ -808,7 +808,7 @@ def _plot_isf_mass_fit_2d(
     )
 
     get_ordered_momentum.load_or_call_cached(system, config)
-    isf = get_weak_boltzmann_isf(system, config, times)
+    isf = get_weak_boltzmann_isf.call_uncached(system, config, times)
     if ty == "alt":
         total_occupation, effective_mass = _get_optimal_threshold_mass_ratio_alt(
             system,
