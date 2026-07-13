@@ -54,12 +54,12 @@ def select_idx(
     }
 
 
-def _2d_boltzmann_rate() -> None:
+def _2d_boltzmann_rate_thesis() -> None:
     config = PeriodicSystemConfig(
         (20, 20),
         (35, 35),
-        truncation=625,
         direction=(2, 2),
+        truncation=625,
         temperature=155,
     )
     system = SODIUM_COPPER_SYSTEM_2D
@@ -72,6 +72,7 @@ def _2d_boltzmann_rate() -> None:
         config,
         fit_method=DoubleGaussianMethod(measure="abs", ty="Fast"),
         directions=directions,
+        n_repeats=20,
     )
     data_111_double = select_idx(data_111_double, list(range(6)))
     fig, ax, line = plot_value_list_against_momentum(data_111_double, ax=ax)
@@ -86,6 +87,7 @@ def _2d_boltzmann_rate() -> None:
         config,
         fit_method=DoubleGaussianMethod(measure="abs", ty="Fast"),
         directions=directions,
+        n_repeats=20,
     )
     data_112_double = select_idx(data_112_double, list(range(3)))
     fig, ax, line = plot_value_list_against_momentum(data_112_double, ax=ax)
@@ -147,7 +149,7 @@ def _2d_boltzmann_rate() -> None:
     format_axis_scientific(ax.xaxis)
     ax.set_ylabel(r"Rate / $\mathrm{s}^{-1}$")
     ax.set_xlabel(r"$\Delta k$ / $\mathrm{m}^{-1}$")
-    fig.savefig("scripts/thesis/boltzmann_mass.2d.pdf")
+    fig.savefig("scripts/thesis/boltzmann_mass.2d.thesis.pdf")
 
 
 def _2d_boltzmann_rate_paper() -> None:
@@ -245,7 +247,7 @@ def _2d_boltzmann_rate_paper() -> None:
     format_axis_scientific(ax.xaxis)
     ax.set_ylabel(r"Rate / $\mathrm{s}^{-1}$")
     ax.set_xlabel(r"$\Delta k$ / $\mathrm{m}^{-1}$")
-    fig.savefig("scripts/thesis/boltzmann_mass.2d.pdf")
+    fig.savefig("scripts/thesis/boltzmann_mass.2d.paper.pdf")
 
 
 def _2d_boltzmann_rate_weak() -> None:
@@ -762,9 +764,9 @@ def _2d_effective_mass_vs_barrier() -> None:
 
 
 if __name__ == "__main__":
-    _2d_boltzmann_rate()
+    # _2d_boltzmann_rate()
     _2d_boltzmann_rate_paper()
-    _2d_boltzmann_rate_weak()
-    _2d_effective_mass_vs_mass()
-    _2d_effective_mass_vs_temperature()
-    _2d_effective_mass_vs_barrier()
+    # _2d_boltzmann_rate_weak()
+    # _2d_effective_mass_vs_mass()
+    # _2d_effective_mass_vs_temperature()
+    # _2d_effective_mass_vs_barrier()

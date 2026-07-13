@@ -398,7 +398,7 @@ def _boltzmann_mass_thesis() -> None:
         free_fit_method=GaussianMethod(measure="abs"),
         ax=ax,
     )
-    fig.savefig("scripts/thesis/boltzmann_mass.1d.pdf")
+    fig.savefig("scripts/thesis/boltzmann_mass.1d.thesis.pdf")
 
 
 def _boltzmann_mass_paper() -> None:
@@ -423,7 +423,7 @@ def _boltzmann_mass_paper() -> None:
     )
     ax.set_xlim(0, 1.4e10)
     ax.set_ylim(0, 6e12)
-    fig.savefig("scripts/thesis/boltzmann_mass.1d.pdf")
+    fig.savefig("scripts/thesis/boltzmann_mass.1d.paper.pdf")
 
 
 def _boltzmann_mass_test() -> None:
