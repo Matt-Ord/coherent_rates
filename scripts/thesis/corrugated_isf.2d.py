@@ -15,14 +15,15 @@ from coherent_rates.isf import (
     get_scattered_momentum,
 )
 from coherent_rates.system import (
-    SODIUM_COPPER_BRIDGE_SYSTEM_1D,
+    SODIUM_COPPER_SYSTEM_2D,
 )
 from coherent_rates.util import (
     CAM_BLUE,
+    CAM_CHERRY,
     CAM_SLATE_1,
     format_axis_scientific,
-    get_paper_isf_figure,
     get_thesis_fig_size,
+    get_thesis_figure,
     setup_rc_params_thesis,
 )
 
@@ -67,158 +68,145 @@ def get_double_thesis_figure(
     return fig, (ax1, ax2)
 
 
-def plot_periodic_isf_for_paper() -> None:
-    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
-
-    config = PeriodicSystemConfig(
-        (400,),
-        (100,),
-        direction=(18 * 5,),
-        truncation=25,
-        temperature=155,
-    )
-    times = EvenlySpacedTimeBasis(1000, 1, 0, 2.0e-12)
-    delta_k = get_scattered_momentum(system, config, [config.direction])[0]
-    print(f"Actual delta k:1 {delta_k:0.3e}")  # noqa: T201
-
-    isf = get_boltzmann_isf(
-        system,
-        config,
-        times,
-        n_repeats=100,
-    )
-
-    fig, (ax0, ax1) = get_paper_isf_figure()
-    fig, ax0, line = plot_value_list_against_time(isf, measure="real", ax=ax0)
-    line.set_label("Simulated")
-    line.set_color(CAM_BLUE.warm)
-
-    method = GaussianMethod(measure="abs")
-    fit = method.get_fit_from_isf(
-        isf,
-        system=system,
-        config=config,
-    )
-    fitted_data = method.get_fitted_data(fit, isf["basis"])
-    fig, ax0, line = plot_value_list_against_time(
-        fitted_data,
-        ax=ax0,
-        measure="real",
-    )
-    line.set_label("Fitted")
-    line.set_color(CAM_BLUE.dark)
-    line.set_linestyle("--")
-    ax0.set_xlabel("")
-    ax0.set_ylabel(r"$\Re{(I(\Delta k, t))}$")
-    ax0.set_ylim(0, 1)
-
-    format_axis_scientific(ax0.yaxis)
-    format_axis_scientific(ax1.yaxis)
-
-    ax0.legend(frameon=False, loc="lower left", fontsize=9)
-
-    _, _, inset_line = plot_value_list_against_time(isf, measure="imag", ax=ax1)
-    inset_line.set_color(CAM_BLUE.warm)
-    ax1.set_ylim(-0.01, 0.02)
-    ax1.set_xlim(ax0.get_xlim())
-    ax1.set_facecolor(CAM_SLATE_1)
-    ax1.yaxis.get_offset_text().set_va("top")  # type: ignore[attr-defined]
-    ax1.yaxis.get_offset_text().set_ha("right")  # type: ignore[attr-defined]
-    ax1.yaxis.get_offset_text().set_position((-0.01, 0))
-
-    fig.canvas.draw()
-    ax1.set_xticks(ax0.get_xticks())
-    ax0.set_xticks(ax1.get_xticks())
-    ax1.set_xlabel(r"Time / $s$")
-    ax1.set_ylabel(r"$\Im{(I(\Delta k, t))}$")
-
-    ax0.yaxis.set_label_coords(-0.10, 0.5)
-    ax1.yaxis.set_label_coords(-0.10, 0.5)
-    fig.savefig("scripts/thesis/corrugated_isf.1d.paper.pdf")
-
-
 def plot_periodic_isf_for_thesis() -> None:
-    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
+    system = SODIUM_COPPER_SYSTEM_2D
 
-    config = PeriodicSystemConfig(
-        (390,),
-        (100,),
-        direction=(67,),
-        truncation=50,
+    config_1 = PeriodicSystemConfig(
+        (20, 20),
+        (35, 35),
+        direction=(1, 0),
+        truncation=625,
         temperature=155,
     )
-    times = GaussianMethod().get_fit_times(
-        system=system,
-        config=config,
+    config_2 = PeriodicSystemConfig(
+        (20, 20),
+        (35, 35),
+        direction=(2, 0),
+        truncation=625,
+        temperature=155,
     )
-    delta_k = get_scattered_momentum(system, config, [config.direction])[0]
-    print(f"Actual delta k:1 {delta_k:0.3e}")  # noqa: T201
+    config_3 = PeriodicSystemConfig(
+        (20, 20),
+        (35, 35),
+        direction=(3, 0),
+        truncation=625,
+        temperature=155,
+    )
+    times_1 = GaussianMethod().get_fit_times(
+        system=system,
+        config=config_1,
+    )
+    times_2 = GaussianMethod().get_fit_times(
+        system=system,
+        config=config_2,
+    )
+    times_3 = GaussianMethod().get_fit_times(
+        system=system,
+        config=config_3,
+    )
+    delta_k_1 = get_scattered_momentum(system, config_1, [config_1.direction])[0]
+    delta_k_2 = get_scattered_momentum(system, config_2, [config_2.direction])[0]
+    delta_k_3 = get_scattered_momentum(system, config_3, [config_3.direction])[0]
+    print(f"Actual delta k:1 {delta_k_1:0.3e}")  # noqa: T201
+    print(f"Actual delta k:2 {delta_k_2:0.3e}")  # noqa: T201
+    print(f"Actual delta k:3 {delta_k_3:0.3e}")  # noqa: T201
 
     isf = get_boltzmann_isf(
         system,
-        config,
-        times,
-        n_repeats=100,
+        config_1,
+        times_1,
+        n_repeats=20,
     )
 
-    fig, (ax0, ax1) = get_double_thesis_figure()
-    fig, ax0, line = plot_value_list_against_time(isf, measure="real", ax=ax0)
-    line.set_label("Simulated")
+    w, h = get_thesis_fig_size()
+    fig, ax0 = get_thesis_figure(fig_size=(1.5 * w, h))
+    fig, ax0, line = plot_value_list_against_time(
+        {
+            "basis": EvenlySpacedTimeBasis(
+                100,
+                1,
+                0,
+                GaussianMethod().t_factor,
+            ),
+            "data": isf["data"],
+        },
+        measure="real",
+        ax=ax0,
+    )
+    line.set_label(rf"${delta_k_1 * 10**-9:.2} \times 10^9 \mathrm{{m}}^{{-1}}$")
     line.set_color(CAM_BLUE.warm)
 
-    method = GaussianMethod(measure="abs")
-    fit = method.get_fit_from_isf(
-        isf,
-        system=system,
-        config=config,
+    isf = get_boltzmann_isf(
+        system,
+        config_2,
+        times_2,
+        n_repeats=20,
     )
-    fitted_data = method.get_fitted_data(fit, isf["basis"])
+
     fig, ax0, line = plot_value_list_against_time(
-        fitted_data,
-        ax=ax0,
+        {
+            "basis": EvenlySpacedTimeBasis(
+                100,
+                1,
+                0,
+                GaussianMethod().t_factor,
+            ),
+            "data": isf["data"],
+        },
         measure="real",
+        ax=ax0,
     )
-    line.set_label("Fitted")
+    line.set_label("Simulated")
     line.set_color(CAM_BLUE.dark)
-    line.set_linestyle("--")
+    line.set_label(rf"${delta_k_2 * 10**-9:.2} \times 10^9 \mathrm{{m}}^{{-1}}$")
+
+    isf = get_boltzmann_isf(
+        system,
+        config_3,
+        times_3,
+        n_repeats=20,
+    )
+
+    fig, ax0, line = plot_value_list_against_time(
+        {
+            "basis": EvenlySpacedTimeBasis(
+                100,
+                1,
+                0,
+                GaussianMethod().t_factor,
+            ),
+            "data": isf["data"],
+        },
+        measure="real",
+        ax=ax0,
+    )
+    line.set_label("Simulated")
+    line.set_color(CAM_CHERRY.dark)
+    line.set_label(rf"${delta_k_3 * 10**-9:.2} \times 10^9 \mathrm{{m}}^{{-1}}$")
+
     ax0.set_xlabel("")
     ax0.set_ylabel(r"$\Re{(I(\Delta k, t))}$")
-    ax0.set_ylim(0, 1)
-    ax0.set_xlim(0, 2e-12)
+    ax0.set_ylim(0.95, 1)
+    ax0.set_xlim(0, 2)
 
     format_axis_scientific(ax0.yaxis)
-    format_axis_scientific(ax1.yaxis)
 
-    ax0.legend(frameon=False, loc="lower left", fontsize=9)
-
-    _, _, inset_line = plot_value_list_against_time(isf, measure="imag", ax=ax1)
-    inset_line.set_color(CAM_BLUE.warm)
-    inset_line.set_label("Simulated")
-    ax1.set_ylim(-0.008, 0.016)
-    ax1.set_yticks([-0.008, -0.004, 0.0, 0.004, 0.008, 0.012, 0.016])
-    ax1.set_xlim(ax0.get_xlim())
-    ax1.set_facecolor(CAM_SLATE_1)
-
-    ax1.legend(frameon=False, loc="lower left", fontsize=9)
+    ax0.legend(frameon=False, loc="upper right", fontsize=9)
 
     fig.canvas.draw()
-    ax1.set_xticks(ax0.get_xticks())
-    ax0.set_xticks(ax1.get_xticks())
-    ax1.set_xlabel(r"Time / $s$")
-    ax0.set_xlabel(r"Time / $s$")
-    ax1.set_ylabel(r"$\Im{(I(\Delta k, t))}$")
+    ax0.set_xlabel(r"Time / $T_{\mathrm{free}}$")
 
-    fig.savefig("scripts/thesis/corrugated_isf.1d.thesis.pdf")
+    fig.savefig("scripts/thesis/corrugated_isf.2d.thesis.pdf")
 
 
 def plot_periodic_isf_for_thesis_large() -> None:
-    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
+    system = SODIUM_COPPER_SYSTEM_2D
 
     config = PeriodicSystemConfig(
-        (390,),
-        (100,),
-        direction=(128,),
-        truncation=50,
+        (20, 20),
+        (35, 35),
+        direction=(5, 0),
+        truncation=625,
         temperature=155,
     )
     times = GaussianMethod().get_fit_times(
@@ -232,7 +220,7 @@ def plot_periodic_isf_for_thesis_large() -> None:
         system,
         config,
         times,
-        n_repeats=100,
+        n_repeats=20,
     )
 
     fig, (ax0, ax1) = get_double_thesis_figure()
@@ -257,8 +245,8 @@ def plot_periodic_isf_for_thesis_large() -> None:
     line.set_linestyle("--")
     ax0.set_xlabel("")
     ax0.set_ylabel(r"$\Re{(I(\Delta k, t))}$")
-    ax0.set_ylim(0, 1)
-    ax0.set_xlim(0, 1.1e-12)
+    ax0.set_ylim(0.6, 1)
+    ax0.set_xlim(0, 2e-12)
 
     format_axis_scientific(ax0.yaxis)
     format_axis_scientific(ax1.yaxis)
@@ -281,10 +269,9 @@ def plot_periodic_isf_for_thesis_large() -> None:
     ax0.set_xlabel(r"Time / $s$")
     ax1.set_ylabel(r"$\Im{(I(\Delta k, t))}$")
 
-    fig.savefig("scripts/thesis/corrugated_isf.1d.thesis.large.pdf")
+    fig.savefig("scripts/thesis/corrugated_isf.2d.thesis.large.pdf")
 
 
 if __name__ == "__main__":
-    plot_periodic_isf_for_paper()
     plot_periodic_isf_for_thesis_large()
     plot_periodic_isf_for_thesis()

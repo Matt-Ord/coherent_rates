@@ -56,12 +56,12 @@ def plot_periodic_comparison() -> None:
     fitted_data = method.get_fitted_data(fit, isf["basis"])
 
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
-    line.set_label("First Order")
+    line.set_label("Elastic")
     line.set_color(CAM_CHERRY.base)
 
     isf_se = get_weak_boltzmann_isf(system, config, times, second_order=True)
     fig, ax, line = plot_value_list_against_time(isf_se, measure="abs", ax=ax)
-    line.set_label("Second Order")
+    line.set_label("Elastic and Inelastic")
     line.set_color(CAM_CHERRY.dark)
 
     isf_full = get_boltzmann_isf(system, config, times)
@@ -173,7 +173,7 @@ def plot_free_comparison() -> None:
         labeltop=False,
     )
     inset_ax.set_xlabel("")
-    inset_ax.set_ylabel(r"$\arg{(I(\Delta k, t))}$", fontsize=9)
+    inset_ax.set_ylabel(r"$\arg{(I(\Delta k, t))}$")
 
     format_axis_scientific(inset_ax.yaxis)
 

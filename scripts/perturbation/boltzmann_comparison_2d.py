@@ -45,12 +45,12 @@ def plot_periodic_weak_isf() -> None:
 
     isf = get_weak_boltzmann_isf(system, config, times)
     fig, ax, line = plot_value_list_against_time(isf, measure="abs", ax=ax)
-    line.set_label("First Order")
+    line.set_label("Elastic")
     line.set_color(CAM_CHERRY.base)
 
     isf_so = get_weak_boltzmann_isf(system, config, times, second_order=True)
     fig, ax, line = plot_value_list_against_time(isf_so, measure="abs", ax=ax)
-    line.set_label("Second Order")
+    line.set_label("Elastic and Inelastic")
     line.set_color(CAM_CHERRY.dark)
 
     isf = get_boltzmann_isf(system, config, times, n_repeats=20)

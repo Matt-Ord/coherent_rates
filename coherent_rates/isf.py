@@ -667,6 +667,7 @@ def _get_decay_per_state(  # noqa: PLR0913
     friction: float = 0,
     *,
     second_order: bool = False,
+    first_order: bool = True,
 ) -> np.ndarray[tuple[int, int], np.dtype[np.complex128]]:
 
     state_basis = hamiltonian["basis"][0]
@@ -678,7 +679,10 @@ def _get_decay_per_state(  # noqa: PLR0913
     )
     recoil = np.sum(np.square(direction_k)) * hbar / (2 * mass)
 
-    diagonal_k = (recoil - _get_k_diagonal(scatter_operator)).reshape(-1, 1)
+    if first_order:
+        diagonal_k = (recoil - _get_k_diagonal(scatter_operator)).reshape(-1, 1)
+    else:
+        diagonal_k = (recoil - np.zeros(state_basis.n)).reshape(-1, 1)
     diagonal_time_factor = (
         _get_time_factor_first_order(times, friction) if second_order else times
     )
@@ -866,15 +870,17 @@ def get_energy_threshold_effective_mass(
     return total_occupation, 1 / inverse_mass
 
 
-def _get_weak_boltzmann_isf_data_path(
+def _get_weak_boltzmann_isf_data_path(  # noqa: PLR0913
     system: System,
     config: PeriodicSystemConfig,
     times: Any,  # noqa: ANN401
     friction: float = 0,
     *,
     second_order: bool = False,
+    first_order: bool = True,
 ) -> Path:
-    prefix = f"{hash((system, config))}.{hash(times)}.{second_order}.{friction}"
+    prefix = f"{hash((system, config))}.{hash(times)}.{second_order}.{first_order}"
+    prefix += f".{friction}"
     return Path(f"data/{prefix}.weak_boltzmann.isf")
 
 
@@ -887,6 +893,7 @@ def _get_weak_boltzmann_isf_from_hamiltonian(  # noqa: PLR0913
     friction: float = 0,
     *,
     second_order: bool = False,
+    first_order: bool = True,
 ) -> ValueList[_BT0]:
     isf_per_state = np.exp(
         _get_decay_per_state(
@@ -894,6 +901,7 @@ def _get_weak_boltzmann_isf_from_hamiltonian(  # noqa: PLR0913
             direction,
             times.times,
             second_order=second_order,
+            first_order=first_order,
             friction=friction,
             mass=mass,
         ),
@@ -909,13 +917,14 @@ def _get_weak_boltzmann_isf_from_hamiltonian(  # noqa: PLR0913
 
 @cached(_get_weak_boltzmann_isf_data_path)
 @timed
-def get_weak_boltzmann_isf(
+def get_weak_boltzmann_isf(  # noqa: PLR0913
     system: System,
     config: PeriodicSystemConfig,
     times: _BT0,
     friction: float = 0,
     *,
     second_order: bool = False,
+    first_order: bool = True,
 ) -> ValueList[_BT0]:
     hamiltonian = get_hamiltonian(system, config)
 
@@ -925,6 +934,7 @@ def get_weak_boltzmann_isf(
         config.temperature,
         times,
         second_order=second_order,
+        first_order=first_order,
         mass=system.mass,
         friction=friction,
     )
@@ -1097,13 +1107,14 @@ def get_boltzmann_rate_against_momentum_data(
 
 
 @timed
-def _get_weak_boltzmann_rate_from_hamiltonian(
+def _get_weak_boltzmann_rate_from_hamiltonian(  # noqa: PLR0913
     hamiltonian: SingleBasisDiagonalOperator[_ESB0],
     system: System,
     config: PeriodicSystemConfig,
     fit_method: FitMethod[Any],
     *,
     second_order: bool = False,
+    first_order: bool = True,
 ) -> float:
     times = fit_method.get_fit_times(system=system, config=config)
 
@@ -1113,6 +1124,7 @@ def _get_weak_boltzmann_rate_from_hamiltonian(
         config.temperature,
         times,
         second_order=second_order,
+        first_order=first_order,
         mass=system.mass,
     )
 
@@ -1129,6 +1141,7 @@ def get_weak_boltzmann_rate(
     fit_method: FitMethod[Any],
     *,
     second_order: bool = False,
+    first_order: bool = True,
 ) -> float:
     hamiltonian = get_hamiltonian(system, config)
     return _get_weak_boltzmann_rate_from_hamiltonian(
@@ -1137,6 +1150,7 @@ def get_weak_boltzmann_rate(
         config,
         fit_method,
         second_order=second_order,
+        first_order=first_order,
     )
 
 
