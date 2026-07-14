@@ -1,5 +1,4 @@
 import dataclasses
-from typing import Literal
 
 import matplotlib as mpl
 import numpy as np
@@ -62,14 +61,14 @@ def plot_delta_k_comparison_1st() -> None:
     sm = cm.ScalarMappable(cmap=c_map, norm=norm)
     sm.set_array([])
     c_bar = fig.colorbar(sm, ax=ax, pad=0.02, aspect=30)
-    c_bar.set_label(r"$\Delta k$ / $\AA^{-1}$", fontsize=9)
+    c_bar.set_label(r"$\Delta k$ / $\AA^{-1}$")
     c_bar.ax.tick_params(labelsize=8)
 
     fig.set_facecolor((0, 0, 0, 0))
     fig.savefig("scripts/perturbation/delta_k_comparison.1d.1st.pdf")
 
 
-def plot_delta_k_comparison_2nd(ty: Literal["add", "mul"] = "add") -> None:
+def plot_delta_k_comparison_2nd() -> None:
     system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
 
     config = PeriodicSystemConfig(
@@ -91,16 +90,16 @@ def plot_delta_k_comparison_2nd(ty: Literal["add", "mul"] = "add") -> None:
         direction = get_scattered_direction(system, config, [10**10 * delta_k])[0]
 
         config = dataclasses.replace(config, direction=direction)
-        isf = get_weak_boltzmann_isf(system, config, times)
-        isf_2o = get_weak_boltzmann_isf(system, config, times, second_order=True)
+        isf_2o = get_weak_boltzmann_isf(
+            system,
+            config,
+            times,
+            second_order=True,
+            first_order=False,
+        )
 
         _, _, line = plot_value_list_against_time(
-            {
-                "data": (isf_2o["data"] + (1 - isf["data"]))
-                if ty == "add"
-                else isf_2o["data"] / isf["data"],
-                "basis": isf["basis"],
-            },
+            isf_2o,
             measure="abs",
             ax=ax,
         )
@@ -115,17 +114,16 @@ def plot_delta_k_comparison_2nd(ty: Literal["add", "mul"] = "add") -> None:
     sm = cm.ScalarMappable(cmap=c_map, norm=norm)
     sm.set_array([])
     c_bar = fig.colorbar(sm, ax=ax, pad=0.02, aspect=30)
-    c_bar.set_label(r"$\Delta k$ / $\AA^{-1}$", fontsize=9)
+    c_bar.set_label(r"$\Delta k$ / $\AA^{-1}$")
     c_bar.ax.tick_params(labelsize=8)
 
     fig.set_facecolor((0, 0, 0, 0))
     fig.savefig(
-        "scripts/perturbation/delta_k_comparison.1d.2nd"
-        f"{'' if ty == 'add' else '.mul'}.pdf",
+        "scripts/perturbation/delta_k_comparison.1d.2nd.pdf",
     )
 
 
-def plot_max_2nd_order_contribution(ty: Literal["add", "mul"] = "add") -> None:
+def plot_max_2nd_order_contribution() -> None:
     system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
 
     config = PeriodicSystemConfig(
@@ -141,28 +139,30 @@ def plot_max_2nd_order_contribution(ty: Literal["add", "mul"] = "add") -> None:
     fig, ax = get_thesis_figure()
 
     contributions = []
-    k_points = np.linspace(0, 2, 50, endpoint=True)[1::]
-    k_points = np.linspace(0, 0.5, 50, endpoint=True)[1::]
+
+    k_points = np.linspace(0, 8, 100, endpoint=True)
 
     for delta_k in k_points:
         direction = get_scattered_direction(system, config, [10**10 * delta_k])[0]
 
         config = dataclasses.replace(config, direction=direction)
-        isf = get_weak_boltzmann_isf(system, config, times)
-        isf_2o = get_weak_boltzmann_isf(system, config, times, second_order=True)
-
-        contribution = (
-            np.abs(isf["data"] - isf_2o["data"])
-            if ty == "add"
-            else np.abs(isf_2o["data"] / isf["data"] - 1)
+        isf_2o = get_weak_boltzmann_isf(
+            system,
+            config,
+            times,
+            first_order=False,
+            second_order=True,
         )
-        contributions.append(np.max(contribution))
+
+        contribution = np.abs(isf_2o["data"])
+        contributions.append(np.min(contribution))
 
     (line,) = ax.plot(k_points, contributions)
     line.set_marker("x")
     line.set_color(CAM_BLUE.warm)
 
     format_axis_scientific(ax.yaxis)
+    ax.set_ylim(0, 1)
 
     fig.set_facecolor((0, 0, 0, 0))
     fig.savefig("scripts/perturbation/delta_k_comparison.1d.2nd.max.pdf")
@@ -204,7 +204,7 @@ def plot_delta_k_comparison_1st_2d(*, long_time: bool = False) -> None:
     sm = cm.ScalarMappable(cmap=c_map, norm=norm)
     sm.set_array([])
     c_bar = fig.colorbar(sm, ax=ax, pad=0.02, aspect=30)
-    c_bar.set_label(r"$\Delta k$ / $\AA^{-1}$", fontsize=9)
+    c_bar.set_label(r"$\Delta k$ / $\AA^{-1}$")
     c_bar.ax.tick_params(labelsize=8)
 
     fig.set_facecolor((0, 0, 0, 0))
@@ -217,7 +217,6 @@ def plot_delta_k_comparison_1st_2d(*, long_time: bool = False) -> None:
 def plot_delta_k_comparison_2nd_2d(
     *,
     long_time: bool = False,
-    ty: Literal["add", "mul"] = "add",
 ) -> None:
     system = SODIUM_COPPER_SYSTEM_2D
 
@@ -240,16 +239,16 @@ def plot_delta_k_comparison_2nd_2d(
         direction = get_scattered_direction(system, config, [10**10 * delta_k])[0]
 
         config = dataclasses.replace(config, direction=direction)
-        isf = get_weak_boltzmann_isf(system, config, times)
-        isf_2o = get_weak_boltzmann_isf(system, config, times, second_order=True)
+        isf_2o = get_weak_boltzmann_isf(
+            system,
+            config,
+            times,
+            second_order=True,
+            first_order=False,
+        )
 
         _, _, line = plot_value_list_against_time(
-            {
-                "data": (isf_2o["data"] + (1 - isf["data"]))
-                if ty == "add"
-                else isf_2o["data"] / isf["data"],
-                "basis": isf["basis"],
-            },
+            isf_2o,
             measure="abs",
             ax=ax,
         )
@@ -264,24 +263,21 @@ def plot_delta_k_comparison_2nd_2d(
     sm = cm.ScalarMappable(cmap=c_map, norm=norm)
     sm.set_array([])
     c_bar = fig.colorbar(sm, ax=ax, pad=0.02, aspect=30)
-    c_bar.set_label(r"$\Delta k$ / $\AA^{-1}$", fontsize=9)
+    c_bar.set_label(r"$\Delta k$ / $\AA^{-1}$")
     c_bar.ax.tick_params(labelsize=8)
 
     fig.set_facecolor((0, 0, 0, 0))
     fig.savefig(
         "scripts/perturbation/delta_k_comparison.2d.2nd"
-        f"{'.lt' if long_time else ''}"
-        f"{'' if ty == 'add' else '.mul'}.pdf",
+        f"{'.lt' if long_time else ''}.pdf",
     )
 
 
 if __name__ == "__main__":
     plot_delta_k_comparison_1st()
     plot_delta_k_comparison_2nd()
-    plot_delta_k_comparison_2nd(ty="mul")
     plot_max_2nd_order_contribution()
     plot_delta_k_comparison_1st_2d()
     plot_delta_k_comparison_2nd_2d()
     plot_delta_k_comparison_1st_2d(long_time=True)
     plot_delta_k_comparison_2nd_2d(long_time=True)
-    plot_delta_k_comparison_2nd_2d(ty="mul")

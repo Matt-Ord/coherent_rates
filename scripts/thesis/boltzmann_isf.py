@@ -119,7 +119,7 @@ def plot_periodic_isf() -> None:
         labeltop=False,
     )
     inset_ax.set_xlabel("")
-    inset_ax.set_ylabel(r"$\arg{(I(\Delta k, t))}$", fontsize=9, labelpad=-1)
+    inset_ax.set_ylabel(r"$\arg{(I(\Delta k, t))}$", labelpad=-1)
 
     format_axis_scientific(inset_ax.yaxis)
 

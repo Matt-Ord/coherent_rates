@@ -144,7 +144,7 @@ def plot_free_isf_for_paper() -> None:
     ax1.set_xticks(ax1.get_xticks())
     ax0.set_xticks(ax1.get_xticks())
     ax1.set_xlabel(r"Time / $s$")
-    ax1.set_ylabel(r"$\Im{(I(\Delta k, t))}$", fontsize=9)
+    ax1.set_ylabel(r"$\Im{(I(\Delta k, t))}$")
     ax0.yaxis.set_label_coords(-0.10, 0.5)
     ax1.yaxis.set_label_coords(-0.10, 0.5)
 
@@ -232,7 +232,7 @@ def plot_free_isf_for_thesis() -> None:
     ax0.set_xticks(ax1.get_xticks())
     ax1.set_xlabel(r"Time / $s$")
     ax0.set_xlabel(r"Time / $s$")
-    ax1.set_ylabel(r"$\Im{(I(\Delta k, t))}$", fontsize=9)
+    ax1.set_ylabel(r"$\Im{(I(\Delta k, t))}$")
 
     fig.savefig("scripts/thesis/free_isf.thesis.pdf")
 

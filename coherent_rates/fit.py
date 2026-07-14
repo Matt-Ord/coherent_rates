@@ -306,6 +306,10 @@ class GaussianMethod(FitMethod[GaussianParameters]):
             ),
         )
 
+    @property
+    def t_factor(self: Self) -> float:
+        return self._t_factor
+
     @staticmethod
     def _fit_fn(
         x: np.ndarray[Any, np.dtype[np.float64]],

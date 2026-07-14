@@ -166,7 +166,7 @@ def plot_split_band_isf(*, barrier_energy: float = 1) -> None:
 
     isf_2d = get_split_band_isf(system_2d, config_2d, times, n_repeats=20)
     band_energies_2d = np.real(get_average_band_energy(system_2d, config_2d))
-    band_energies_2d -= system_2d.barrier_energy / 9
+    band_energies_2d -= SODIUM_COPPER_SYSTEM_2D.barrier_energy / 9
     band_energies_2d /= Boltzmann * config_2d.temperature
 
     sort_indices = np.argsort(band_energies_2d)
@@ -177,19 +177,12 @@ def plot_split_band_isf(*, barrier_energy: float = 1) -> None:
     times_axis = isf_2d["basis"][1].times
 
     # 2. Map the sorted energy values to a smooth colormap gradient
-    if barrier_energy == 0:
-        cmap = matplotlib.colormaps["viridis"]
-        norm = matplotlib.colors.Normalize(
-            vmin=0,
-            vmax=4,
-        )
-    else:
-        cmap = matplotlib.colormaps["RdBu"]
-        norm = matplotlib.colors.TwoSlopeNorm(
-            vcenter=0.0,
-            vmin=band_energies_2d.min() - 0.1,
-            vmax=band_energies_2d.min() + 4.0,
-        )
+    cmap = matplotlib.colormaps["RdBu"]
+    norm = matplotlib.colors.TwoSlopeNorm(
+        vcenter=0.0,
+        vmin=band_energies_2d.min() - 0.1,
+        vmax=band_energies_2d.min() + 4.0,
+    )
     sm = matplotlib.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])  # Dummy array needed for ScalarMappable
 
@@ -222,7 +215,7 @@ def plot_split_band_isf(*, barrier_energy: float = 1) -> None:
     )
     isf_1d = get_split_band_isf(system_1d, config_1d, times, n_repeats=20)
     band_energies_1d = np.real(get_average_band_energy(system_1d, config_1d))
-    band_energies_1d -= system_1d.barrier_energy
+    band_energies_1d -= SODIUM_COPPER_BRIDGE_SYSTEM_1D.barrier_energy
     band_energies_1d /= Boltzmann * config_1d.temperature
 
     sort_indices = np.argsort(band_energies_1d)
