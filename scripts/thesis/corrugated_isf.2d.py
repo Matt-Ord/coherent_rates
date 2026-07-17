@@ -214,7 +214,7 @@ def plot_periodic_isf_for_thesis_large() -> None:
         config=config,
     )
     delta_k = get_scattered_momentum(system, config, [config.direction])[0]
-    print(f"Actual delta k:1 {delta_k:0.3e}")  # noqa: T201
+    print(f"Actual delta k (large): {delta_k:0.3e}")  # noqa: T201
 
     isf = get_boltzmann_isf(
         system,
