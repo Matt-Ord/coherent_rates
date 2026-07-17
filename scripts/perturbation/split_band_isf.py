@@ -137,14 +137,15 @@ def _prepare_monotonic_stacked_data(
     for i in range(abs_cumsum.shape[0] - 2, -1, -1):
         abs_cumsum[i, :] = np.minimum(abs_cumsum[i, :], abs_cumsum[i + 1, :])
 
-    # 4. Convert the cumulative monotonic stack back to individual block thicknesses for stackplot
+    # 4. Convert the cumulative monotonic stack back to individual
+    # block thicknesses for stackplot
     stacked = np.zeros_like(abs_cumsum)
     stacked[0, :] = abs_cumsum[0, :]
     stacked[1:, :] = np.diff(abs_cumsum, axis=0)
     return stacked
 
 
-def plot_split_band_isf(*, barrier_energy: float = 1) -> None:
+def plot_split_band_isf(*, barrier_energy: float = 1) -> None:  # noqa: PLR0915
     system_2d = SODIUM_COPPER_SYSTEM_2D
     system_2d = dataclasses.replace(
         system_2d,
