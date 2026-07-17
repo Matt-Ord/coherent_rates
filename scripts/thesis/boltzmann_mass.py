@@ -11,6 +11,7 @@ from coherent_rates.fit import (
     GaussianMethod,
     GaussianMethodWithOffset,
 )
+from coherent_rates.isf import get_boltzmann_rate_against_momentum_data
 from coherent_rates.plot import (
     plot_boltzmann_isf_fit_for_directions,
     plot_boltzmann_rate_against_momentum,
@@ -24,8 +25,10 @@ from coherent_rates.system import (
 )
 from coherent_rates.util import (
     CAM_BLUE,
+    CAM_CHERRY,
     format_axis_scientific,
     get_paper_figure,
+    get_thesis_fig_size,
     get_thesis_figure,
 )
 
@@ -389,7 +392,8 @@ def _boltzmann_mass_thesis() -> None:
     print(system.barrier_energy)  # noqa: T201
     directions = [(i,) for i in [1, 2, *list(range(5, 155, 5))]]
 
-    fig, ax = get_thesis_figure()
+    w, h = get_thesis_fig_size()
+    fig, ax = get_thesis_figure(fig_size=(1.5 * w, h))
     _compare_rate_against_free_surface(
         system,
         config,
@@ -398,6 +402,34 @@ def _boltzmann_mass_thesis() -> None:
         free_fit_method=GaussianMethod(measure="abs"),
         ax=ax,
     )
+
+    data = get_boltzmann_rate_against_momentum_data(
+        system,
+        config,
+        fit_method=GaussianMethod(measure="abs"),
+        directions=directions,
+    )
+    rates = data["data"]
+    momentum = data["basis"].k_points
+    x_fit = np.real(momentum[:9])
+    y_fit = np.real(rates[:9])
+
+    # Perform linear regression (degree 1 polynomial)
+    # polyfit returns [slope, intercept] -> [a, b]
+    a, b = np.polyfit(x_fit, y_fit, 1)
+    print("Line of best fit: y = Ax + B")  # noqa: T201
+    print(f"Slope (a): {a:.2e}, Intercept (b): {b:.2e}")  # noqa: T201
+
+    # Generate points for the line of best fit and plot it
+    # You can plot it over x_fit, or the entire momentum range depending on preference
+    best_fit_x = np.linspace(0, 1.5 * momentum[-1])
+    best_fit_y = a * best_fit_x + b
+    (line,) = ax.plot(best_fit_x, best_fit_y, linewidth=2, alpha=0.5)
+    line.set_color(CAM_CHERRY.dark)
+
+    ax.set_xlim(0, 1.4e10)
+    ax.set_ylim(0, 6e12)
+
     fig.savefig("scripts/thesis/boltzmann_mass.1d.thesis.pdf")
 
 
