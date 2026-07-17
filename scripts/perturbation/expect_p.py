@@ -91,7 +91,7 @@ def _plot_momentum_squared_2d() -> None:
         direction=(1, 0),
         truncation=625,
         temperature=155,
-        # offset=(0.01, 0.01),  # Breaks some of the symmetry
+        # offset=(0.01, 0.01),  # Breaks some of the symmetry  # noqa: ERA001
     )
 
     fig, ax = get_thesis_figure()
@@ -114,9 +114,7 @@ def _plot_momentum_squared_2d() -> None:
     scaled_energy = (energies_2d - system.barrier_energy) / (
         Boltzmann * config.temperature
     )
-    average_energy = np.mean(scaled_energy, axis=1)
-    _u = average_energy < 2
-    print(np.argmin(average_energy < 2))
+
     for b in range(100):
         sort_idx = np.argsort(energies_2d[b, :])
         (line,) = ax.plot(
