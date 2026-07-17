@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict
 
+import numpy as np
 import scipy
 import scipy.optimize
 from surface_potential_analysis.basis.momentum_basis_like import MomentumBasis
@@ -36,6 +37,7 @@ from coherent_rates.util import (
     CAM_PURPLE,
     format_axis_scientific,
     get_paper_figure,
+    get_thesis_fig_size,
     get_thesis_figure,
 )
 
@@ -52,104 +54,6 @@ def select_idx(
         "basis": MomentumBasis(rates["basis"].k_points[idx]),
         "data": selected_momenta,
     }
-
-
-def _2d_boltzmann_rate_thesis() -> None:
-    config = PeriodicSystemConfig(
-        (20, 20),
-        (35, 35),
-        direction=(2, 2),
-        truncation=625,
-        temperature=155,
-    )
-    system = SODIUM_COPPER_SYSTEM_2D
-
-    fig, ax = get_thesis_figure()
-
-    directions = [(i, i) for i in range(1, 7)]
-    data_111_double = get_boltzmann_rate_against_momentum_data(
-        system,
-        config,
-        fit_method=DoubleGaussianMethod(measure="abs", ty="Fast"),
-        directions=directions,
-        n_repeats=20,
-    )
-    data_111_double = select_idx(data_111_double, list(range(6)))
-    fig, ax, line = plot_value_list_against_momentum(data_111_double, ax=ax)
-    line.set_label("111")
-    line.set_linestyle("")
-    line.set_marker("x")
-    line.set_color(CAM_PURPLE.base)
-
-    directions = [(i, -i) for i in range(1, 7)]
-    data_112_double = get_boltzmann_rate_against_momentum_data(
-        system,
-        config,
-        fit_method=DoubleGaussianMethod(measure="abs", ty="Fast"),
-        directions=directions,
-        n_repeats=20,
-    )
-    data_112_double = select_idx(data_112_double, list(range(3)))
-    fig, ax, line = plot_value_list_against_momentum(data_112_double, ax=ax)
-    line.set_label("$11\\bar{2}$")
-    line.set_linestyle("")
-    line.set_marker("x")
-    line.set_color(CAM_CHERRY.base)
-    line.set_alpha(1.0)
-
-    directions = [(i, i) for i in range(1, 16)]
-    data_111_single = get_boltzmann_rate_against_momentum_data(
-        system,
-        config,
-        fit_method=GaussianMethod(measure="abs"),
-        directions=directions,
-    )
-    data_111_single = select_idx(data_111_single, list(range(6, 15)))
-    fig, ax, line = plot_value_list_against_momentum(data_111_single, ax=ax)
-    line.set_linestyle("")
-    line.set_marker("x")
-    line.set_color(CAM_PURPLE.base)
-
-    directions = [(i, -i) for i in range(1, 16)]
-    data_112_single = get_boltzmann_rate_against_momentum_data(
-        system,
-        config,
-        fit_method=GaussianMethod(measure="abs"),
-        directions=directions,
-    )
-    data_112_single = select_idx(data_112_single, list(range(3, 15)))
-    fig, ax, line = plot_value_list_against_momentum(data_112_single, ax=ax)
-    line.set_linestyle("")
-    line.set_marker("x")
-    line.set_color(CAM_CHERRY.base)
-
-    free = FreeSystem(system)
-    directions = [(i, i) for i in range(1, 16)]
-    data_112_free = get_boltzmann_rate_against_momentum_data(
-        free,
-        config,
-        fit_method=GaussianMethod(measure="abs"),
-        directions=directions,
-    )
-    fig, ax, line = plot_value_list_against_momentum(data_112_free, ax=ax)
-    line.set_label("Free system")
-    line.set_color(CAM_BLUE.warm)
-    line.set_linestyle("")
-    line.set_marker("x")
-
-    ax.set_xlim(0, 1.5e10)
-    ax.set_ylim(0, 1e13)
-
-    legend = ax.legend(
-        frameon=False,
-        loc="upper left",
-        fontsize=9,
-    )
-    legend.get_frame().set_alpha(0)
-    format_axis_scientific(ax.xaxis)
-    ax.set_ylabel(r"Rate / $\mathrm{s}^{-1}$")
-    ax.set_xlabel(r"$\Delta k$ / $\mathrm{m}^{-1}$")
-    fig.savefig("scripts/thesis/boltzmann_mass.2d.thesis.pdf")
 
 
 def _2d_boltzmann_rate_paper() -> None:
@@ -248,6 +152,127 @@ def _2d_boltzmann_rate_paper() -> None:
     ax.set_ylabel(r"Rate / $\mathrm{s}^{-1}$")
     ax.set_xlabel(r"$\Delta k$ / $\mathrm{m}^{-1}$")
     fig.savefig("scripts/thesis/boltzmann_mass.2d.paper.pdf")
+
+
+def _2d_boltzmann_rate_thesis() -> None:  # noqa: PLR0915
+    config = PeriodicSystemConfig(
+        (20, 20),
+        (35, 35),
+        direction=(2, 2),
+        truncation=625,
+        temperature=155,
+    )
+    system = SODIUM_COPPER_SYSTEM_2D
+
+    w, h = get_thesis_fig_size()
+    fig, ax = get_thesis_figure(fig_size=(1.5 * w, h))
+
+    directions = [(i, i) for i in range(1, 7)]
+    data_111_double = get_boltzmann_rate_against_momentum_data(
+        system,
+        config,
+        fit_method=DoubleGaussianMethod(measure="abs", ty="Fast"),
+        directions=directions,
+        n_repeats=20,
+    )
+    data_111_double = select_idx(data_111_double, list(range(6)))
+    fig, ax, line = plot_value_list_against_momentum(data_111_double, ax=ax)
+    line.set_label("111")
+    line.set_linestyle("")
+    line.set_marker("x")
+    line.set_color(CAM_PURPLE.base)
+
+    directions = [(i, -i) for i in range(1, 7)]
+    data_112_double = get_boltzmann_rate_against_momentum_data(
+        system,
+        config,
+        fit_method=DoubleGaussianMethod(measure="abs", ty="Fast"),
+        directions=directions,
+        n_repeats=20,
+    )
+    data_112_double = select_idx(data_112_double, list(range(3)))
+    fig, ax, line = plot_value_list_against_momentum(data_112_double, ax=ax)
+    line.set_label("$11\\bar{2}$")
+    line.set_linestyle("")
+    line.set_marker("x")
+    line.set_color(CAM_CHERRY.base)
+    line.set_alpha(1.0)
+
+    directions = [(i, i) for i in range(1, 16)]
+    data_111_single = get_boltzmann_rate_against_momentum_data(
+        system,
+        config,
+        fit_method=GaussianMethod(measure="abs"),
+        directions=directions,
+    )
+    data_111_single = select_idx(data_111_single, list(range(6, 15)))
+    fig, ax, line = plot_value_list_against_momentum(data_111_single, ax=ax)
+    line.set_linestyle("")
+    line.set_marker("x")
+    line.set_color(CAM_PURPLE.base)
+
+    directions = [(i, -i) for i in range(1, 16)]
+    data_112_single = get_boltzmann_rate_against_momentum_data(
+        system,
+        config,
+        fit_method=GaussianMethod(measure="abs"),
+        directions=directions,
+    )
+    data_112_single = select_idx(data_112_single, list(range(3, 15)))
+    fig, ax, line = plot_value_list_against_momentum(data_112_single, ax=ax)
+    line.set_linestyle("")
+    line.set_marker("x")
+    line.set_color(CAM_CHERRY.base)
+
+    free = FreeSystem(system)
+    directions = [(i, i) for i in range(1, 16)]
+    data_112_free = get_boltzmann_rate_against_momentum_data(
+        free,
+        config,
+        fit_method=GaussianMethod(measure="abs"),
+        directions=directions,
+    )
+    fig, ax, line = plot_value_list_against_momentum(data_112_free, ax=ax)
+    line.set_label("Free system")
+    line.set_color(CAM_BLUE.warm)
+    line.set_linestyle("")
+    line.set_marker("x")
+
+    data_fit_111 = select_idx(data_111_double, list(range(3)))
+    data_fit_112 = select_idx(data_112_double, list(range(2)))
+    rates = np.concatenate([data_fit_112["data"], data_fit_111["data"]])
+    momentum = np.concatenate(
+        [data_fit_112["basis"].k_points, data_fit_111["basis"].k_points],
+    )
+    x_fit = np.real(momentum)
+    y_fit = np.real(rates)
+
+    # Perform linear regression (degree 1 polynomial)
+    # polyfit returns [slope, intercept] -> [a, b]
+    a, b = np.polyfit(x_fit, y_fit, 1)
+    print("Line of best fit: y = Ax + B")  # noqa: T201
+    print(f"Slope (a): {a:.2e}, Intercept (b): {b:.2e}")  # noqa: T201
+
+    # Generate points for the line of best fit and plot it
+    # You can plot it over x_fit, or the entire momentum range depending on preference
+    best_fit_x = np.linspace(0, 1.5 * data_112_free["basis"].k_points[-1])
+    best_fit_y = a * best_fit_x + b
+    (line,) = ax.plot(best_fit_x, best_fit_y, linewidth=2, alpha=0.5)
+    line.set_color(CAM_CHERRY.dark)
+
+    ax.set_xlim(0, 1.5e10)
+    ax.set_ylim(0, 1e13)
+
+    legend = ax.legend(
+        frameon=False,
+        loc="upper left",
+        fontsize=9,
+    )
+    legend.get_frame().set_alpha(0)
+    format_axis_scientific(ax.xaxis)
+    ax.set_ylabel(r"Rate / $\mathrm{s}^{-1}$")
+    ax.set_xlabel(r"$\Delta k$ / $\mathrm{m}^{-1}$")
+    fig.savefig("scripts/thesis/boltzmann_mass.2d.thesis.pdf")
 
 
 def _2d_boltzmann_rate_weak() -> None:
@@ -764,9 +789,9 @@ def _2d_effective_mass_vs_barrier() -> None:
 
 
 if __name__ == "__main__":
-    # _2d_boltzmann_rate()
     _2d_boltzmann_rate_paper()
-    # _2d_boltzmann_rate_weak()
-    # _2d_effective_mass_vs_mass()
-    # _2d_effective_mass_vs_temperature()
-    # _2d_effective_mass_vs_barrier()
+    _2d_boltzmann_rate_thesis()
+    # _2d_boltzmann_rate_weak()# noqa: ERA001
+    # _2d_effective_mass_vs_mass()# noqa: ERA001
+    # _2d_effective_mass_vs_temperature()# noqa: ERA001
+    # _2d_effective_mass_vs_barrier()  # noqa: ERA001
