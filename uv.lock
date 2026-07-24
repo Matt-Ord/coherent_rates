@@ -460,17 +460,6 @@ wheels = [
 ]
 
 [[package]]
-name = "sse-solver-py"
-source = { directory = "lib/surface_potential_analysis/lib/sse_solver/sse_solver_py" }
-
-[package.metadata]
-requires-dist = [
-    { name = "pytest", marker = "extra == 'dev'", specifier = "~=8.0.1" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = "~=0.3.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
 name = "surface-potential-analysis"
 version = "0.0.1"
 source = { editable = "lib/surface_potential_analysis" }
@@ -480,7 +469,6 @@ dependencies = [
     { name = "numpy" },
     { name = "qutip" },
     { name = "scipy" },
-    { name = "sse-solver-py" },
 ]
 
 [package.metadata]
@@ -490,7 +478,6 @@ requires-dist = [
     { name = "numpy", specifier = ">=1.26.3,<2.0.0" },
     { name = "qutip", specifier = ">=5.0.0,<6.0.0" },
     { name = "scipy", specifier = ">=1.11.0,<2.0.0" },
-    { name = "sse-solver-py", directory = "lib/surface_potential_analysis/lib/sse_solver/sse_solver_py" },
 ]
 
 [[package]]
