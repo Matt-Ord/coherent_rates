@@ -44,7 +44,9 @@
           "-p",
           "*_test.py"
         ],
-        "python.testing.pytestArgs": ["tests"],
+        "python.testing.pytestArgs": [
+          "tests"
+        ],
         "python.testing.unittestEnabled": false,
         "python.testing.pytestEnabled": true,
         "python.analysis.include": [
@@ -54,10 +56,15 @@
           "scripts",
           "lib/surface_potential_analysis/surface_potential_analysis"
         ],
-        "python.analysis.extraPaths": ["lib/surface_potential_analysis"],
+        "python.analysis.extraPaths": [
+          "lib/surface_potential_analysis"
+        ],
         "python.analysis.autoImportCompletions": true,
         "cSpell.allowCompoundWords": true,
-        "cSpell.flagWords": ["hte", "teh"],
+        "cSpell.flagWords": [
+          "hte",
+          "teh"
+        ],
         "cSpell.words": [
           "dtype",
           "ndarray",
@@ -92,5 +99,8 @@
       ]
     }
   },
-  "onCreateCommand": "git submodule update --init --recursive && rustup default nightly && uv sync --all-extras && sudo apt-get update && sudo apt-get install -y texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended texlive-fonts-extra dvipng ghostscript cm-super"
+  "containerEnv": {
+    "CARGO_INCREMENTAL": "0"
+  },
+  "onCreateCommand": "git submodule update --init --recursive && uv sync --all-extras && sudo apt-get update && sudo apt-get install -y texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended texlive-fonts-extra dvipng ghostscript cm-super"
 }
