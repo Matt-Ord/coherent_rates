@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 from scipy.constants import Boltzmann, electron_volt, hbar  # type: ignore library type
@@ -93,23 +93,17 @@ if TYPE_CHECKING:
     )
 
 
-_BT0 = TypeVar("_BT0", bound=BasisWithTimeLike[Any, Any])
-
-_B0 = TypeVar("_B0", bound=BasisLike[Any, Any])
-_B1 = TypeVar("_B1", bound=BasisLike[Any, Any])
-
-_BV0 = TypeVar("_BV0", bound=StackedBasisWithVolumeLike[Any, Any, Any])
-
-_ESB0 = TypeVar("_ESB0", bound=BlochBasis[Any])
-_ESB1 = TypeVar("_ESB1", bound=BlochBasis[Any])
-
-
-def _get_isf_pair_states_from_hamiltonian(
-    hamiltonian: SingleBasisDiagonalOperator[_B0],
-    operator: SparseScatteringOperator[_ESB0, _ESB0],
-    initial_state: StateVector[_B1],
-    times: _BT0,
-) -> tuple[StateVectorList[_BT0, _ESB0], StateVectorList[_BT0, _B0]]:
+def _get_isf_pair_states_from_hamiltonian[
+    B0: BasisLike[Any, Any],
+    ESB0: BlochBasis[Any],
+    B1: BasisLike[Any, Any],
+    BT0: BasisWithTimeLike[Any, Any],
+](
+    hamiltonian: SingleBasisDiagonalOperator[B0],
+    operator: SparseScatteringOperator[ESB0, ESB0],
+    initial_state: StateVector[B1],
+    times: BT0,
+) -> tuple[StateVectorList[BT0, ESB0], StateVectorList[BT0, B0]]:
     state_evolved = solve_schrodinger_equation_diagonal(
         initial_state,
         times,
@@ -132,14 +126,14 @@ def _get_isf_pair_states_from_hamiltonian(
     return (state_evolved_scattered, state_scattered_evolved)
 
 
-def get_isf_pair_states(
+def get_isf_pair_states[B1: BasisLike[Any, Any], BT0: BasisWithTimeLike[Any, Any]](
     system: System,
     config: PeriodicSystemConfig,
-    initial_state: StateVector[_B1],
-    times: _BT0,
+    initial_state: StateVector[B1],
+    times: BT0,
 ) -> tuple[
-    StateVectorList[_BT0, StackedBasisWithVolumeLike[Any, Any, Any]],
-    StateVectorList[_BT0, StackedBasisWithVolumeLike[Any, Any, Any]],
+    StateVectorList[BT0, StackedBasisWithVolumeLike[Any, Any, Any]],
+    StateVectorList[BT0, StackedBasisWithVolumeLike[Any, Any, Any]],
 ]:
     hamiltonian = get_hamiltonian(system, config)
     operator = get_instrument_biased_periodic_x_from_hamiltonian(
@@ -157,12 +151,17 @@ def get_isf_pair_states(
 
 
 @timed
-def _get_isf_from_hamiltonian(
-    hamiltonian: SingleBasisDiagonalOperator[_B0],
-    operator: SparseScatteringOperator[_ESB0, _ESB0],
-    initial_state: StateVector[_B1],
-    times: _BT0,
-) -> ValueList[_BT0]:
+def _get_isf_from_hamiltonian[
+    B0: BasisLike[Any, Any],
+    ESB0: BlochBasis[Any],
+    B1: BasisLike[Any, Any],
+    BT0: BasisWithTimeLike[Any, Any],
+](
+    hamiltonian: SingleBasisDiagonalOperator[B0],
+    operator: SparseScatteringOperator[ESB0, ESB0],
+    initial_state: StateVector[B1],
+    times: BT0,
+) -> ValueList[BT0]:
     (
         state_evolved_scattered,
         state_scattered_evolved,
@@ -178,12 +177,12 @@ def _get_isf_from_hamiltonian(
     )
 
 
-def get_isf(
+def get_isf[B1: BasisLike[Any, Any], BT0: BasisWithTimeLike[Any, Any]](
     system: System,
     config: PeriodicSystemConfig,
-    initial_state: StateVector[_B1],
-    times: _BT0,
-) -> ValueList[_BT0]:
+    initial_state: StateVector[B1],
+    times: BT0,
+) -> ValueList[BT0]:
     hamiltonian = get_hamiltonian(system, config)
     operator = get_instrument_biased_periodic_x_from_hamiltonian(
         hamiltonian,
@@ -194,11 +193,11 @@ def get_isf(
     return _get_isf_from_hamiltonian(hamiltonian, operator, initial_state, times)
 
 
-def get_analytical_isf(
+def get_analytical_isf[BT0: BasisWithTimeLike[Any, Any]](
     system: System,
     config: PeriodicSystemConfig,
-    times: _BT0,
-) -> ValueList[_BT0]:
+    times: BT0,
+) -> ValueList[BT0]:
     k = get_scattered_momentum(system, config, [config.direction])[0]
 
     # ISF(k, t) = exp(-(kTt^2 - i hbar t)* energy)
@@ -210,13 +209,13 @@ def get_analytical_isf(
     return {"data": data, "basis": times}
 
 
-def _get_states_per_band(
+def _get_states_per_band[B1: BasisLike[Any, Any], B0: BasisLike[Any, Any]](
     states: StateVectorList[
-        _B1,
-        BlochBasis[_B0],
+        B1,
+        BlochBasis[B0],
     ],
 ) -> StateVectorList[
-    TupleBasis[_B0, _B1],
+    TupleBasis[B0, B1],
     TupleBasisLike[*tuple[FundamentalTransformedBasis[Any], ...]],
 ]:
     basis = states["basis"][1].wavefunctions["basis"][0]
@@ -228,12 +227,17 @@ def _get_states_per_band(
     }
 
 
-def _get_band_resolved_isf_from_hamiltonian(
-    hamiltonian: SingleBasisDiagonalOperator[_ESB1],
-    operator: SparseScatteringOperator[_ESB0, _ESB0],
-    initial_state: StateVector[_B1],
-    times: _BT0,
-) -> ValueList[TupleBasis[Any, _BT0]]:
+def _get_band_resolved_isf_from_hamiltonian[
+    ESB1: BlochBasis[Any],
+    ESB0: BlochBasis[Any],
+    B1: BasisLike[Any, Any],
+    BT0: BasisWithTimeLike[Any, Any],
+](
+    hamiltonian: SingleBasisDiagonalOperator[ESB1],
+    operator: SparseScatteringOperator[ESB0, ESB0],
+    initial_state: StateVector[B1],
+    times: BT0,
+) -> ValueList[TupleBasis[Any, BT0]]:
     (
         state_evolved_scattered,
         state_scattered_evolved,
@@ -256,13 +260,13 @@ def _get_band_resolved_isf_from_hamiltonian(
     )
 
 
-def get_band_resolved_boltzmann_isf(
+def get_band_resolved_boltzmann_isf[BT0: BasisWithTimeLike[Any, Any]](
     system: System,
     config: PeriodicSystemConfig,
-    times: _BT0,
+    times: BT0,
     *,
     n_repeats: int = 1,
-) -> StatisticalValueList[TupleBasisLike[BasisLike[Any, Any], _BT0]]:
+) -> StatisticalValueList[TupleBasisLike[BasisLike[Any, Any], BT0]]:
     hamiltonian = get_hamiltonian(system, config)
     bands = hamiltonian["basis"][0].wavefunctions["basis"][0][0]
     operator = get_instrument_biased_periodic_x_from_hamiltonian(
@@ -294,19 +298,22 @@ def get_band_resolved_boltzmann_isf(
     return {
         "data": mean,
         "basis": TupleBasis(bands, times),
-        "standard_deviation": sd,
+        "standard_deviation": sd,  # type: ignore[assignment]
     }
 
 
-def _get_coherent_isf_from_hamiltonian(  # noqa: PLR0913
-    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+def _get_coherent_isf_from_hamiltonian[
+    ESB0: BlochBasis[Any],
+    BT0: BasisWithTimeLike[Any, Any],
+](
+    hamiltonian: SingleBasisDiagonalOperator[ESB0],
     system: System,
     config: PeriodicSystemConfig,
-    times: _BT0,
+    times: BT0,
     *,
     n_repeats: int = 1,
     sigma_0: tuple[float, ...] | None = None,
-) -> StatisticalValueList[_BT0]:
+) -> StatisticalValueList[BT0]:
     if sigma_0 is None:
         sigma_0 = tuple(system.lattice_constant / 10 for _ in config.resolution)
 
@@ -338,7 +345,7 @@ def _get_coherent_isf_from_hamiltonian(  # noqa: PLR0913
 
     mean = np.mean(isf_data, axis=0, dtype=np.complex128)
     sd = np.std(isf_data, axis=0, dtype=np.complex128)
-    return {"data": mean, "basis": times, "standard_deviation": sd}
+    return {"data": mean, "basis": times, "standard_deviation": sd}  # type: ignore[assignment]
 
 
 def _get_coherent_isf_data_path(
@@ -352,21 +359,21 @@ def _get_coherent_isf_data_path(
 
 
 @cached(_get_coherent_isf_data_path)
-def get_coherent_isf(
+def get_coherent_isf[BT0: BasisWithTimeLike[Any, Any]](
     system: System,
     config: PeriodicSystemConfig,
-    times: _BT0,
+    times: BT0,
     *,
     n_repeats: int = 10,
     sigma_0: tuple[float, ...] | None = None,
-) -> StatisticalValueList[_BT0]:
+) -> StatisticalValueList[BT0]:
     """Get the isf with n_repeats coherent wavepackets.
 
     Parameters
     ----------
     system : PeriodicSystem
     config : PeriodicSystemConfig
-    times : _BT0
+    times : BT0
     direction : tuple[int, ...] | None, optional
         direction, by default None
     n_repeats : int, optional
@@ -376,7 +383,7 @@ def get_coherent_isf(
 
     Returns
     -------
-    StatisticalValueList[_BT0]
+    StatisticalValueList[BT0]
 
     """
     hamiltonian = get_hamiltonian(system, config)
@@ -427,8 +434,8 @@ def get_coherent_rate(
     )
 
 
-def _get_coherent_rate_from_hamiltonian(  # noqa: PLR0913
-    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+def _get_coherent_rate_from_hamiltonian[ESB0: BlochBasis[Any]](  # noqa: PLR0913
+    hamiltonian: SingleBasisDiagonalOperator[ESB0],
     system: System,
     config: PeriodicSystemConfig,
     fit_method: FitMethod[Any],
@@ -494,13 +501,16 @@ def _get_default_directions(config: PeriodicSystemConfig) -> list[tuple[int, ...
     )
 
 
-def _get_boltzmann_isf_from_hamiltonian(
-    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+def _get_boltzmann_isf_from_hamiltonian[
+    ESB0: BlochBasis[Any],
+    BT0: BasisWithTimeLike[Any, Any],
+](
+    hamiltonian: SingleBasisDiagonalOperator[ESB0],
     config: PeriodicSystemConfig,
-    times: _BT0,
+    times: BT0,
     *,
     n_repeats: int = 1,
-) -> StatisticalValueList[_BT0]:
+) -> StatisticalValueList[BT0]:
     isf_data = np.zeros((n_repeats, times.n), dtype=np.complex128)
     # Convert the operator to the hamiltonian basis
     # to prevent conversion in each repeat
@@ -526,7 +536,7 @@ def _get_boltzmann_isf_from_hamiltonian(
     return {
         "data": mean,
         "basis": times,
-        "standard_deviation": sd,
+        "standard_deviation": sd,  # type: ignore[assignment]
     }
 
 
@@ -544,13 +554,13 @@ def _get_boltzmann_isf_data_path(
 
 @cached(_get_boltzmann_isf_data_path)
 @timed
-def get_boltzmann_isf(
+def get_boltzmann_isf[BT0: BasisWithTimeLike[Any, Any]](
     system: System,
     config: PeriodicSystemConfig,
-    times: _BT0,
+    times: BT0,
     *,
     n_repeats: int = 10,
-) -> StatisticalValueList[_BT0]:
+) -> StatisticalValueList[BT0]:
     hamiltonian = get_hamiltonian(system, config)
     return _get_boltzmann_isf_from_hamiltonian(
         hamiltonian,
@@ -560,8 +570,8 @@ def get_boltzmann_isf(
     )
 
 
-def _get_k_scatter(
-    operator: SparseScatteringOperator[_ESB0, _ESB0],
+def _get_k_scatter[ESB0: BlochBasis[Any]](
+    operator: SparseScatteringOperator[ESB0, ESB0],
 ) -> np.ndarray[tuple[int, int, int], np.dtype[np.complex128]]:
     """Get |<n|delta k hat(p) / m |m>|.
 
@@ -580,8 +590,8 @@ def _get_k_scatter(
     return operator["data"].reshape(n_bands, n_bands, n_k)
 
 
-def _get_k_diagonal(
-    operator: SparseScatteringOperator[_ESB0, _ESB0],
+def _get_k_diagonal[ESB0: BlochBasis[Any]](
+    operator: SparseScatteringOperator[ESB0, ESB0],
 ) -> np.ndarray[tuple[int, int], np.dtype[np.complex128]]:
     """Get <n|delta k hat(p) / m |n>.
 
@@ -590,8 +600,8 @@ def _get_k_diagonal(
     return np.einsum("aaj->aj", _get_k_scatter(operator))
 
 
-def _get_k_scatter_square(
-    operator: SparseScatteringOperator[_ESB0, _ESB0],
+def _get_k_scatter_square[ESB0: BlochBasis[Any]](
+    operator: SparseScatteringOperator[ESB0, ESB0],
 ) -> np.ndarray[tuple[int, int, int], np.dtype[np.float64]]:
     """Get |<n|delta k hat(p) / m |m>|^2.
 
@@ -621,8 +631,8 @@ def _get_time_factor_first_order(
     return out
 
 
-def _get_scatter_omega(
-    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+def _get_scatter_omega[ESB0: BlochBasis[Any]](
+    hamiltonian: SingleBasisDiagonalOperator[ESB0],
     *,
     band_idx: int,
 ) -> np.ndarray[tuple[int, int], np.dtype[np.float64]]:
@@ -638,8 +648,8 @@ def _get_scatter_omega(
     return np.real(energies[band_idx, None, :] - energies[:, :])
 
 
-def _get_time_factor_second_order(
-    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+def _get_time_factor_second_order[ESB0: BlochBasis[Any]](
+    hamiltonian: SingleBasisDiagonalOperator[ESB0],
     times: np.ndarray[tuple[int], np.dtype[np.float64]],
     friction: float = 0,
     *,
@@ -647,7 +657,7 @@ def _get_time_factor_second_order(
 ) -> np.ndarray[tuple[int], np.dtype[np.float64]]:
     scatter_omega = _get_scatter_omega(hamiltonian, band_idx=band_idx)
     scatter_omega = scatter_omega.reshape((*scatter_omega.shape, 1))
-    times = times.reshape(1, 1, -1)
+    times = times.reshape(1, 1, -1)  # type: ignore[assignment]
     omega_t = scatter_omega * times
 
     if np.isclose(friction, 0):
@@ -659,8 +669,8 @@ def _get_time_factor_second_order(
     return numerator / denominator
 
 
-def _get_decay_per_state(  # noqa: PLR0913
-    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+def _get_decay_per_state[ESB0: BlochBasis[Any]](  # noqa: PLR0913
+    hamiltonian: SingleBasisDiagonalOperator[ESB0],
     direction: tuple[float, ...],
     times: np.ndarray[tuple[int], np.dtype[np.float64]],
     mass: float,
@@ -709,10 +719,10 @@ def _get_decay_per_state(  # noqa: PLR0913
     return out
 
 
-def get_momentum_squared_per_state(
-    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+def get_momentum_squared_per_state[ESB0: BlochBasis[Any]](
+    hamiltonian: SingleBasisDiagonalOperator[ESB0],
     direction: tuple[float, ...],
-) -> ValueList[_ESB0]:
+) -> ValueList[ESB0]:
     state_basis = hamiltonian["basis"][0]
 
     dk = BasisUtil(state_basis).fundamental_dk_stacked
@@ -884,17 +894,20 @@ def _get_weak_boltzmann_isf_data_path(  # noqa: PLR0913
     return Path(f"data/{prefix}.weak_boltzmann.isf")
 
 
-def _get_weak_boltzmann_isf_from_hamiltonian(  # noqa: PLR0913
-    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+def _get_weak_boltzmann_isf_from_hamiltonian[
+    ESB0: BlochBasis[Any],
+    BT0: BasisWithTimeLike[Any, Any],
+](
+    hamiltonian: SingleBasisDiagonalOperator[ESB0],
     direction: tuple[float, ...],
     temperature: float,
-    times: _BT0,
+    times: BT0,
     mass: float,
     friction: float = 0,
     *,
     second_order: bool = False,
     first_order: bool = True,
-) -> ValueList[_BT0]:
+) -> ValueList[BT0]:
     isf_per_state = np.exp(
         _get_decay_per_state(
             hamiltonian,
@@ -917,15 +930,15 @@ def _get_weak_boltzmann_isf_from_hamiltonian(  # noqa: PLR0913
 
 @cached(_get_weak_boltzmann_isf_data_path)
 @timed
-def get_weak_boltzmann_isf(  # noqa: PLR0913
+def get_weak_boltzmann_isf[BT0: BasisWithTimeLike[Any, Any]](  # noqa: PLR0913
     system: System,
     config: PeriodicSystemConfig,
-    times: _BT0,
+    times: BT0,
     friction: float = 0,
     *,
     second_order: bool = False,
     first_order: bool = True,
-) -> ValueList[_BT0]:
+) -> ValueList[BT0]:
     hamiltonian = get_hamiltonian(system, config)
 
     return _get_weak_boltzmann_isf_from_hamiltonian(
@@ -940,14 +953,17 @@ def get_weak_boltzmann_isf(  # noqa: PLR0913
     )
 
 
-def _get_local_boltzmann_isf_from_hamiltonian(
-    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+def _get_local_boltzmann_isf_from_hamiltonian[
+    ESB0: BlochBasis[Any],
+    BT0: BasisWithTimeLike[Any, Any],
+](
+    hamiltonian: SingleBasisDiagonalOperator[ESB0],
     config: PeriodicSystemConfig,
-    times: _BT0,
+    times: BT0,
     *,
     n_repeats: int = 1,
     strategy: LocalizationStrategy | None = None,
-) -> StatisticalValueList[_BT0]:
+) -> StatisticalValueList[BT0]:
     isf_data = np.zeros((n_repeats, times.n), dtype=np.complex128)
     # Convert the operator to the hamiltonian basis
     # to prevent conversion in each repeat
@@ -974,7 +990,7 @@ def _get_local_boltzmann_isf_from_hamiltonian(
     return {
         "data": mean,
         "basis": times,
-        "standard_deviation": sd,
+        "standard_deviation": sd,  # type: ignore[assignment]
     }
 
 
@@ -995,14 +1011,14 @@ def _get_local_boltzmann_isf_data_path(
 
 @cached(_get_local_boltzmann_isf_data_path)
 @timed
-def get_local_boltzmann_isf(
+def get_local_boltzmann_isf[BT0: BasisWithTimeLike[Any, Any]](
     system: System,
     config: PeriodicSystemConfig,
-    times: _BT0,
+    times: BT0,
     *,
     n_repeats: int = 10,
     strategy: LocalizationStrategy | None = None,
-) -> StatisticalValueList[_BT0]:
+) -> StatisticalValueList[BT0]:
     hamiltonian = get_hamiltonian(system, config)
     return _get_local_boltzmann_isf_from_hamiltonian(
         hamiltonian,
@@ -1055,8 +1071,8 @@ def get_boltzmann_rate(
     )
 
 
-def _get_boltzmann_rate_from_hamiltonian(
-    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+def _get_boltzmann_rate_from_hamiltonian[ESB0: BlochBasis[Any]](
+    hamiltonian: SingleBasisDiagonalOperator[ESB0],
     system: System,
     config: PeriodicSystemConfig,
     fit_method: FitMethod[Any],
@@ -1107,8 +1123,8 @@ def get_boltzmann_rate_against_momentum_data(
 
 
 @timed
-def _get_weak_boltzmann_rate_from_hamiltonian(  # noqa: PLR0913
-    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+def _get_weak_boltzmann_rate_from_hamiltonian[ESB0: BlochBasis[Any]](  # noqa: PLR0913
+    hamiltonian: SingleBasisDiagonalOperator[ESB0],
     system: System,
     config: PeriodicSystemConfig,
     fit_method: FitMethod[Any],
@@ -1194,8 +1210,8 @@ def get_weak_boltzmann_rate_against_momentum_data(
     return {"data": rates.ravel(), "basis": basis}
 
 
-def _get_local_boltzmann_rate_from_hamiltonian(  # noqa: PLR0913
-    hamiltonian: SingleBasisDiagonalOperator[_ESB0],
+def _get_local_boltzmann_rate_from_hamiltonian[ESB0: BlochBasis[Any]](  # noqa: PLR0913
+    hamiltonian: SingleBasisDiagonalOperator[ESB0],
     system: System,
     config: PeriodicSystemConfig,
     fit_method: FitMethod[Any],
@@ -1563,8 +1579,8 @@ def get_conditions_at_energy_range(
     ]
 
 
-def _get_scattered_energy_change(
-    hamiltonian: SingleBasisDiagonalOperator[_BV0],
+def _get_scattered_energy_change[BV0: StackedBasisWithVolumeLike[Any, Any, Any]](
+    hamiltonian: SingleBasisDiagonalOperator[BV0],
     state: StateVector[Any],
     direction: tuple[int, ...] | None = None,
 ) -> float:
@@ -1580,8 +1596,10 @@ def _get_scattered_energy_change(
     return np.real(scattered_energy - energy)
 
 
-def _get_thermal_scattered_energy_change(
-    hamiltonian: SingleBasisDiagonalOperator[_BV0],
+def _get_thermal_scattered_energy_change[
+    BV0: StackedBasisWithVolumeLike[Any, Any, Any],
+](
+    hamiltonian: SingleBasisDiagonalOperator[BV0],
     temperature: float,
     direction: tuple[int, ...] | None = None,
     *,
