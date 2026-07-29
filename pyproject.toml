@@ -3,7 +3,7 @@ name = "coherent_rates"
 version = "0.1.0"
 description = ""
 readme = "README.md"
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.11,<3.14"
 authors = [{ name = "Matthew Ord", email = "matthew.ord1@gmail.com" }]
 dependencies = ["surface-potential-analysis"]
 
