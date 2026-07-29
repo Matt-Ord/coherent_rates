@@ -33,6 +33,7 @@ ignore = [
     "TD002",
     "D203",
     "D213",
+    "CPY001",
 ]
 unfixable = ["ERA001", "T201"]
 

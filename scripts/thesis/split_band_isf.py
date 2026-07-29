@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -43,10 +43,6 @@ def get_fig_size() -> tuple[float, float]:
     return plot_width_in, plot_height_in
 
 
-_BT0 = TypeVar("_BT0", bound=BasisWithTimeLike[Any, Any])
-_B0 = TypeVar("_B0", bound=BasisLike[int, int])
-
-
 def plot_data_shadow(
     data: np.ndarray[tuple[int], np.dtype[np.complex128]],
     coordinates: np.ndarray[tuple[int], np.dtype[np.float64]],
@@ -87,8 +83,11 @@ def plot_data_shadow(
     return fig, ax, fill
 
 
-def plot_split_value_list_against_time(
-    values: ValueList[TupleBasisLike[_B0, _BT0]],
+def plot_split_value_list_against_time[
+    B0: BasisLike[int, int],
+    BT0: BasisWithTimeLike[Any, Any],
+](
+    values: ValueList[TupleBasisLike[B0, BT0]],
     *,
     ax: Axes | None = None,
     measure: Measure = "abs",

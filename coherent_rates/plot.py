@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -115,10 +115,6 @@ if TYPE_CHECKING:
     from coherent_rates.system import (
         System,
     )
-
-    _B0 = TypeVar("_B0", bound=BasisLike[Any, Any])
-
-    _SBV0 = TypeVar("_SBV0", bound=StackedBasisWithVolumeLike[Any, Any, Any])
 
 
 def plot_system_eigenstates_1d(
@@ -247,10 +243,10 @@ def plot_system_bands(
     input()
 
 
-def plot_system_evolution_1d(
+def plot_system_evolution_1d[B0: BasisLike[Any, Any]](
     system: System,
     config: PeriodicSystemConfig,
-    initial_state: StateVector[_B0],
+    initial_state: StateVector[B0],
     times: EvenlySpacedTimeBasis[Any, Any, Any],
 ) -> None:
     potential = system.get_potential(config.shape, config.resolution)
@@ -278,11 +274,11 @@ def plot_system_evolution_2d(
     input()
 
 
-def plot_pair_system_evolution_1d(
+def plot_pair_system_evolution_1d[SBV0: StackedBasisWithVolumeLike[Any, Any, Any]](
     system: System,
     config: PeriodicSystemConfig,
     times: EvenlySpacedTimeBasis[Any, Any, Any],
-    initial_state: StateVector[_SBV0]
+    initial_state: StateVector[SBV0]
     | StateVector[ExplicitStackedBasisWithLength[Any, Any]]
     | None = None,
     *,
@@ -332,13 +328,8 @@ def plot_pair_system_evolution_1d(
     input()
 
 
-_BT0 = TypeVar("_BT0", bound=BasisWithTimeLike[Any, Any])
-
-T = TypeVar("T")
-
-
-def plot_isf_with_fit(
-    data: ValueList[_BT0],
+def plot_isf_with_fit[BT0: BasisWithTimeLike[Any, Any], T](
+    data: ValueList[BT0],
     method: FitMethod[T],
     *,
     system: System,

@@ -4,7 +4,7 @@ from collections.abc import Callable, Generator
 from dataclasses import dataclass
 from functools import update_wrapper
 from pathlib import Path
-from typing import Generic, Literal, ParamSpec, TypeVar, overload
+from typing import Literal, TypeVar, overload
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -230,11 +230,7 @@ def _reduce_typevars(obj: object) -> tuple[type, tuple[str]]:
     return str, (str(obj),)
 
 
-P = ParamSpec("P")
-R = TypeVar("R")
-
-
-class CachedFunction(Generic[P, R]):
+class CachedFunction[**P, R]:
     """A function wrapper which is used to cache the output."""
 
     def __init__(
@@ -349,7 +345,7 @@ class CachedFunction(Generic[P, R]):
 
 
 @overload
-def cached(
+def cached[**P, R](
     path: Path | None,
     *,
     default_call: CallType = "load_or_call_cached",
@@ -357,14 +353,14 @@ def cached(
 
 
 @overload
-def cached(
+def cached[**P, R](
     path: Callable[P, Path | None],
     *,
     default_call: CallType = "load_or_call_cached",
 ) -> Callable[[Callable[P, R]], CachedFunction[P, R]]: ...
 
 
-def cached(
+def cached[**P, R](
     path: Path | Callable[P, Path | None] | None,
     *,
     default_call: CallType = "load_or_call_cached",
