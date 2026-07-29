@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 from surface_potential_analysis.basis.basis import (
@@ -55,13 +55,11 @@ if TYPE_CHECKING:
     from coherent_rates.config import PeriodicSystemConfig
     from coherent_rates.system import System
 
-_L0Inv = TypeVar("_L0Inv", bound=int)
 
-
-def _get_full_hamiltonian(
+def _get_full_hamiltonian[L0Inv: int](
     system: System,
-    shape: tuple[_L0Inv, ...],
-    resolution: tuple[_L0Inv, ...],
+    shape: tuple[L0Inv, ...],
+    resolution: tuple[L0Inv, ...],
     *,
     bloch_fraction: np.ndarray[tuple[Literal[1]], np.dtype[np.float64]] | None = None,
 ) -> SingleBasisOperator[
@@ -141,16 +139,13 @@ def get_hamiltonian(
     return get_full_bloch_hamiltonian(wavefunctions)
 
 
-_AX0Inv = TypeVar("_AX0Inv", bound=EvenlySpacedTimeBasis[Any, Any, Any])
-
-
-def solve_schrodinger_equation(
+def solve_schrodinger_equation[AX0Inv: EvenlySpacedTimeBasis[Any, Any, Any]](
     system: System,
     config: PeriodicSystemConfig,
     initial_state: StateVector[Any],
-    times: _AX0Inv,
+    times: AX0Inv,
 ) -> StateVectorList[
-    _AX0Inv,
+    AX0Inv,
     BlochBasis[TruncatedBasis[int, int]],
 ]:
     hamiltonian = get_hamiltonian(system, config)

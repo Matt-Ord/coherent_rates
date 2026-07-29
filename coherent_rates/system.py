@@ -4,7 +4,7 @@ import hashlib
 from abc import ABC, abstractmethod
 from copy import copy
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, Self, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Literal, Self, cast
 
 import numpy as np
 from scipy.constants import (  # type: ignore bad types
@@ -42,16 +42,14 @@ if TYPE_CHECKING:
     from surface_potential_analysis.basis.basis_like import BasisWithLengthLike
     from surface_potential_analysis.potential.potential import Potential
 
-_L0Inv = TypeVar("_L0Inv", bound=int)
 
-
-def _get_extrapolated_potential(
+def _get_extrapolated_potential[L0Inv: int](
     potential: Potential[
         TupleBasisWithLengthLike[
             *tuple[FundamentalTransformedPositionBasis[Any, Any], ...]
         ]
     ],
-    shape: tuple[_L0Inv, ...],
+    shape: tuple[L0Inv, ...],
 ) -> Potential[
     TupleBasisWithLengthLike[
         *tuple[EvenlySpacedTransformedPositionBasis[Any, Any, Any, Any], ...]

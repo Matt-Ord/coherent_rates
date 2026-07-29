@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
-    Generic,
     Literal,
     Self,
     TypedDict,
@@ -48,7 +47,7 @@ class FitInfo(TypedDict):
     config: PeriodicSystemConfig
 
 
-class FitMethod(ABC, Generic[T]):
+class FitMethod[T](ABC):
     """A method used for fitting an ISF."""
 
     def __init__(self: Self, measure: Measure = "real") -> None:
@@ -600,7 +599,9 @@ class DoubleGaussianMethod(
         return EvenlySpacedTimeBasis(100, 1, 0, 4 * get_free_particle_time(**info))
 
 
-def get_filtered_isf(data: ValueList[_BT0]) -> ValueList[_BT0]:
+def get_filtered_isf[BT0: BasisWithTimeLike[Any, Any]](
+    data: ValueList[BT0],
+) -> ValueList[BT0]:
     offset = cast("int", data["basis"].offset)  # type: ignore we should transform to evenly spaced first...
 
     rolled = np.fft.fftshift(np.fft.fft(np.roll(data["data"], offset)))

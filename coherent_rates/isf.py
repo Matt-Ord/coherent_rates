@@ -302,7 +302,7 @@ def get_band_resolved_boltzmann_isf[BT0: BasisWithTimeLike[Any, Any]](
     }
 
 
-def _get_coherent_isf_from_hamiltonian[
+def _get_coherent_isf_from_hamiltonian[  # noqa: PLR0913
     ESB0: BlochBasis[Any],
     BT0: BasisWithTimeLike[Any, Any],
 ](
@@ -894,7 +894,7 @@ def _get_weak_boltzmann_isf_data_path(  # noqa: PLR0913
     return Path(f"data/{prefix}.weak_boltzmann.isf")
 
 
-def _get_weak_boltzmann_isf_from_hamiltonian[
+def _get_weak_boltzmann_isf_from_hamiltonian[  # noqa: PLR0913, PLR0917
     ESB0: BlochBasis[Any],
     BT0: BasisWithTimeLike[Any, Any],
 ](

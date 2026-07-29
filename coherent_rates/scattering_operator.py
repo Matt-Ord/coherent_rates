@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import numpy as np
 from surface_potential_analysis.basis.stacked_basis import TupleBasis
@@ -41,19 +41,13 @@ if TYPE_CHECKING:
     from coherent_rates.config import InstrumentFunction
     from coherent_rates.system import System
 
-    _B0 = TypeVar("_B0", bound=BlochBasis[Any])
 
-    _B1 = TypeVar("_B1", bound=BasisLike[Any, Any])
-    _B2 = TypeVar("_B2", bound=BasisLike[Any, Any])
-
-_B0_co = TypeVar("_B0_co", bound=BlochBasis[Any], covariant=True)
-_B1_co = TypeVar("_B1_co", bound=BlochBasis[Any], covariant=True)
-
-
-class SparseScatteringOperator(TypedDict, Generic[_B0_co, _B1_co]):
+class SparseScatteringOperator[B0_co: BlochBasis[Any], B1_co: BlochBasis[Any]](
+    TypedDict,
+):
     """Represents an operator in the (sparse) scattering operator basis."""
 
-    basis: TupleBasisLike[_B0_co, _B1_co]
+    basis: TupleBasisLike[B0_co, B1_co]
     """The original basis of the operator."""
 
     data: np.ndarray[tuple[int], np.dtype[np.complex128]]
@@ -86,9 +80,9 @@ class SparseScatteringOperator(TypedDict, Generic[_B0_co, _B1_co]):
     """The direction of scattering"""
 
 
-def as_operator_from_sparse_scattering_operator(
-    operator: SparseScatteringOperator[_B0, _B0],
-) -> SingleBasisOperator[_B0]:
+def as_operator_from_sparse_scattering_operator[B0: BlochBasis[Any]](
+    operator: SparseScatteringOperator[B0, B0],
+) -> SingleBasisOperator[B0]:
     # Basis of the bloch wavefunction list [band basis, list basis]
     basis = operator["basis"][0].wavefunctions["basis"][0]
     # in shape (band, band, list)
@@ -111,10 +105,10 @@ def as_operator_from_sparse_scattering_operator(
     return {"basis": operator["basis"], "data": data}
 
 
-def as_sparse_scattering_operator_from_operator(
-    operator: SingleBasisOperator[_B0],
+def as_sparse_scattering_operator_from_operator[B0: BlochBasis[Any]](
+    operator: SingleBasisOperator[B0],
     direction: tuple[int, ...],
-) -> SparseScatteringOperator[_B0, _B0]:
+) -> SparseScatteringOperator[B0, B0]:
     # Basis of the bloch wavefunction list
     basis = operator["basis"][0].wavefunctions["basis"][0]
     stacked = operator["data"].reshape(
@@ -134,10 +128,10 @@ def as_sparse_scattering_operator_from_operator(
     return {"basis": operator["basis"], "direction": direction, "data": data}
 
 
-def apply_scattering_operator_to_state(
-    operator: SparseScatteringOperator[_B0, _B0],
-    state: StateVector[_B2],
-) -> StateVector[_B0]:
+def apply_scattering_operator_to_state[B0: BlochBasis[Any], B2: BasisLike[Any, Any]](
+    operator: SparseScatteringOperator[B0, B0],
+    state: StateVector[B2],
+) -> StateVector[B0]:
     converted = convert_state_vector_to_basis(state, operator["basis"][1])
     data = np.einsum(  # type: ignore bad types
         "ijk,jk->ik",
@@ -165,10 +159,14 @@ def apply_scattering_operator_to_state(
     return {"basis": operator["basis"][0], "data": rolled}
 
 
-def apply_scattering_operator_to_states(
-    operator: SparseScatteringOperator[_B0, _B0],
-    states: StateVectorList[_B2, _B1],
-) -> StateVectorList[_B2, _B0]:
+def apply_scattering_operator_to_states[
+    B0: BlochBasis[Any],
+    B2: BasisLike[Any, Any],
+    B1: BasisLike[Any, Any],
+](
+    operator: SparseScatteringOperator[B0, B0],
+    states: StateVectorList[B2, B1],
+) -> StateVectorList[B2, B0]:
     converted = convert_state_vector_list_to_basis(states, operator["basis"][1])
     data = np.einsum(  # type: ignore bad types
         "ijk,ljk->lik",
@@ -203,10 +201,10 @@ def apply_scattering_operator_to_states(
 
 
 @timed
-def get_periodic_x_operator_sparse(
-    basis: _B0_co,
+def get_periodic_x_operator_sparse[B0_co: BlochBasis[Any]](
+    basis: B0_co,
     direction: tuple[int, ...],
-) -> SparseScatteringOperator[_B0_co, _B0_co]:
+) -> SparseScatteringOperator[B0_co, B0_co]:
     band_basis = basis.wavefunctions["basis"][0][0]
     bloch_phase_basis = basis.wavefunctions["basis"][0][1]
     # band (out), band (in), bloch k
@@ -257,10 +255,10 @@ def get_periodic_x_operator_sparse(
     }
 
 
-def get_energy_change_operator_sparse(
-    hamiltonian: SingleBasisDiagonalOperator[_B0],
+def get_energy_change_operator_sparse[B0: BlochBasis[Any]](
+    hamiltonian: SingleBasisDiagonalOperator[B0],
     direction: tuple[int, ...],
-) -> SparseScatteringOperator[_B0, _B0]:
+) -> SparseScatteringOperator[B0, B0]:
     """Get the energy of the outgoing state - the energy of the incoming state.
 
     This is the total increse of energy of the system after scattering
@@ -295,11 +293,11 @@ def get_energy_change_operator_sparse(
 
 
 @timed
-def get_instrument_biased_periodic_x_from_hamiltonian(
-    hamiltonian: SingleBasisDiagonalOperator[_B0],
+def get_instrument_biased_periodic_x_from_hamiltonian[B0: BlochBasis[Any]](
+    hamiltonian: SingleBasisDiagonalOperator[B0],
     direction: tuple[int, ...],
     instrument_function: InstrumentFunction,
-) -> SparseScatteringOperator[_B0, _B0]:
+) -> SparseScatteringOperator[B0, B0]:
     periodic_x = get_periodic_x_operator_sparse(hamiltonian["basis"][0], direction)
     if isinstance(instrument_function, IdealInstrumentFunction):
         return periodic_x
@@ -340,10 +338,10 @@ def get_instrument_biased_periodic_x(
 
 
 @timed
-def get_k_operator_sparse(
-    basis: _B0_co,
+def get_k_operator_sparse[B0_co: BlochBasis[Any]](
+    basis: B0_co,
     direction: tuple[float, ...],
-) -> SparseScatteringOperator[_B0_co, _B0_co]:
+) -> SparseScatteringOperator[B0_co, B0_co]:
     band_basis = basis.wavefunctions["basis"][0][0]
     bloch_phase_basis = basis.wavefunctions["basis"][0][1]
     # band (out), band (in), bloch k
@@ -393,8 +391,8 @@ def get_k_operator_sparse(
 
 
 @timed
-def get_k_from_hamiltonian(
-    hamiltonian: SingleBasisDiagonalOperator[_B0],
+def get_k_from_hamiltonian[B0: BlochBasis[Any]](
+    hamiltonian: SingleBasisDiagonalOperator[B0],
     direction: tuple[float, ...],
-) -> SparseScatteringOperator[_B0, _B0]:
+) -> SparseScatteringOperator[B0, B0]:
     return get_k_operator_sparse(hamiltonian["basis"][0], direction)
