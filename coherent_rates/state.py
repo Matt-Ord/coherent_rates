@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, cast, overload
 
 import numpy as np
 import scipy.optimize
@@ -10,7 +10,13 @@ from scipy.constants import (  # type: ignore bad types
     Boltzmann,
     hbar,
 )
-from surface_potential_analysis.basis.stacked_basis import TupleBasis
+from surface_potential_analysis.basis.basis_like import (
+    BasisLike,
+)
+from surface_potential_analysis.basis.stacked_basis import (
+    StackedBasisWithVolumeLike,
+    TupleBasis,
+)
 from surface_potential_analysis.basis.util import (
     BasisUtil,
 )
@@ -43,14 +49,10 @@ if TYPE_CHECKING:
         FundamentalPositionBasis,
         FundamentalTransformedPositionBasis,
     )
-    from surface_potential_analysis.basis.basis_like import (
-        BasisLike,
-    )
     from surface_potential_analysis.basis.explicit_basis import (
         ExplicitStackedBasisWithLength,
     )
     from surface_potential_analysis.basis.stacked_basis import (
-        StackedBasisWithVolumeLike,
         TupleBasisWithLengthLike,
     )
     from surface_potential_analysis.operator.operator import (
@@ -63,16 +65,13 @@ if TYPE_CHECKING:
     from coherent_rates.config import PeriodicSystemConfig
     from coherent_rates.system import System
 
-    _SBV0 = TypeVar("_SBV0", bound=StackedBasisWithVolumeLike[Any, Any, Any])
-    _B0 = TypeVar("_B0", bound=BasisLike[Any, Any])
 
-
-def _get_coherent_state_for_basis(
-    basis: _SBV0,
+def _get_coherent_state_for_basis[SBV0: StackedBasisWithVolumeLike[Any, Any, Any]](
+    basis: SBV0,
     x_0: tuple[float, ...],
     k_0: tuple[float, ...],
     sigma_0: tuple[float, ...],
-) -> StateVector[_SBV0]:
+) -> StateVector[SBV0]:
     basis_x = stacked_basis_as_fundamental_position_basis(basis)
 
     displacements = get_displacements_x_stacked(basis, x_0)
@@ -138,7 +137,10 @@ def get_thermal_occupation_x(
         config,
         tuple(BasisUtil(potential["basis"]).x_points_stacked),
     )
-    return {"basis": potential["basis"], "data": x_probability / np.sum(x_probability)}
+    return {
+        "basis": potential["basis"],
+        "data": x_probability.astype(np.complex128) / np.sum(x_probability),
+    }
 
 
 @overload
@@ -184,7 +186,10 @@ def get_thermal_occupation_k(
         config,
         tuple(util.fundamental_stacked_k_points),
     )
-    return {"basis": k_basis, "data": k_probability / np.sum(k_probability)}
+    return {
+        "basis": k_basis,
+        "data": k_probability.astype(np.complex128) / np.sum(k_probability),
+    }
 
 
 def get_random_coherent_x(
@@ -303,11 +308,11 @@ def get_random_coherent_state(
     )
 
 
-def get_boltzmann_state_from_hamiltonian(
-    hamiltonian: SingleBasisDiagonalOperator[_B0],
+def get_boltzmann_state_from_hamiltonian[B0: BasisLike[Any, Any]](
+    hamiltonian: SingleBasisDiagonalOperator[B0],
     temperature: float,
     phase: np.ndarray[tuple[int], np.dtype[np.float64]] | None = None,
-) -> StateVector[_B0]:
+) -> StateVector[B0]:
     boltzmann_distribution = np.exp(
         -hamiltonian["data"] / (2 * Boltzmann * temperature),
     )
@@ -320,10 +325,10 @@ def get_boltzmann_state_from_hamiltonian(
     return {"basis": hamiltonian["basis"][0], "data": boltzmann_state}
 
 
-def get_random_boltzmann_state_from_hamiltonian(
-    hamiltonian: SingleBasisDiagonalOperator[_B0],
+def get_random_boltzmann_state_from_hamiltonian[B0: BasisLike[Any, Any]](
+    hamiltonian: SingleBasisDiagonalOperator[B0],
     temperature: float,
-) -> StateVector[_B0]:
+) -> StateVector[B0]:
     rng = np.random.default_rng()
     phase = 2 * np.pi * rng.random(len(hamiltonian["data"]))
     return get_boltzmann_state_from_hamiltonian(hamiltonian, temperature, phase)
@@ -354,13 +359,10 @@ def get_random_boltzmann_state(
     return get_random_boltzmann_state_from_hamiltonian(hamiltonian, config.temperature)
 
 
-_BB = TypeVar("_BB", bound=BlochBasis[Any])
-
-
-def _get_error_operator(
-    basis: _SBV0,
+def _get_error_operator[SBV0: StackedBasisWithVolumeLike[Any, Any, Any]](
+    basis: SBV0,
     x_0: tuple[float, ...],
-) -> SingleBasisOperator[_SBV0]:
+) -> SingleBasisOperator[SBV0]:
     util = BasisUtil(basis)
     # We only get the location in the x0 direction here
     x_points = util.fundamental_x_points_stacked - np.array(x_0)[:, np.newaxis]
@@ -375,9 +377,9 @@ def _get_error_operator(
     return convert_operator_to_basis(operator, TupleBasis(basis, basis))
 
 
-def _get_error_between_states(
-    hamiltonian: SingleBasisDiagonalOperator[_BB],
-    error_operator: SingleBasisOperator[_BB],
+def _get_error_between_states[BB: BlochBasis[Any]](
+    hamiltonian: SingleBasisDiagonalOperator[BB],
+    error_operator: SingleBasisOperator[BB],
     temperature: float,
     phase: np.ndarray[tuple[int], np.dtype[np.float64]],
 ) -> float:
@@ -390,12 +392,12 @@ def _get_error_between_states(
     return np.real(prod)
 
 
-def _get_local_boltzmann_state_from_hamiltonian(
-    hamiltonian: SingleBasisDiagonalOperator[_BB],
+def _get_local_boltzmann_state_from_hamiltonian[BB: BlochBasis[Any]](
+    hamiltonian: SingleBasisDiagonalOperator[BB],
     temperature: float,
     *,
     strategy: LocalizationStrategy | None = None,
-) -> StateVector[_BB]:
+) -> StateVector[BB]:
     delta_x_repeat = hamiltonian["basis"][0].wavefunctions["basis"][1].delta_x_stacked
     strategy = (
         UniformXLocalizationStrategy(
@@ -578,12 +580,12 @@ class ThermalLocalizationStrategy(LocalizationStrategy):
         return hash((self.system, self.config, self.sigma_0))
 
 
-def get_local_boltzmann_state_from_hamiltonian(
-    hamiltonian: SingleBasisDiagonalOperator[_BB],
+def get_local_boltzmann_state_from_hamiltonian[BB: BlochBasis[Any]](
+    hamiltonian: SingleBasisDiagonalOperator[BB],
     temperature: float,
     *,
     strategy: LocalizationStrategy | None = None,
-) -> StateVector[_BB]:
+) -> StateVector[BB]:
     return _get_local_boltzmann_state_from_hamiltonian(
         hamiltonian,
         temperature,

@@ -1,6 +1,6 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: CPY001
 
-from typing import TYPE_CHECKING, Any, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import pytest
@@ -34,13 +34,11 @@ from coherent_rates.system import (
 if TYPE_CHECKING:
     from surface_potential_analysis.wavepacket.get_eigenstate import BlochBasis
 
-    _B0 = TypeVar("_B0", bound=BlochBasis[Any])
-
 
 @pytest.fixture
 def ndim() -> Literal[1, 2]:
     rng = np.random.default_rng()
-    return rng.choice([1, 2])
+    return rng.choice([1, 2])  # type: ignore unknown
 
 
 @pytest.fixture
@@ -55,10 +53,10 @@ def system(ndim: Literal[1, 2]) -> System:
 def config(ndim: Literal[1, 2]) -> PeriodicSystemConfig:
     """Fixture to generate a random n between 2 and 20."""
     rng = np.random.default_rng()
-    direction = tuple(rng.integers(1, 10) for _ in range(ndim))  # type: ignore unknown
+    direction = tuple(rng.integers(1, 10).item() for _ in range(ndim))  # type: ignore unknown
     if ndim == 1:
-        shape = rng.integers(1, 10)  # type: ignore unknown
-        resolution = rng.integers(3, 10)  # type: ignore unknown
+        shape = rng.integers(1, 10).item()
+        resolution = rng.integers(3, 10).item()
         return PeriodicSystemConfig(
             (shape,),
             (resolution,),
@@ -66,11 +64,11 @@ def config(ndim: Literal[1, 2]) -> PeriodicSystemConfig:
             temperature=155,
             direction=direction,
         )
-    shape = rng.integers(1, 5, 2)  # type: ignore unknown
-    resolution = rng.integers(3, 5, 2)  # type: ignore unknown
+    shape = rng.integers(1, 5, 2)
+    resolution = rng.integers(3, 5, 2)
     return PeriodicSystemConfig(
-        (shape[0], shape[1]),
-        (resolution[0], resolution[1]),
+        (shape[0], shape[1]),  # type: ignore unknown
+        (resolution[0], resolution[1]),  # type: ignore unknown
         np.prod(resolution).item(),
         temperature=155,
         direction=direction,
@@ -99,10 +97,10 @@ def test_sparse_periodic_x_has_correct_nonzero(
     )
 
 
-def get_periodic_x_operator_as_sparse(
-    basis: _B0,
+def get_periodic_x_operator_as_sparse[B0: BlochBasis[Any]](
+    basis: B0,
     direction: tuple[int, ...] | None,
-) -> SparseScatteringOperator[_B0, _B0]:
+) -> SparseScatteringOperator[B0, B0]:
     direction = tuple(1 for _ in range(basis.ndim)) if direction is None else direction
     converted = convert_operator_to_basis(
         get_periodic_x_operator(basis, direction),

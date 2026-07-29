@@ -1,6 +1,6 @@
 import dataclasses
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any
 
 import matplotlib.cm
 import matplotlib.colors
@@ -40,8 +40,6 @@ from coherent_rates.util import (
     setup_rc_params_thesis,
 )
 
-_BT0 = TypeVar("_BT0", bound=BasisWithTimeLike[Any, Any])
-
 
 def _get_split_band_isf_path(
     system: System,
@@ -56,13 +54,13 @@ def _get_split_band_isf_path(
 
 
 @cached(_get_split_band_isf_path)
-def get_split_band_isf(
+def get_split_band_isf[BT0: BasisWithTimeLike[Any, Any]](
     system: System,
     config: PeriodicSystemConfig,
-    times: _BT0,
+    times: BT0,
     *,
     n_repeats: int = 10,
-) -> StatisticalValueList[TupleBasisLike[BasisLike[Any, Any], _BT0]]:
+) -> StatisticalValueList[TupleBasisLike[BasisLike[Any, Any], BT0]]:
     return get_band_resolved_boltzmann_isf(
         system,
         config,
@@ -78,7 +76,7 @@ def get_average_band_energy(
     hamiltonian = get_hamiltonian.load_or_call_cached(system, config)
     basis = hamiltonian["basis"][0].wavefunctions["basis"]
     n_bands = basis[0][0].n
-    return np.average(hamiltonian["data"].reshape(n_bands, -1), axis=-1)
+    return np.real(np.average(hamiltonian["data"].reshape(n_bands, -1), axis=-1))
 
 
 def get_double_thesis_figure(
