@@ -23,7 +23,8 @@ from coherent_rates.util import (
     format_axis_scientific,
     get_paper_isf_figure,
     get_thesis_fig_size,
-    setup_rc_params_thesis,
+    setup_fancy_figure,
+    setup_rc_params,
 )
 
 
@@ -31,39 +32,14 @@ def get_double_thesis_figure(
     *,
     fig_size: tuple[float, float] | None = None,
 ) -> tuple[Figure, tuple[Axes, Axes]]:
-    setup_rc_params_thesis()
+    setup_rc_params()
     w, h = get_thesis_fig_size()
     fig, (ax1, ax2) = plt.subplots(
         figsize=fig_size or (2 * w, h),
         ncols=2,
         layout="constrained",
     )
-    ax1.set_facecolor(CAM_SLATE_1)
-    ax2.set_facecolor(CAM_SLATE_1)
-    fig.set_facecolor((0, 0, 0, 0))
-
-    ax1.tick_params(
-        axis="both",
-        direction="in",
-        top=True,  # Ticks on top
-        right=True,  # Ticks on right
-        labelsize=9,  # xtick.labelsize and ytick.labelsize
-        which="both",  # Apply to both major and minor ticks if needed
-    )
-    ax2.tick_params(
-        axis="both",
-        direction="in",
-        top=True,  # Ticks on top
-        right=True,  # Ticks on right
-        labelsize=9,  # xtick.labelsize and ytick.labelsize
-        which="both",  # Apply to both major and minor ticks if needed
-    )
-
-    # 3. Handle Label Sizes
-    ax1.xaxis.label.set_fontsize(11)
-    ax1.yaxis.label.set_fontsize(11)
-    ax2.xaxis.label.set_fontsize(11)
-    ax2.yaxis.label.set_fontsize(11)
+    setup_fancy_figure(fig, [ax1, ax2])
     return fig, (ax1, ax2)
 
 

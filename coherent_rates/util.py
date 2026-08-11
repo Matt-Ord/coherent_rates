@@ -6,7 +6,9 @@ from functools import update_wrapper
 from pathlib import Path
 from typing import Literal, TypeVar, overload
 
+import matplotlib.font_manager as fm
 import numpy as np
+from cycler import cycler
 from matplotlib import pyplot as plt
 from matplotlib import ticker
 from matplotlib.axes import Axes
@@ -63,20 +65,67 @@ CAM_GREEN = CamColor(
 
 
 CAM_SLATE_1 = "#ECEEF1"
+CAM_SLATE_2 = "#B5BDC8"
+CAM_SLATE_3 = "#546072"
+CAM_SLATE_4 = "#232830"
 
 
-def setup_rc_params_thesis() -> None:
+CAM_COLOR_CYCLE = [
+    CAM_BLUE.warm,
+    CAM_BLUE.dark,
+    CAM_CHERRY.dark,
+    CAM_CHERRY.warm,
+    CAM_CREST.warm,
+    CAM_CREST.dark,
+]
+
+
+def setup_rc_params(*, use_tex: bool = False) -> None:
+    """Set up matplotlib rcParams for consistent figure styling."""
+    if use_tex:
+        fe = fm.FontEntry(
+            fname="/workspaces/thesis_calculations/fonts/OpenSans-Regular.ttf",
+            name="Open Sans",
+        )
+        fm.fontManager.ttflist.insert(0, fe)
+        plt.rcParams.update(
+            {
+                "text.usetex": True,
+                "font.family": "sans-serif",
+                "font.sans-serif": ["Open Sans"],
+                "text.latex.preamble": r"\usepackage{fourier}"
+                "\n"
+                r"\usepackage{amsmath}",  # cspell: disable-line
+            },
+        )
     plt.rcParams.update(
         {
-            "text.usetex": True,
-            "font.family": "serif",
-            "font.serif": ["Utopia"],
-            "text.latex.preamble": r"\usepackage{fourier}"
-            "\n"
-            r"\usepackage{amsmath}",
-            "font.size": 11,
+            "legend.frameon": False,
+            "legend.fontsize": 9,
+            "legend.labelcolor": CAM_SLATE_4,
+            "axes.prop_cycle": cycler(color=CAM_COLOR_CYCLE),
         },
     )
+
+
+def setup_fancy_figure(fig: Figure, ax: list[Axes]) -> None:
+    """Set up a figure and axis with fancy styling."""
+    fig.set_facecolor((0, 0, 0, 0))
+
+    for a in ax:
+        a.set_facecolor(CAM_SLATE_1)
+        a.set_prop_cycle(cycler(color=CAM_COLOR_CYCLE))
+        a.tick_params(
+            axis="both",
+            direction="in",
+            top=True,
+            right=True,
+            labelsize=8,
+            which="both",
+        )
+
+        a.xaxis.label.set_fontsize(11)
+        a.yaxis.label.set_fontsize(11)
 
 
 def get_thesis_fig_size() -> tuple[float, float]:
@@ -95,26 +144,39 @@ def get_thesis_figure(
     *,
     fig_size: tuple[float, float] | None = None,
 ) -> tuple[Figure, Axes]:
-    setup_rc_params_thesis()
+    setup_rc_params()
     fig, ax = plt.subplots(
         figsize=fig_size or get_thesis_fig_size(),
         layout="constrained",
     )
-    ax.set_facecolor(CAM_SLATE_1)
-    fig.set_facecolor((0, 0, 0, 0))
+    setup_fancy_figure(fig, [ax])
+    return fig, ax
 
-    ax.tick_params(
-        axis="both",
-        direction="in",
-        top=True,  # Ticks on top
-        right=True,  # Ticks on right
-        labelsize=9,  # xtick.labelsize and ytick.labelsize
-        which="both",  # Apply to both major and minor ticks if needed
+
+def get_fancy_fig_size() -> tuple[float, float]:
+    """Get default figure size in inches based on document text width."""
+    total_textwidth_pt = 437.5
+    pt_to_inch = 1 / 72.27
+
+    # We want half width
+    plot_width_in = 1.5 * (total_textwidth_pt / 2) * pt_to_inch
+
+    # Height using Golden Ratio (Height = Width * 0.618)
+    plot_height_in = plot_width_in * 0.618
+    return plot_width_in, plot_height_in
+
+
+def get_fancy_figure(
+    *,
+    fig_size: tuple[float, float] | None = None,
+) -> tuple[Figure, Axes]:
+    """Get a figure and axis with fancy styling."""
+    setup_rc_params()
+    fig, ax = plt.subplots(
+        figsize=fig_size or get_fancy_fig_size(),
+        layout="constrained",
     )
-
-    # 3. Handle Label Sizes
-    ax.xaxis.label.set_fontsize(11)
-    ax.yaxis.label.set_fontsize(11)
+    setup_fancy_figure(fig, [ax])
     return fig, ax
 
 
@@ -149,21 +211,7 @@ def get_paper_figure(
         figsize=fig_size or get_paper_fig_size(),
         layout="constrained",
     )
-    ax.set_facecolor(CAM_SLATE_1)
-    fig.set_facecolor((0, 0, 0, 0))
-
-    ax.tick_params(
-        axis="both",
-        direction="in",
-        top=True,  # Ticks on top
-        right=True,  # Ticks on right
-        labelsize=8,  # xtick.labelsize and ytick.labelsize
-        which="both",  # Apply to both major and minor ticks if needed
-    )
-
-    # 3. Handle Label Sizes
-    ax.xaxis.label.set_fontsize(9)
-    ax.yaxis.label.set_fontsize(9)
+    setup_fancy_figure(fig, [ax])
     return fig, ax
 
 
@@ -178,32 +226,7 @@ def get_paper_isf_figure(
         layout="constrained",
         sharex=True,
     )
-    ax0.set_facecolor(CAM_SLATE_1)
-    ax1.set_facecolor(CAM_SLATE_1)
-    fig.set_facecolor((0, 0, 0, 0))
-
-    ax0.tick_params(
-        axis="both",
-        direction="in",
-        top=True,  # Ticks on top
-        right=True,  # Ticks on right
-        labelsize=8,  # xtick.labelsize and ytick.labelsize
-        which="both",  # Apply to both major and minor ticks if needed
-    )
-    ax1.tick_params(
-        axis="both",
-        direction="in",
-        top=True,  # Ticks on top
-        right=True,  # Ticks on right
-        labelsize=8,  # xtick.labelsize and ytick.labelsize
-        which="both",  # Apply to both major and minor ticks if needed
-    )
-
-    # 3. Handle Label Sizes
-    ax0.xaxis.label.set_fontsize(9)
-    ax0.yaxis.label.set_fontsize(9)
-    ax1.xaxis.label.set_fontsize(9)
-    ax1.yaxis.label.set_fontsize(9)
+    setup_fancy_figure(fig, [ax0, ax1])
     return fig, (ax0, ax1)
 
 
