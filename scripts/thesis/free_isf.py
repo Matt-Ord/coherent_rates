@@ -27,7 +27,7 @@ from coherent_rates.util import (
     format_axis_scientific,
     get_paper_isf_figure,
     get_thesis_fig_size,
-    setup_rc_params_thesis,
+    setup_rc_params,
 )
 
 
@@ -35,7 +35,7 @@ def get_double_thesis_figure(
     *,
     fig_size: tuple[float, float] | None = None,
 ) -> tuple[Figure, tuple[Axes, Axes]]:
-    setup_rc_params_thesis()
+    setup_rc_params()
     w, h = get_thesis_fig_size()
     fig, (ax1, ax2) = plt.subplots(
         figsize=fig_size or (2 * w, h),
