@@ -1,3 +1,4 @@
+import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -9,6 +10,9 @@ from surface_potential_analysis.state_vector.plot_value_list import (
 from coherent_rates.config import PeriodicSystemConfig
 from coherent_rates.fit import (
     GaussianMethod,
+    GaussianMethodWithOffset,
+    get_free_particle_isf,
+    get_free_particle_time,
 )
 from coherent_rates.isf import (
     get_boltzmann_isf,
@@ -16,6 +20,7 @@ from coherent_rates.isf import (
 )
 from coherent_rates.system import (
     SODIUM_COPPER_SYSTEM_2D,
+    System,
 )
 from coherent_rates.util import (
     CAM_BLUE,
@@ -24,7 +29,7 @@ from coherent_rates.util import (
     format_axis_scientific,
     get_thesis_fig_size,
     get_thesis_figure,
-    setup_rc_params_thesis,
+    setup_rc_params,
 )
 
 
@@ -32,7 +37,7 @@ def get_double_thesis_figure(
     *,
     fig_size: tuple[float, float] | None = None,
 ) -> tuple[Figure, tuple[Axes, Axes]]:
-    setup_rc_params_thesis()
+    setup_rc_params()
     w, h = get_thesis_fig_size()
     fig, (ax1, ax2) = plt.subplots(
         figsize=fig_size or (2 * w, h),
@@ -272,6 +277,98 @@ def plot_periodic_isf_for_thesis_large() -> None:
     fig.savefig("scripts/thesis/corrugated_isf.2d.thesis.large.pdf")
 
 
+def _get_effective_mass(
+    system: System,
+    config: PeriodicSystemConfig,
+    width: float,
+) -> float:
+
+    free_time = get_free_particle_time(system, config)
+    return float(system.mass * (width / free_time) ** 2)
+
+
+def _get_2d_gaussian_fit() -> None:
+    system = SODIUM_COPPER_SYSTEM_2D
+
+    config_1 = PeriodicSystemConfig(
+        (20, 20),
+        (35, 35),
+        direction=(1, 0),
+        truncation=625,
+        temperature=155,
+    )
+
+    times_1 = GaussianMethod().get_fit_times(
+        system=system,
+        config=config_1,
+    )
+
+    delta_k_1 = get_scattered_momentum(system, config_1, [config_1.direction])[0]
+
+    print(f"Actual delta k:1 {delta_k_1:0.3e}")  # noqa: T201
+
+    isf = get_boltzmann_isf(
+        system,
+        config_1,
+        times_1,
+        n_repeats=20,
+    )
+
+    w, h = get_thesis_fig_size()
+    fig, ax0 = get_thesis_figure(fig_size=(1.5 * w, h))
+    fig, ax0, line = plot_value_list_against_time(
+        isf,
+        measure="real",
+        ax=ax0,
+    )
+    line.set_label(rf"${delta_k_1 * 10**-9:.2} \times 10^9 \mathrm{{m}}^{{-1}}$")
+    line.set_color(CAM_BLUE.warm)
+
+    method = GaussianMethodWithOffset(measure="abs", truncate=False)
+    fit = method.get_fit_from_isf(
+        isf,
+        system=system,
+        config=config_1,
+    )
+    effective_mass = _get_effective_mass(system, config_1, fit[0].width)
+    effective_isf = get_free_particle_isf(
+        system.with_mass(effective_mass),
+        config_1,
+        times_1.times,
+        offset=fit[1].offset,
+    )
+    expected_amplitude = 1 - fit[1].offset
+    if not np.isclose(fit[0].amplitude, expected_amplitude):
+        # Adjust amplitude explicitly: offset + amplitude * exp(...)
+        decay = (effective_isf - fit[1].offset) / expected_amplitude
+        effective_isf = fit[1].offset + fit[0].amplitude * decay
+    print("Effective mass: ", effective_mass / system.mass)  # noqa: T201
+    fitted_data = method.get_fitted_data(fit, isf["basis"])
+    fig, ax0, line = plot_value_list_against_time(
+        fitted_data,
+        ax=ax0,
+        measure="real",
+    )
+    fig, ax0, line = plot_value_list_against_time(
+        {"basis": isf["basis"], "data": effective_isf.astype(np.complex128)},
+        ax=ax0,
+        measure="real",
+    )
+    ax0.set_xlabel("")
+    ax0.set_ylabel(r"$\Re{(I(\Delta k, t))}$")
+    ax0.set_ylim(0.7, 1)
+
+    format_axis_scientific(ax0.yaxis)
+
+    ax0.legend(frameon=False, loc="upper right", fontsize=9)
+
+    fig.canvas.draw()
+    ax0.set_xlabel(r"Time / $T_{\mathrm{free}}$")
+
+    fig.savefig("scripts/thesis/corrugated_isf.2d.thesis.mass_fit.pdf")
+
+
 if __name__ == "__main__":
     plot_periodic_isf_for_thesis_large()
     plot_periodic_isf_for_thesis()
+    _get_2d_gaussian_fit()

@@ -9,6 +9,7 @@ from coherent_rates.util import (
     CAM_BLUE,
     CAM_CHERRY,
     get_paper_figure,
+    get_thesis_fig_size,
     get_thesis_figure,
 )
 
@@ -20,14 +21,16 @@ def _plot_thesis_figure() -> None:
     wavefunctions = get_bloch_wavefunctions(system, config)
 
     # 2. Set the size
-    fig, ax = get_thesis_figure()
+    w, h = get_thesis_fig_size()
+    w *= 1.2
+    fig, ax = get_thesis_figure(fig_size=(w, h))
     fig, ax, lines = plot_wavepacket_eigenvalues_1d_k(wavefunctions, ax=ax)
 
     barrier_energy = system.barrier_energy
     print(f"Barrier energy: {barrier_energy:0.2e} J")  # noqa: T201
     ax.set_ylim(None, 2 * barrier_energy)
     barrier_line = ax.axhline(barrier_energy, linestyle="--", label="Barrier Energy")
-    barrier_line.set_color(CAM_BLUE.dark)
+    barrier_line.set_color(CAM_CHERRY.dark)
     barrier_line.set_linewidth(1)
     ax.set_xlabel("Crystal Momentum $k_c$ / $m^{-1}$")
     ax.tick_params(axis="both", which="major", labelsize=8)
@@ -45,7 +48,7 @@ def _plot_thesis_figure() -> None:
         handles=[barrier_line],
     )
     legend.get_frame().set_alpha(0)
-    fig.savefig("scripts/thesis/bandstructure_plot.pdf")
+    fig.savefig("scripts/thesis/bandstructure_plot.thesis.pdf")
 
 
 def _plot_paper_figure() -> None:
@@ -80,7 +83,7 @@ def _plot_paper_figure() -> None:
     )
     legend.get_frame().set_alpha(0)
 
-    fig.savefig("scripts/thesis/bandstructure_plot.pdf")
+    fig.savefig("scripts/thesis/bandstructure_plot.paper.pdf")
 
 
 if __name__ == "__main__":
