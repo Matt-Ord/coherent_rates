@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 from matplotlib.scale import SymmetricalLogScale
-from scipy.constants import hbar
+from scipy.constants import (
+    hbar,
+)
 from surface_potential_analysis.stacked_basis.conversion import (
     stacked_basis_as_fundamental_transformed_basis,
 )
@@ -220,20 +224,42 @@ def plot_rates_against_self_energy_thesis() -> None:
 
 
 def plot_effective_mass_thesis() -> None:
+    actual_mass = SODIUM_COPPER_BRIDGE_SYSTEM_1D.mass
     config = PeriodicSystemConfig((60,), (100,), truncation=50, temperature=155)
-    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
-
-    wavefunctions = get_bloch_wavefunctions(system, config)
 
     fig, ax = get_fancy_figure()
+
+    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(actual_mass)
+    wavefunctions = get_bloch_wavefunctions(system, config)
     fig, ax, line0 = plot_wavepacket_transformed_energy_effective_mass_against_energy(
         wavefunctions,
         true_mass=system.mass,
         ax=ax,
     )
-    line0.set_color(CAM_BLUE.warm)
+    line0.set_color(CAM_BLUE.dark)
+    line0.set_marker("x")
 
-    line = ax.axvline(system.barrier_energy)  # type: ignore library type
+    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(0.5 * actual_mass)
+    wavefunctions = get_bloch_wavefunctions(system, config)
+
+    fig, ax, line1 = plot_wavepacket_transformed_energy_effective_mass_against_energy(
+        wavefunctions,
+        true_mass=system.mass,
+        ax=ax,
+    )
+    line1.set_color(CAM_BLUE.warm)
+    line1.set_marker("x")
+
+    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(0.25 * actual_mass)
+    wavefunctions = get_bloch_wavefunctions(system, config)
+    fig, ax, line2 = plot_wavepacket_transformed_energy_effective_mass_against_energy(
+        wavefunctions,
+        true_mass=system.mass,
+        ax=ax,
+    )
+    line2.set_color(CAM_BLUE.base)
+    line2.set_marker("x")
+    line = ax.axvline(1 * system.barrier_energy)  # type: ignore library type
     ax.set_yscale(
         SymmetricalLogScale(None, linthresh=1e-1),
     )
@@ -244,11 +270,19 @@ def plot_effective_mass_thesis() -> None:
     line.set_linestyle("--")
 
     legend = ax.legend(
-        frameon=False,
         loc="upper right",
-        fontsize=9,
-        handles=[line],
-        labels=["Barrier Energy"],
+        handles=[
+            line,
+            ax.plot([], [], color=CAM_BLUE.dark)[0],
+            ax.plot([], [], color=CAM_BLUE.warm)[0],
+            ax.plot([], [], color=CAM_BLUE.base)[0],
+        ],
+        labels=[
+            "Barrier Energy",
+            r"$m$",
+            r"$\frac{1}{2} m$",
+            r"$\frac{1}{4} m$",
+        ],
     )
     legend.get_frame().set_alpha(0)
 
@@ -293,8 +327,8 @@ def plot_effective_mass_paper() -> None:
 
 if __name__ == "__main__":
     plot_effective_mass_thesis()
-    plot_effective_mass_paper()
-    plot_rates()
-    plot_rates_paper()
-    plot_rates_against_self_energy()
-    plot_rates_against_self_energy_thesis()
+    # plot_effective_mass_paper()
+    # plot_rates()
+    # plot_rates_paper()
+    # plot_rates_against_self_energy()
+    # plot_rates_against_self_energy_thesis()
