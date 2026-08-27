@@ -1,10 +1,10 @@
 import itertools
 from pathlib import Path
-from typing import Literal, TypedDict
+from typing import Any, Literal, TypedDict
 
 import numpy as np
 from matplotlib import pyplot as plt
-from scipy.constants import Boltzmann, hbar
+from scipy.constants import Boltzmann, atomic_mass, hbar
 from surface_potential_analysis.state_vector.plot_value_list import (
     plot_value_list_against_time,
 )
@@ -30,6 +30,7 @@ from coherent_rates.util import (
     CAM_BLUE,
     CAM_CHERRY,
     format_axis_scientific,
+    get_fancy_figure,
     get_thesis_figure,
 )
 
@@ -904,13 +905,111 @@ def _print_free_times() -> None:
     print(f"Free time: {free_time:.2e} s")  # noqa: T201
 
 
+def _charlie_mass_ratios() -> Path:
+    return Path("scripts/perturbation/effective_mass.charlie_mass_ratios.npz")
+
+
+@cached(_charlie_mass_ratios)
+def get_charlie_mass_ratios() -> dict[str, Any]:
+    base_system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
+    config = PeriodicSystemConfig(
+        (40,),
+        (200,),
+        direction=(1,),
+        truncation=50,
+        temperature=155,
+        offset=(0.01,),
+    )
+
+    element_masses = {
+        "H": 1.00784 * atomic_mass,
+        "He": 4.00260 * atomic_mass,
+        "Li": 6.94100 * atomic_mass,
+        "Na": base_system.mass,
+    }
+
+    mass_min = element_masses["H"]
+    mass_max = 1.2 * base_system.mass
+    grid_masses = np.linspace(mass_min, mass_max, 160)
+
+    def compute_ratio(mass: float) -> float:
+        sys = base_system.with_mass(mass)
+        with disabled_timing():
+            get_ordered_momentum.load_or_call_cached(sys, config)
+            _, eff_mass_ratio = _get_optimal_threshold_mass_ratio_alt(
+                sys,
+                config,
+                t_factor=6,
+            )
+            get_ordered_momentum.delete_cache(sys, config)
+        return eff_mass_ratio
+
+    grid_ratios = np.array([compute_ratio(m) for m in grid_masses])
+    element_ratios = {elem: compute_ratio(m) for elem, m in element_masses.items()}
+
+    return {
+        "grid_masses": grid_masses,
+        "grid_ratios": grid_ratios,
+        "element_masses": element_masses,
+        "element_ratios": element_ratios,
+    }
+
+
+def plot_charlie_mass_ratios() -> None:
+    data = get_charlie_mass_ratios()
+    grid_masses = data["grid_masses"]
+    grid_ratios = data["grid_ratios"]
+    element_masses = data["element_masses"]
+    element_ratios = data["element_ratios"]
+
+    fig, ax = get_fancy_figure()
+
+    ax.plot(grid_masses / atomic_mass, grid_ratios)
+
+    for elem, m in element_masses.items():
+        ratio = element_ratios[elem]
+        mass_in_u = m / atomic_mass
+        ax.scatter(
+            mass_in_u,
+            ratio,
+            color=CAM_BLUE.dark,
+            marker="x",
+            zorder=5,
+        )
+        ax.annotate(
+            elem,
+            (mass_in_u, ratio),
+            xytext=(7, -5) if elem == "H" else (7, 0),
+            textcoords="offset points",
+            ha="left",
+            va="bottom",
+        )
+
+    ax.set_xlabel("Mass / Atomic Mass Units")
+    ax.set_ylabel(r"Effective Mass Ratio $m_{\mathrm{eff}} / m$")
+    ax.set_xlim(0, np.max(grid_masses) / atomic_mass)
+
+    ax.axhline(
+        0.3557035183064887,
+        color="black",
+        linestyle="--",
+        linewidth=0.8,
+        alpha=0.7,
+    )
+    print((0.3557035183064887 / grid_ratios[np.argmax(grid_masses)]) ** 2)
+    ax.set_ylim(0, None)
+
+    fig.savefig("scripts/perturbation/effective_mass.charlie.pdf")
+
+
 if __name__ == "__main__":
-    _assess_isf_validity()
-    _assess_isf_validity_2d()
-    _plot_isf_mass_ratios()
-    _plot_isf_mass_ratios_2d()
-    _print_free_times()
-    _plot_isf_mass_fit_1d(ty="zero")
-    _plot_isf_mass_fit_1d(ty="alt")
-    _plot_isf_mass_fit_2d(ty="zero")
-    _plot_isf_mass_fit_2d(ty="alt")
+    # _assess_isf_validity()
+    # _assess_isf_validity_2d()
+    # _plot_isf_mass_ratios()
+    # _plot_isf_mass_ratios_2d()
+    # _print_free_times()
+    # _plot_isf_mass_fit_1d(ty="zero")
+    # _plot_isf_mass_fit_1d(ty="alt")
+    # _plot_isf_mass_fit_2d(ty="zero")
+    # _plot_isf_mass_fit_2d(ty="alt")
+    plot_charlie_mass_ratios()
