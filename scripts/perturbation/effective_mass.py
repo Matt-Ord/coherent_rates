@@ -5,6 +5,8 @@ from typing import Any, Literal, TypedDict
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy.constants import Boltzmann, atomic_mass, hbar
+from scipy.integrate import quad
+from scipy.special import ellipk
 from surface_potential_analysis.state_vector.plot_value_list import (
     plot_value_list_against_time,
 )
@@ -15,12 +17,13 @@ from coherent_rates.fit import (
     GaussianMethod,
     get_free_particle_isf,
     get_free_particle_time,
+    get_scattered_momentum,
 )
 from coherent_rates.isf import (
     get_ordered_momentum,
-    get_scaled_momentum_threshold_effective_mass,
     get_weak_boltzmann_isf,
 )
+from coherent_rates.solve import get_hamiltonian
 from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
     SODIUM_COPPER_SYSTEM_2D,
@@ -35,86 +38,139 @@ from coherent_rates.util import (
 )
 
 
+def _get_fixed_threshold_mass_ratio(
+    system: System,
+    config: PeriodicSystemConfig,
+    *,
+    target_occupation: float,
+) -> tuple[float, float]:
+    momentum, energy_per_state = get_ordered_momentum(system, config)
+    prefactor = 1 / (config.temperature * Boltzmann * system.mass)
+    momentum *= prefactor
+
+    sort_indices = np.argsort(energy_per_state)[::-1]
+    momentum = momentum[sort_indices]
+    energy_per_state = energy_per_state[sort_indices]
+
+    thermal_factors = np.exp(-energy_per_state / (Boltzmann * config.temperature))
+    thermal_factors /= np.sum(thermal_factors)
+
+    cumsum_thermal_factors = np.cumsum(thermal_factors)
+    cumsum_inverse_mass = np.cumsum(thermal_factors * momentum / system.mass)
+
+    # Find the state cutoff index closest to the target occupation
+    idx = int(np.argmin(np.abs(cumsum_thermal_factors - target_occupation)))
+
+    actual_occupation = cumsum_thermal_factors[idx]
+    inverse_mass = cumsum_inverse_mass[idx] / actual_occupation
+    effective_mass = 1 / inverse_mass
+
+    return float(actual_occupation), float(effective_mass / system.mass)
+
+
+def _get_classical_above_barrier_occupation(
+    system: System,
+    config: PeriodicSystemConfig,
+) -> float:
+
+    u0 = system.barrier_energy / (config.temperature * Boltzmann)
+
+    def integrand_below(epsilon: float) -> float:
+        # Trapped states (0 <= E < U0)
+        return ellipk(epsilon) * np.exp(-u0 * epsilon)
+
+    def integrand_above(epsilon: float) -> float:
+        # Running states (E >= U0)
+        return 1 / np.sqrt(epsilon) * ellipk(1 / epsilon) * np.exp(-u0 * epsilon)
+
+    z_below, _ = quad(integrand_below, 0, 1)
+    z_above, _ = quad(integrand_above, 1, np.inf)
+
+    return z_above / (z_below + z_above)
+
+
+def _get_classical_threshold_mass_ratio(
+    system: System,
+    config: PeriodicSystemConfig,
+) -> tuple[float, float]:
+    return _get_fixed_threshold_mass_ratio(
+        system,
+        config,
+        target_occupation=_get_classical_above_barrier_occupation(system, config),
+    )
+
+
+def _get_above_barrier_occupation(
+    system: System,
+    config: PeriodicSystemConfig,
+) -> float:
+
+    hamiltonian = get_hamiltonian(system, config)
+    energy_per_state = hamiltonian["data"]
+
+    thermal_factors = np.exp(-energy_per_state / (Boltzmann * config.temperature))
+    thermal_factors /= np.sum(thermal_factors)
+
+    return np.sum(thermal_factors * (energy_per_state >= system.barrier_energy))
+
+
+def _get_above_barrier_threshold_mass_ratio(
+    system: System,
+    config: PeriodicSystemConfig,
+) -> tuple[float, float]:
+    return _get_fixed_threshold_mass_ratio(
+        system,
+        config,
+        target_occupation=_get_above_barrier_occupation(system, config),
+    )
+
+
+def _get_long_time_occupation(
+    system: System,
+    config: PeriodicSystemConfig,
+) -> float:
+
+    hamiltonian = get_hamiltonian(system, config)
+    energy_per_state = hamiltonian["data"]
+
+    thermal_factors = np.exp(-energy_per_state / (Boltzmann * config.temperature))
+    thermal_factors /= np.sum(thermal_factors)
+
+    return np.sum(thermal_factors * (energy_per_state >= system.barrier_energy))
+
+
+def _get_long_time_threshold_mass_ratio(
+    system: System,
+    config: PeriodicSystemConfig,
+    *,
+    t_factor: float = 8,
+) -> tuple[float, float]:
+    times = GaussianMethod(measure="abs", t_factor=t_factor).get_fit_times(
+        system=system,
+        config=config,
+    )
+    target_occupation = (
+        1
+        - np.abs(
+            get_weak_boltzmann_isf.call_uncached(system, config, times)["data"],
+        )[-1]
+    )
+    return _get_fixed_threshold_mass_ratio(
+        system,
+        config,
+        target_occupation=target_occupation,
+    )
+
+
 def _get_zero_threshold_mass_ratio(
     system: System,
     config: PeriodicSystemConfig,
 ) -> tuple[float, float]:
 
-    total_occupation, effective_mass = get_scaled_momentum_threshold_effective_mass(
-        system,
-        config,
-    )
-    return total_occupation, effective_mass / system.mass
+    return _get_fixed_threshold_mass_ratio(system, config, target_occupation=1)
 
 
 def _get_optimal_threshold_mass_ratio(
-    system: System,
-    config: PeriodicSystemConfig,
-    *,
-    t_factor: float = 4,
-) -> tuple[float, float]:
-
-    times = GaussianMethod(measure="abs", t_factor=t_factor).get_fit_times(
-        system=system,
-        config=config,
-    )
-    isf = get_weak_boltzmann_isf.call_uncached(system, config, times)
-
-    def loss_function(threshold_guess: float) -> float:
-        if threshold_guess <= 0:
-            return float("inf")
-        tot_occ, eff_mass = get_scaled_momentum_threshold_effective_mass(
-            system,
-            config,
-            threshold=threshold_guess,
-        )
-        fit_system = system.with_mass(eff_mass)
-
-        free_time = get_free_particle_time(fit_system, config)
-        t_cutoff = np.sqrt(2) * free_time
-        time_mask = times.times <= 2 * t_cutoff
-
-        predicted_isf = get_free_particle_isf(
-            fit_system,
-            config,
-            times.times[time_mask],
-            offset=1 - tot_occ,
-        )
-        return float(
-            np.mean((np.abs(isf["data"][time_mask]) - predicted_isf) ** 2),
-        )
-
-    momentum, energy_per_state = get_ordered_momentum(system, config)
-    scaled_momentum = momentum / (2 * system.mass * energy_per_state)
-    possible_thresholds = 0.5 * (scaled_momentum[:-1] + scaled_momentum[1:])
-
-    min_threshold = 1e-8
-    possible_thresholds = possible_thresholds[possible_thresholds > min_threshold]
-    max_threshold = 0.5
-    possible_thresholds = possible_thresholds[possible_thresholds < max_threshold]
-
-    optimal_idx = 0
-    optimal_loss = loss_function(possible_thresholds[optimal_idx])
-    for i in range(1, len(possible_thresholds)):
-        if loss_function(possible_thresholds[i]) < optimal_loss:
-            optimal_idx = i
-            optimal_loss = loss_function(possible_thresholds[optimal_idx])
-
-    optimal_threshold = float(possible_thresholds[optimal_idx])
-    print(  # noqa: T201
-        f"Optimal threshold: {optimal_threshold:.2e} "
-        f"({optimal_idx}/{len(possible_thresholds)})",
-    )
-
-    total_occupation, effective_mass = get_scaled_momentum_threshold_effective_mass(
-        system,
-        config,
-        threshold=optimal_threshold,
-    )
-    return total_occupation, effective_mass / system.mass
-
-
-def _get_optimal_threshold_mass_ratio_alt(
     system: System,
     config: PeriodicSystemConfig,
     *,
@@ -243,7 +299,7 @@ def _assess_isf_validity() -> None:
             isf = get_weak_boltzmann_isf.call_uncached(system, config, times)
             _, _, _line = plot_value_list_against_time(isf, measure="abs", ax=ax)
 
-            total_occupation, effective_mass = _get_zero_threshold_mass_ratio(
+            total_occupation, effective_mass = _get_classical_threshold_mass_ratio(
                 system,
                 config,
             )
@@ -297,25 +353,6 @@ def _assess_isf_validity() -> None:
 
             ax.set_ylim(((1 - 1.1 * total_occupation), 1))
 
-            total_occupation, effective_mass = _get_optimal_threshold_mass_ratio_alt(
-                system,
-                config,
-                t_factor=6,
-            )
-
-            (_line,) = ax.plot(
-                times.times,
-                get_free_particle_isf(
-                    system.with_mass(effective_mass * system.mass),
-                    config,
-                    times.times,
-                    offset=1 - total_occupation,
-                ),
-                color=CAM_BLUE.dark,
-                linestyle=":",
-                label="Effective Mass",
-            )
-
             get_ordered_momentum.delete_cache(system, config)
 
     fig.savefig("scripts/perturbation/effective_mass.validity.pdf")
@@ -368,7 +405,7 @@ def _assess_isf_validity_2d() -> None:
             isf = get_weak_boltzmann_isf.call_uncached(system, config, times)
             _, _, _line = plot_value_list_against_time(isf, measure="abs", ax=ax)
 
-            total_occupation, effective_mass = _get_zero_threshold_mass_ratio(
+            total_occupation, effective_mass = _get_classical_threshold_mass_ratio(
                 system,
                 config,
             )
@@ -402,7 +439,7 @@ def _assess_isf_validity_2d() -> None:
                 fontsize=8,
             )
 
-            total_occupation, effective_mass = _get_optimal_threshold_mass_ratio_alt(
+            total_occupation, effective_mass = _get_optimal_threshold_mass_ratio(
                 system,
                 config,
                 t_factor=6,
@@ -435,9 +472,8 @@ class _MassRatioData(TypedDict):
     yv: np.ndarray
 
     shape: tuple[int, int]
-    zero_threshold_mass_ratios: tuple[np.ndarray, np.ndarray]
+    classical_threshold_mass_ratios: tuple[np.ndarray, np.ndarray]
     optimal_threshold_mass_ratios: tuple[np.ndarray, np.ndarray]
-    optional_threshold_mass_ratios_alt: tuple[np.ndarray, np.ndarray]
 
 
 @cached(_all_mass_ratio_path)
@@ -466,12 +502,8 @@ def get_all_mass_ratios() -> _MassRatioData:
     out: _MassRatioData = {
         "xv": xv,
         "yv": yv,
-        "zero_threshold_mass_ratios": (np.zeros_like(xv), np.zeros_like(xv)),
+        "classical_threshold_mass_ratios": (np.zeros_like(xv), np.zeros_like(xv)),
         "optimal_threshold_mass_ratios": (np.zeros_like(xv), np.zeros_like(xv)),
-        "optional_threshold_mass_ratios_alt": (
-            np.zeros_like(xv),
-            np.zeros_like(xv),
-        ),
         "shape": (50, 50),
     }
     for i, (barrier_ratio, mass_ratio) in enumerate(
@@ -485,29 +517,14 @@ def get_all_mass_ratios() -> _MassRatioData:
             get_ordered_momentum.load_or_call_cached(system, config)
 
             (
-                out["zero_threshold_mass_ratios"][0][i],
-                out["zero_threshold_mass_ratios"][1][i],
-            ) = _get_zero_threshold_mass_ratio(
-                system,
-                config,
-            )
+                out["classical_threshold_mass_ratios"][0][i],
+                out["classical_threshold_mass_ratios"][1][i],
+            ) = _get_classical_threshold_mass_ratio(system, config)
 
             (
                 out["optimal_threshold_mass_ratios"][0][i],
                 out["optimal_threshold_mass_ratios"][1][i],
-            ) = _get_optimal_threshold_mass_ratio(
-                system,
-                config,
-            )
-
-            (
-                out["optional_threshold_mass_ratios_alt"][0][i],
-                out["optional_threshold_mass_ratios_alt"][1][i],
-            ) = _get_optimal_threshold_mass_ratio_alt(
-                system,
-                config,
-                t_factor=6,
-            )
+            ) = _get_optimal_threshold_mass_ratio(system, config)
 
             get_ordered_momentum.delete_cache(system, config)
     return out
@@ -520,8 +537,8 @@ def _plot_isf_mass_ratios() -> None:
         data["xv"],
         data["yv"],
         data["shape"],
-        data["zero_threshold_mass_ratios"],
-        data["optional_threshold_mass_ratios_alt"],
+        data["classical_threshold_mass_ratios"],
+        data["optimal_threshold_mass_ratios"],
     )
 
     fig, ax = get_thesis_figure()
@@ -559,7 +576,7 @@ def _plot_isf_mass_ratios() -> None:
     ax.set_ylim(np.min(yv), np.max(yv))
 
     fig.colorbar(mesh, ax=ax)
-    fig.savefig("scripts/perturbation/effective_mass.zero.pdf")
+    fig.savefig("scripts/perturbation/effective_mass.classical.pdf")
 
 
 def _all_mass_ratio_path_2d() -> Path:
@@ -590,12 +607,8 @@ def get_all_mass_ratios_2d() -> _MassRatioData:
     out: _MassRatioData = {
         "xv": xv,
         "yv": yv,
-        "zero_threshold_mass_ratios": (np.zeros_like(xv), np.zeros_like(xv)),
+        "classical_threshold_mass_ratios": (np.zeros_like(xv), np.zeros_like(xv)),
         "optimal_threshold_mass_ratios": (np.zeros_like(xv), np.zeros_like(xv)),
-        "optional_threshold_mass_ratios_alt": (
-            np.zeros_like(xv),
-            np.zeros_like(xv),
-        ),
         "shape": (50, 50),
     }
     for i, (barrier_ratio, mass_ratio) in enumerate(
@@ -609,9 +622,9 @@ def get_all_mass_ratios_2d() -> _MassRatioData:
             get_ordered_momentum.load_or_call_cached(system, config)
 
             (
-                out["zero_threshold_mass_ratios"][0][i],
-                out["zero_threshold_mass_ratios"][1][i],
-            ) = _get_zero_threshold_mass_ratio(
+                out["classical_threshold_mass_ratios"][0][i],
+                out["classical_threshold_mass_ratios"][1][i],
+            ) = _get_classical_threshold_mass_ratio(
                 system,
                 config,
             )
@@ -624,15 +637,6 @@ def get_all_mass_ratios_2d() -> _MassRatioData:
                 config,
             )
 
-            (
-                out["optional_threshold_mass_ratios_alt"][0][i],
-                out["optional_threshold_mass_ratios_alt"][1][i],
-            ) = _get_optimal_threshold_mass_ratio_alt(
-                system,
-                config,
-                t_factor=6,
-            )
-
             get_ordered_momentum.delete_cache(system, config)
     return out
 
@@ -640,12 +644,12 @@ def get_all_mass_ratios_2d() -> _MassRatioData:
 def _plot_isf_mass_ratios_2d() -> None:
 
     data = get_all_mass_ratios_2d()
-    xv, yv, shape, zero_threshold_mass_ratios, optimal_threshold_mass_ratios = (
+    xv, yv, shape, classical_threshold_mass_ratios, optimal_threshold_mass_ratios = (
         data["xv"],
         data["yv"],
         data["shape"],
-        data["zero_threshold_mass_ratios"],
-        data["optional_threshold_mass_ratios_alt"],
+        data["classical_threshold_mass_ratios"],
+        data["optimal_threshold_mass_ratios"],
     )
 
     fig, ax = get_thesis_figure()
@@ -671,7 +675,7 @@ def _plot_isf_mass_ratios_2d() -> None:
         yv.reshape(shape),
         # If we fit to a Gaussian which ends at 0, what do we
         # think the mass will be?
-        (zero_threshold_mass_ratios[1]).reshape(
+        (classical_threshold_mass_ratios[1]).reshape(
             shape,
         ),
         shading="nearest",
@@ -683,7 +687,7 @@ def _plot_isf_mass_ratios_2d() -> None:
     ax.set_ylim(np.min(yv), np.max(yv))
 
     fig.colorbar(mesh, ax=ax)
-    fig.savefig("scripts/perturbation/effective_mass.zero.2d.pdf")
+    fig.savefig("scripts/perturbation/effective_mass.classical.2d.pdf")
 
 
 def _plot_isf_mass_fit_1d(
@@ -691,7 +695,7 @@ def _plot_isf_mass_fit_1d(
     temperature: float = 155,
     mass_factor: float = 1,
     energy_factor: float = 1,
-    ty: Literal["zero", "optimal", "alt"] = "optimal",
+    ty: Literal["classical", "optimal"] = "optimal",
 ) -> None:
 
     system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
@@ -699,33 +703,47 @@ def _plot_isf_mass_fit_1d(
     system = system.with_mass(mass_factor * system.mass)
 
     config = PeriodicSystemConfig(
-        (200,),
-        (100,),
+        (50,),
+        (250,),
         direction=(1,),
-        truncation=50,
+        truncation=200,
+        temperature=temperature,
+        offset=(0.01,),
+    )
+    config_1 = PeriodicSystemConfig(
+        (50,),
+        (150,),
+        direction=(1,),
+        truncation=100,
         temperature=temperature,
     )
 
-    times = GaussianMethod(measure="abs").get_fit_times(
+    delta_k = get_scattered_momentum(system, config, [config.direction])[0]
+    print(f"Actual delta k:1 {delta_k:0.3e}")  # noqa: T201
+
+    times = GaussianMethod(measure="abs", t_factor=16).get_fit_times(
         system=system,
         config=config,
     )
 
     get_ordered_momentum.load_or_call_cached(system, config)
     isf = get_weak_boltzmann_isf.call_uncached(system, config, times)
-    if ty == "alt":
-        total_occupation, effective_mass = _get_optimal_threshold_mass_ratio_alt(
+
+    if ty == "classical":
+        total_occupation, effective_mass = _get_classical_threshold_mass_ratio(
             system,
             config,
-            t_factor=6,
         )
-    elif ty == "zero":
-        total_occupation, effective_mass = _get_zero_threshold_mass_ratio(
+        total_occupation, effective_mass = _get_classical_threshold_mass_ratio(
             system,
             config,
         )
     else:
         total_occupation, effective_mass = _get_optimal_threshold_mass_ratio(
+            system,
+            config,
+        )
+        total_occupation, effective_mass = _get_zero_threshold_mass_ratio(
             system,
             config,
         )
@@ -737,6 +755,13 @@ def _plot_isf_mass_fit_1d(
     line_first_order.set_label("First Order")
     line_first_order.set_color(CAM_CHERRY.base)
 
+    isf = get_weak_boltzmann_isf.call_uncached(system, config_1, times)
+    fig, ax, line_first_order = plot_value_list_against_time(isf, measure="abs", ax=ax)
+    line_first_order.set_label("First Order")
+    line_first_order.set_linestyle("--")
+    line_first_order.set_color(CAM_CHERRY.dark)
+
+    print(effective_mass)  # noqa: T201
     (line_effective_mass,) = ax.plot(
         times.times,
         get_free_particle_isf(
@@ -763,6 +788,13 @@ def _plot_isf_mass_fit_1d(
         label="Actual Mass",
     )
 
+    ax.axhline(
+        1 - _get_above_barrier_occupation(system, config),
+        color=CAM_BLUE.dark,
+        linestyle=":",
+        label="Above Barrier Occupation",
+    )
+
     ax.set_xlabel("Time / s")
     ax.set_ylabel(r"$|I(\Delta k, t)|$")
 
@@ -787,7 +819,7 @@ def _plot_isf_mass_fit_2d(
     temperature: float = 155,
     mass_factor: float = 1,
     energy_factor: float = 1,
-    ty: Literal["zero", "optimal", "alt"] = "optimal",
+    ty: Literal["classical", "optimal"] = "optimal",
 ) -> None:
 
     system = SODIUM_COPPER_SYSTEM_2D
@@ -810,22 +842,17 @@ def _plot_isf_mass_fit_2d(
 
     get_ordered_momentum.load_or_call_cached(system, config)
     isf = get_weak_boltzmann_isf.call_uncached(system, config, times)
-    if ty == "alt":
-        total_occupation, effective_mass = _get_optimal_threshold_mass_ratio_alt(
-            system,
-            config,
-            t_factor=6,
-        )
-    elif ty == "zero":
-        total_occupation, effective_mass = _get_zero_threshold_mass_ratio(
+    if ty == "classical":
+        total_occupation, effective_mass = _get_classical_threshold_mass_ratio(
             system,
             config,
         )
-    else:
+    elif ty == "optimal":
         total_occupation, effective_mass = _get_optimal_threshold_mass_ratio(
             system,
             config,
         )
+
     get_ordered_momentum.delete_cache(system, config)
 
     fig, ax = get_thesis_figure()
@@ -913,10 +940,10 @@ def _charlie_mass_ratios() -> Path:
 def get_charlie_mass_ratios() -> dict[str, Any]:
     base_system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
     config = PeriodicSystemConfig(
-        (40,),
-        (200,),
+        (50,),
+        (150,),
         direction=(1,),
-        truncation=50,
+        truncation=100,
         temperature=155,
         offset=(0.01,),
     )
@@ -929,18 +956,14 @@ def get_charlie_mass_ratios() -> dict[str, Any]:
     }
 
     mass_min = element_masses["H"]
-    mass_max = 1.2 * base_system.mass
-    grid_masses = np.linspace(mass_min, mass_max, 160)
+    mass_max = 10 * base_system.mass
+    grid_masses = np.logspace(np.log10(mass_min), np.log10(mass_max), 100)
 
     def compute_ratio(mass: float) -> float:
         sys = base_system.with_mass(mass)
         with disabled_timing():
             get_ordered_momentum.load_or_call_cached(sys, config)
-            _, eff_mass_ratio = _get_optimal_threshold_mass_ratio_alt(
-                sys,
-                config,
-                t_factor=6,
-            )
+            _, eff_mass_ratio = _get_zero_threshold_mass_ratio(sys, config)
             get_ordered_momentum.delete_cache(sys, config)
         return eff_mass_ratio
 
@@ -969,13 +992,7 @@ def plot_charlie_mass_ratios() -> None:
     for elem, m in element_masses.items():
         ratio = element_ratios[elem]
         mass_in_u = m / atomic_mass
-        ax.scatter(
-            mass_in_u,
-            ratio,
-            color=CAM_BLUE.dark,
-            marker="x",
-            zorder=5,
-        )
+        ax.scatter(mass_in_u, ratio, color=CAM_BLUE.dark, marker="x", zorder=5)
         ax.annotate(
             elem,
             (mass_in_u, ratio),
@@ -987,29 +1004,27 @@ def plot_charlie_mass_ratios() -> None:
 
     ax.set_xlabel("Mass / Atomic Mass Units")
     ax.set_ylabel(r"Effective Mass Ratio $m_{\mathrm{eff}} / m$")
-    ax.set_xlim(0, np.max(grid_masses) / atomic_mass)
+    ax.set_xlim(0.8, np.max(grid_masses) / atomic_mass)
 
     ax.axhline(
-        0.3557035183064887,
+        2.3938907263995297,
         color="black",
         linestyle="--",
         linewidth=0.8,
         alpha=0.7,
     )
-    print((0.3557035183064887 / grid_ratios[np.argmax(grid_masses)]) ** 2)
-    ax.set_ylim(0, None)
+    ax.set_ylim(2.2, None)
+    ax.set_xscale("log")
 
     fig.savefig("scripts/perturbation/effective_mass.charlie.pdf")
 
 
 if __name__ == "__main__":
-    # _assess_isf_validity()
-    # _assess_isf_validity_2d()
-    # _plot_isf_mass_ratios()
-    # _plot_isf_mass_ratios_2d()
-    # _print_free_times()
-    # _plot_isf_mass_fit_1d(ty="zero")
-    # _plot_isf_mass_fit_1d(ty="alt")
-    # _plot_isf_mass_fit_2d(ty="zero")
-    # _plot_isf_mass_fit_2d(ty="alt")
+    _assess_isf_validity()
+    _assess_isf_validity_2d()
+    _plot_isf_mass_ratios()
+    _plot_isf_mass_ratios_2d()
+    _print_free_times()
+    _plot_isf_mass_fit_1d(ty="optimal", mass_factor=50)
+    _plot_isf_mass_fit_1d()
     plot_charlie_mass_ratios()
