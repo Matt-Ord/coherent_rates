@@ -124,9 +124,8 @@ def plot_rates_against_self_energy() -> None:
     wavefunctions = get_bloch_wavefunctions(system, config)
 
     fig, ax = get_paper_figure()
-    fig, ax, (line, _) = plot_wavepacket_transformed_energy_1d_against_self_energy(
+    fig, ax, line = plot_wavepacket_transformed_energy_1d_against_self_energy(
         wavefunctions,
-        free_mass=None,
         measure="abs",
         ax=ax,
         scale_factor=1 / hbar,
@@ -136,9 +135,8 @@ def plot_rates_against_self_energy() -> None:
     line.set_linestyle("-")
 
     wavefunctions = get_bloch_wavefunctions(system.with_barrier_energy(0), config)
-    fig, ax, (free_line, _) = plot_wavepacket_transformed_energy_1d_against_self_energy(
+    fig, ax, free_line = plot_wavepacket_transformed_energy_1d_against_self_energy(
         wavefunctions,
-        free_mass=None,
         measure="abs",
         ax=ax,
         scale_factor=1 / hbar,
@@ -177,9 +175,8 @@ def plot_rates_against_self_energy_thesis() -> None:
     wavefunctions = get_bloch_wavefunctions(system, config)
 
     fig, ax = get_fancy_figure()
-    fig, ax, (line, _) = plot_wavepacket_transformed_energy_1d_against_self_energy(
+    fig, ax, line = plot_wavepacket_transformed_energy_1d_against_self_energy(
         wavefunctions,
-        free_mass=None,
         measure="abs",
         ax=ax,
         scale_factor=1 / hbar,
@@ -189,9 +186,8 @@ def plot_rates_against_self_energy_thesis() -> None:
     line.set_linestyle("-")
 
     wavefunctions = get_bloch_wavefunctions(system.with_barrier_energy(0), config)
-    fig, ax, (free_line, _) = plot_wavepacket_transformed_energy_1d_against_self_energy(
+    fig, ax, free_line = plot_wavepacket_transformed_energy_1d_against_self_energy(
         wavefunctions,
-        free_mass=None,
         measure="abs",
         ax=ax,
         scale_factor=1 / hbar,
