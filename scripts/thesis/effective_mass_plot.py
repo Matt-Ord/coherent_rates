@@ -53,7 +53,7 @@ def plot_rates() -> None:
         free_mass=system.mass,
         measure="abs",
         ax=ax,
-        scale_factor=system.lattice_constant / hbar,
+        scale_factor=1 / hbar,
     )
     if free_line is not None:
         free_line.set_color(CAM_BLUE.dark)
@@ -62,10 +62,10 @@ def plot_rates() -> None:
     barrier_energy = system.barrier_energy
 
     print(f"Barrier energy: {barrier_energy:0.2e} J")  # noqa: T201
-    ax.set_ylim(None, 800)
+    ax.set_ylim(None, 800 / system.lattice_constant)
     ax.set_xlim(0, 16)
     ax.set_xticks([0, 2, 4, 6, 8, 10, 12, 14, 16])
-    ax.set_ylabel(r"$R_n(\Delta x)$ / $\mathrm{m\,s}^{-1}$")
+    ax.set_ylabel(r"$R_n(\Delta x)$ / $\mathrm{s}^{-1}$")
 
     legend = ax.legend(
         frameon=False,
@@ -91,7 +91,7 @@ def plot_rates_paper() -> None:
         free_mass=system.mass,
         measure="abs",
         ax=ax,
-        scale_factor=system.lattice_constant / hbar,
+        scale_factor=1 / hbar,
     )
     if free_line is not None:
         free_line.set_color(CAM_BLUE.dark)
@@ -100,9 +100,9 @@ def plot_rates_paper() -> None:
     barrier_energy = system.barrier_energy
 
     print(f"Barrier energy: {barrier_energy:0.2e} J")  # noqa: T201
-    ax.set_ylim(None, 800)
+    ax.set_ylim(None, 800 / system.lattice_constant)
     ax.set_xlim(0, 16)
-    ax.set_ylabel(r"$R_n(\Delta x)$ / $\mathrm{m\,s}^{-1}$")
+    ax.set_ylabel(r"$R_n(\Delta x)$ / $\mathrm{s}^{-1}$")
     ax.set_xticks([0, 2, 4, 6, 8, 10, 12, 14, 16])
 
     legend = ax.legend(
@@ -129,7 +129,7 @@ def plot_rates_against_self_energy() -> None:
         free_mass=None,
         measure="abs",
         ax=ax,
-        scale_factor=system.lattice_constant / hbar,
+        scale_factor=1 / hbar,
     )
 
     line.set_color(CAM_BLUE.warm)
@@ -141,7 +141,7 @@ def plot_rates_against_self_energy() -> None:
         free_mass=None,
         measure="abs",
         ax=ax,
-        scale_factor=system.lattice_constant / hbar,
+        scale_factor=1 / hbar,
     )
     free_line.set_color(CAM_BLUE.dark)
     free_line.set_linestyle("-")
@@ -150,9 +150,9 @@ def plot_rates_against_self_energy() -> None:
     barrier_energy = system.barrier_energy
 
     print(f"Barrier energy: {barrier_energy:0.2e} J")  # noqa: T201
-    ax.set_ylim(None, 1e3)
+    ax.set_ylim(None, 1e3 / system.lattice_constant)
     ax.set_xlim(0, 5 * barrier_energy)
-    ax.set_ylabel(r"$R_n(\Delta x)$ / $\mathrm{m\,s}^{-1}$")
+    ax.set_ylabel(r"$R_n(\Delta x)$ / $\mathrm{s}^{-1}$")
     ax.set_xlabel(r"Average Energy / $\mathrm{J}$")
     barrier_line = ax.axvline(barrier_energy)
     barrier_line.set_linestyle("--")
@@ -182,7 +182,7 @@ def plot_rates_against_self_energy_thesis() -> None:
         free_mass=None,
         measure="abs",
         ax=ax,
-        scale_factor=system.lattice_constant / hbar,
+        scale_factor=1 / hbar,
     )
 
     line.set_color(CAM_BLUE.warm)
@@ -194,7 +194,7 @@ def plot_rates_against_self_energy_thesis() -> None:
         free_mass=None,
         measure="abs",
         ax=ax,
-        scale_factor=system.lattice_constant / hbar,
+        scale_factor=1 / hbar,
     )
     free_line.set_color(CAM_BLUE.dark)
     free_line.set_linestyle("-")
@@ -203,9 +203,9 @@ def plot_rates_against_self_energy_thesis() -> None:
     barrier_energy = system.barrier_energy
 
     print(f"Barrier energy: {barrier_energy:0.2e} J")  # noqa: T201
-    ax.set_ylim(None, 1e3)
+    ax.set_ylim(None, 1e3 / system.lattice_constant)
     ax.set_xlim(0, 5 * barrier_energy)
-    ax.set_ylabel(r"$R_n(\Delta x)$ / $\mathrm{m\,s}^{-1}$")
+    ax.set_ylabel(r"$R_n(\Delta x)$ / $\mathrm{s}^{-1}$")
     ax.set_xlabel(r"Average Energy / $\mathrm{J}$")
     barrier_line = ax.axvline(barrier_energy)
     barrier_line.set_linestyle("--")

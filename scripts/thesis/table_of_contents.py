@@ -154,7 +154,7 @@ def plot_tunneling_rate_against_self_energy(ax: Axes) -> None:
         free_mass=None,
         measure="abs",
         ax=ax,
-        scale_factor=system.lattice_constant / hbar,
+        scale_factor=1 / hbar,
         energy_scale_factor=10**20,
     )
 
@@ -170,7 +170,7 @@ def plot_tunneling_rate_against_self_energy(ax: Axes) -> None:
             free_mass=None,
             measure="abs",
             ax=ax,
-            scale_factor=system.lattice_constant / hbar,
+            scale_factor=1 / hbar,
             energy_scale_factor=10**20,
         )
     )
@@ -182,9 +182,9 @@ def plot_tunneling_rate_against_self_energy(ax: Axes) -> None:
     barrier_energy = system.barrier_energy
 
     print(f"Barrier energy: {barrier_energy:0.2e} J")  # noqa: T201
-    ax.set_ylim(None, 1e3)
+    ax.set_ylim(None, 1e3 / system.lattice_constant)
     ax.set_xlim(0, 5 * barrier_energy * 10**20)
-    ax.set_ylabel(r"Ballistic Rate / $\mathrm{m\,s}^{-1}$")
+    ax.set_ylabel(r"Ballistic Rate / $\mathrm{s}^{-1}$")
     ax.set_xlabel("Average Energy / $\\times 10^{-20} \\mathrm{J}$")
     barrier_line = ax.axvline(barrier_energy * 10**20)
     barrier_line.set_linestyle("--")
