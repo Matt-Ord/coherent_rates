@@ -3,7 +3,7 @@ from typing import Any
 import numpy as np
 import scipy
 from matplotlib.scale import LogScale
-from scipy.constants import Boltzmann
+from scipy.constants import Boltzmann, hbar
 
 from coherent_rates.config import PeriodicSystemConfig
 from coherent_rates.isf import (
@@ -111,7 +111,89 @@ def _get_classical_momentum_squared(
     return prefactor * integral
 
 
-def _plot_momentum_squared_with_classical() -> None:
+def _get_classical_crossing_time_integral(
+    barrier_energy: float,
+    energies: np.ndarray[Any, np.dtype[np.float64]],
+) -> np.ndarray[Any, np.dtype[np.float64]]:
+    result = np.full(energies.shape, np.inf, dtype=np.float64)
+
+    # Above barrier: un-trapped crossing time
+    mask_above = energies > barrier_energy
+    if np.any(mask_above):
+        eps_above = energies[mask_above] / barrier_energy
+        m_above = 1.0 / eps_above
+        result[mask_above] = scipy.special.ellipk(m_above) / np.sqrt(eps_above)
+
+    # Below barrier: bound oscillation / attempt time (between classical turning points)
+    mask_below = (energies >= 0.0) & (energies < barrier_energy)
+    if np.any(mask_below):
+        eps_below = energies[mask_below] / barrier_energy
+        result[mask_below] = scipy.special.ellipk(eps_below)
+
+    return result
+
+
+def _get_classical_crossing_time(
+    system: PeriodicSystem1d,
+    energies: np.ndarray[Any, np.dtype[np.float64]],
+) -> np.ndarray[Any, np.dtype[np.float64]]:
+
+    # Assumes unit cell length L = 1. If system has a length attribute
+    # (example system.length) multiply the prefactor by system.length.
+    prefactor = (system.lattice_constant / np.pi) * np.sqrt(
+        2.0 * system.mass / system.barrier_energy,
+    )
+    integral = _get_classical_crossing_time_integral(system.barrier_energy, energies)
+    return prefactor * integral
+
+
+def _get_kemble_formula_probability(
+    barrier_energy: float,
+    barrier_omega: float,
+    energies: np.ndarray[Any, np.dtype[np.float64]],
+) -> np.ndarray[Any, np.dtype[np.float64]]:
+    """Calculate the Kemble transmission probability T(E) across all energies."""
+    arg = (2.0 * np.pi * (energies - barrier_energy)) / (hbar * barrier_omega)
+    return scipy.special.expit(arg)
+
+
+def _get_barrier_omega(
+    system: PeriodicSystem1d,
+) -> float:
+    return np.sqrt(2 * system.barrier_energy / system.mass) * (
+        np.pi / system.lattice_constant
+    )
+
+
+def _get_semi_classical_momentum_squared(
+    system: PeriodicSystem1d,
+    energies: np.ndarray[Any, np.dtype[np.float64]],
+) -> np.ndarray[Any, np.dtype[np.float64]]:
+    """Calculate the semi-classical momentum squared using the crossing time."""
+    barrier_omega = _get_barrier_omega(system)
+    tunneling_prob = _get_kemble_formula_probability(
+        system.barrier_energy,
+        barrier_omega,
+        energies,
+    )
+    crossing_time = _get_classical_crossing_time(system, energies)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        unweighted_momentum_squared = (
+            system.mass * system.lattice_constant / crossing_time
+        ) ** 2
+
+    unweighted_momentum_squared = np.nan_to_num(
+        unweighted_momentum_squared,
+        nan=0.0,
+        posinf=0.0,
+        neginf=0.0,
+    )
+
+    return tunneling_prob * unweighted_momentum_squared
+
+
+def _plot_momentum_squared_with_classical(*, semi_classical: bool = False) -> None:
 
     system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
 
@@ -148,21 +230,36 @@ def _plot_momentum_squared_with_classical() -> None:
             np.real_if_close(scaled_momentum[b, sort_idx]),
             label=f"Band {b}",
         )
-        line.set_color(CAM_BLUE.warm)
+        line.set_color(CAM_BLUE.base)
     quantum_line = ax.plot([], [], color=CAM_BLUE.warm, label="Quantum")[0]
 
     energies = np.linspace(-1, 2, 1000)
-    classical_momentum = _get_classical_momentum_squared(
-        system,
-        (energies * Boltzmann * config.temperature) + system.barrier_energy,
-    )
-    classical_momentum /= (2 * system.mass) * (
-        energies * Boltzmann * config.temperature + system.barrier_energy
-    )
-    (classical_line,) = ax.plot(energies, classical_momentum, color=CAM_BLUE.dark)
+
+    if semi_classical:
+        semi_classical_momentum = _get_semi_classical_momentum_squared(
+            system,
+            (energies * Boltzmann * config.temperature) + system.barrier_energy,
+        )
+        semi_classical_momentum /= (2 * system.mass) * (
+            energies * Boltzmann * config.temperature + system.barrier_energy
+        )
+        (classical_line,) = ax.plot(
+            energies,
+            semi_classical_momentum,
+            color=CAM_BLUE.dark,
+        )
+    else:
+        classical_momentum = _get_classical_momentum_squared(
+            system,
+            (energies * Boltzmann * config.temperature) + system.barrier_energy,
+        )
+        classical_momentum /= (2 * system.mass) * (
+            energies * Boltzmann * config.temperature + system.barrier_energy
+        )
+        (classical_line,) = ax.plot(energies, classical_momentum, color=CAM_BLUE.dark)
 
     ax.set_xlabel("$(E - E_b)$/ $k_b T$")
-    ax.set_ylabel(r"$\langle\hat{p}\rangle^2$ / $2mE$")
+    ax.set_ylabel(r"$\langle p_d^2\rangle$ / $2mE$")
     ax.set_ylim(1e-5, 1)
     ax.set_xlim(-1, 2)
 
@@ -172,10 +269,11 @@ def _plot_momentum_squared_with_classical() -> None:
 
     ax.legend(
         loc="upper left",
-        frameon=False,
         fontsize=8,
         handles=[line, classical_line, quantum_line],
-        labels=["$E_b$", "Classical", "Quantum"],
+        labels=["$E_b$", "Semiclassical", "Quantum"]
+        if semi_classical
+        else ["$E_b$", "Classical", "Quantum"],
     )
 
     fig.savefig("scripts/perturbation/expect_p.classical.pdf", bbox_inches="tight")
@@ -235,13 +333,7 @@ def _plot_momentum_squared_2d() -> None:
     line.set_linestyle("--")
     line.set_color(CAM_CHERRY.dark)
 
-    ax.legend(
-        loc="upper left",
-        frameon=False,
-        fontsize=8,
-        handles=[line],
-        labels=["$E_b$"],
-    )
+    ax.legend(loc="upper left", handles=[line], labels=["$E_b$"])
 
     fig.savefig("scripts/perturbation/expect_p.2d.pdf", bbox_inches="tight")
     fig.show()
@@ -250,5 +342,5 @@ def _plot_momentum_squared_2d() -> None:
 
 if __name__ == "__main__":
     _plot_momentum_squared()
-    _plot_momentum_squared_with_classical()
+    _plot_momentum_squared_with_classical(semi_classical=True)
     _plot_momentum_squared_2d()
