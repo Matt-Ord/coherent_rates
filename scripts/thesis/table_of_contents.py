@@ -149,9 +149,8 @@ def plot_tunneling_rate_against_self_energy(ax: Axes) -> None:
 
     wavefunctions = get_bloch_wavefunctions(system, config)
 
-    _fig, ax, (line, _) = plot_wavepacket_transformed_energy_1d_against_self_energy(
+    _fig, ax, line = plot_wavepacket_transformed_energy_1d_against_self_energy(
         wavefunctions,
-        free_mass=None,
         measure="abs",
         ax=ax,
         scale_factor=1 / hbar,
@@ -164,10 +163,9 @@ def plot_tunneling_rate_against_self_energy(ax: Axes) -> None:
     line.set_markersize(4)
 
     wavefunctions = get_bloch_wavefunctions(system.with_barrier_energy(0), config)
-    _fig, ax, (free_line, _) = (
+    _fig, ax, free_line = (
         plot_wavepacket_transformed_energy_1d_against_self_energy(
             wavefunctions,
-            free_mass=None,
             measure="abs",
             ax=ax,
             scale_factor=1 / hbar,
