@@ -119,7 +119,7 @@ def plot_periodic_isf_for_thesis() -> None:
     config = PeriodicSystemConfig(
         (390,),
         (100,),
-        direction=(67,),
+        direction=(65,),
         truncation=50,
         temperature=155,
     )

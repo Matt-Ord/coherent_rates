@@ -156,9 +156,9 @@ def plot_free_isf_for_thesis() -> None:
     system = system.with_barrier_energy(0)
 
     config = PeriodicSystemConfig(
-        (400,),
+        (390,),
         (100,),
-        direction=(67,),
+        direction=(65,),
         truncation=25,
         temperature=155,
     )
