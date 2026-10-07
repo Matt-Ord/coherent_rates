@@ -73,7 +73,8 @@ def _get_classical_crossing_time(
     energies: np.ndarray[Any, np.dtype[np.float64]],
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
 
-    # Assumes unit cell length L = 1. If system has a length attribute (e.g. system.length),
+    # Assumes unit cell length L = 1. If system has a length attribute
+    # e.g. system.length,
     # multiply the prefactor by system.length.
     prefactor = (system.lattice_constant / np.pi) * np.sqrt(
         2.0 * system.mass / system.barrier_energy,

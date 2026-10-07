@@ -327,8 +327,8 @@ def plot_effective_mass_paper() -> None:
 
 if __name__ == "__main__":
     plot_effective_mass_thesis()
-    # plot_effective_mass_paper()
-    # plot_rates()
-    # plot_rates_paper()
-    # plot_rates_against_self_energy()
-    # plot_rates_against_self_energy_thesis()
+    plot_effective_mass_paper()
+    plot_rates()
+    plot_rates_paper()
+    plot_rates_against_self_energy()
+    plot_rates_against_self_energy_thesis()
