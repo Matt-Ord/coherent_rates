@@ -65,7 +65,7 @@ def plot_rates() -> None:
     ax.set_ylim(None, 800)
     ax.set_xlim(0, 16)
     ax.set_xticks([0, 2, 4, 6, 8, 10, 12, 14, 16])
-    ax.set_ylabel(r"$R_n(\Delta x)$ / $\mathrm{s}^{-1}$")
+    ax.set_ylabel(r"$R_n(\Delta x)$ / $\mathrm{m\,s}^{-1}$")
 
     legend = ax.legend(
         frameon=False,
@@ -102,7 +102,7 @@ def plot_rates_paper() -> None:
     print(f"Barrier energy: {barrier_energy:0.2e} J")  # noqa: T201
     ax.set_ylim(None, 800)
     ax.set_xlim(0, 16)
-    ax.set_ylabel(r"$R_n(\Delta x)$ / $\mathrm{s}^{-1}$")
+    ax.set_ylabel(r"$R_n(\Delta x)$ / $\mathrm{m\,s}^{-1}$")
     ax.set_xticks([0, 2, 4, 6, 8, 10, 12, 14, 16])
 
     legend = ax.legend(
@@ -152,8 +152,8 @@ def plot_rates_against_self_energy() -> None:
     print(f"Barrier energy: {barrier_energy:0.2e} J")  # noqa: T201
     ax.set_ylim(None, 1e3)
     ax.set_xlim(0, 5 * barrier_energy)
-    ax.set_ylabel(r"$R_n(\Delta x)$ / $\mathrm{s}^{-1}$")
-    ax.set_xlabel("Average Energy / $J$")
+    ax.set_ylabel(r"$R_n(\Delta x)$ / $\mathrm{m\,s}^{-1}$")
+    ax.set_xlabel(r"Average Energy / $\mathrm{J}$")
     barrier_line = ax.axvline(barrier_energy)
     barrier_line.set_linestyle("--")
     barrier_line.set_color(CAM_CHERRY.dark)
@@ -205,8 +205,8 @@ def plot_rates_against_self_energy_thesis() -> None:
     print(f"Barrier energy: {barrier_energy:0.2e} J")  # noqa: T201
     ax.set_ylim(None, 1e3)
     ax.set_xlim(0, 5 * barrier_energy)
-    ax.set_ylabel(r"$R_n(\Delta x)$ / $\mathrm{s}^{-1}$")
-    ax.set_xlabel("Average Energy / $J$")
+    ax.set_ylabel(r"$R_n(\Delta x)$ / $\mathrm{m\,s}^{-1}$")
+    ax.set_xlabel(r"Average Energy / $\mathrm{J}$")
     barrier_line = ax.axvline(barrier_energy)
     barrier_line.set_linestyle("--")
     barrier_line.set_color(CAM_CHERRY.dark)
@@ -264,7 +264,7 @@ def plot_effective_mass_thesis() -> None:
         SymmetricalLogScale(None, linthresh=1e-1),
     )
     ax.set_ylabel(r"Effective Mass ($\frac{m_\mathrm{eff} }{m}-1$)")
-    ax.set_xlabel("Average Energy / $J$")
+    ax.set_xlabel(r"Average Energy / $\mathrm{J}$")
     ax.set_xlim(0, 3 * system.barrier_energy)
     line.set_color(CAM_CHERRY.dark)
     line.set_linestyle("--")
