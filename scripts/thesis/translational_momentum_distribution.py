@@ -32,6 +32,7 @@ from coherent_rates.system import SODIUM_COPPER_BRIDGE_SYSTEM_1D, PeriodicSystem
 from coherent_rates.util import (
     CAM_BLUE,
     CAM_CHERRY,
+    CAM_SLATE_4,
     get_fancy_figure,
     get_thesis_figure,
 )
@@ -249,17 +250,19 @@ def _plot_translational_isf() -> None:
     helium = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(HELIUM_MASS)
     scaled_time = np.linspace(0, 4, 400)
 
+    # The classical limit is shown in red, to separate it from the quantum
+    # results for each adsorbate
     fig, ax = get_fancy_figure()
     (sodium_line,) = ax.plot(
         scaled_time,
         _get_quantum_translational_isf(sodium, scaled_time),
-        color=CAM_BLUE.warm,
+        color=CAM_SLATE_4,
         label="sodium",
     )
     (helium_line,) = ax.plot(
         scaled_time,
         _get_quantum_translational_isf(helium, scaled_time),
-        color=CAM_CHERRY.base,
+        color=CAM_BLUE.warm,
         label="helium",
     )
     (classical_line,) = ax.plot(
@@ -268,7 +271,7 @@ def _plot_translational_isf() -> None:
             sodium.barrier_energy / (Boltzmann * TEMPERATURE),
             scaled_time,
         ),
-        color=CAM_BLUE.dark,
+        color=CAM_CHERRY.dark,
         label="classical",
     )
     classical_line.set_linestyle("--")
