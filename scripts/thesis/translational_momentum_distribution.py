@@ -1,8 +1,8 @@
 """Plot the thermal distribution of quantum translational momentum.
 
 The translational ISF, which is the cosine transform of the distribution, is
-also compared with the gamma distribution model of the classical ISF, using the
-quantum moments of the distribution as parameters.
+also compared with the Gaussian decay of a free particle with the effective
+mass, m_eff / m = m k_B T / <p_tr^2>.
 
 The translational momentum of each Bloch eigenstate is the magnitude of its
 diagonal momentum, |<n|p|n>|, and each eigenstate is weighted by its Boltzmann
@@ -36,9 +36,8 @@ P_RANGE = (0.0, 4.0)
 N_GRID = 4000
 BROADENING = 0.01
 N_K_INTERPOLATED = 100000
-# The momentum transfer and friction of the classical ISF figures
+# The momentum transfer of the classical ISF figures
 DELTA_K = 0.43e10
-FRICTION = 0.2e12
 
 
 def _get_quantum_translational_momentum(
@@ -198,52 +197,47 @@ def _get_quantum_translational_isf(
     return np.cos(DELTA_K * np.outer(times, velocity)) @ counts
 
 
-def _get_gamma_model_isf(
+def _get_effective_mass_isf(
     system: PeriodicSystem1d,
     times: np.ndarray[Any, np.dtype[np.float64]],
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
-    """Return the gamma distribution model of the ISF, with quantum parameters.
+    """Return the ISF of a free particle with the quantum effective mass.
 
-    The model matches <p_tr> and <p_tr^2> of the quantum distribution. Since
-    the quantum distribution has no sharp dynamic fraction, the states which
-    cross a unit cell slower than the friction timescale, |p_tr| < m dx gamma,
-    are counted as static.
+    In units of sqrt(m k_B T), k_B T / m_eff = <p_tr^2> k_B T / m, so the
+    free particle ISF exp(-k_B T dk^2 t^2 / 2 m_eff) depends only on <p_tr^2>.
     """
     p_tr, weights = _get_quantum_translational_momentum(system)
-    thermal_momentum = np.sqrt(system.mass * Boltzmann * TEMPERATURE)
-    threshold = system.mass * system.lattice_constant * FRICTION / thermal_momentum
-    dynamic_fraction = np.sum(weights[p_tr > threshold])
-    mean = np.sum(weights * p_tr) / dynamic_fraction
-    mean_squared = np.sum(weights * p_tr**2) / dynamic_fraction
-    shape = mean**2 / (mean_squared - mean**2)
-    scale = (mean_squared - mean**2) / mean * thermal_momentum
-    return (1 - dynamic_fraction) + dynamic_fraction * np.real(
-        (1 - 1j * DELTA_K * times * scale / system.mass) ** (-shape),
-    )
+    kbt = Boltzmann * TEMPERATURE
+    effective_mass = system.mass / np.sum(weights * p_tr**2)
+    return np.exp(-kbt * DELTA_K**2 * times**2 / (2 * effective_mass))
 
 
 def _plot_translational_isf(system: PeriodicSystem1d, name: str) -> None:
-    times = np.linspace(0, 2 / FRICTION, 400)
+    # Time is measured in units of the decay rate alpha of a free particle
+    # with the true mass, so that the free particle decays as exp(-(alpha t)^2)
+    alpha = np.sqrt(Boltzmann * TEMPERATURE / (2 * system.mass)) * DELTA_K
+    times = np.linspace(0, 4 / alpha, 800)
     fig, ax = get_thesis_figure()
     (line,) = ax.plot(
-        times * FRICTION,
+        times * alpha,
         _get_quantum_translational_isf(system, times),
         color=CAM_BLUE.warm,
     )
     line.set_label("quantum")
-    (gamma_line,) = ax.plot(
-        times * FRICTION,
-        _get_gamma_model_isf(system, times),
+    (mass_line,) = ax.plot(
+        times * alpha,
+        _get_effective_mass_isf(system, times),
         color=CAM_BLUE.dark,
     )
-    gamma_line.set_linestyle("--")
-    gamma_line.set_label("approximate")
+    mass_line.set_linestyle("--")
+    mass_line.set_label("effective mass")
 
-    ax.set_xlim(0, 2)
-    ax.set_xlabel(r"$t \gamma$")
+    ax.set_xlim(0, 4)
+    ax.set_ylim(0, 1.02)
+    ax.set_xlabel(r"$\alpha t$")
     ax.set_ylabel(r"$I_\mathrm{tr}(\Delta k, t)$")
-    ax.legend(handles=[line, gamma_line], loc="upper right")
-    fig.savefig(f"scripts/thesis/translational_isf_gamma.{name}.pdf")
+    ax.legend(handles=[line, mass_line], loc="upper right")
+    fig.savefig(f"scripts/thesis/translational_isf.{name}.pdf")
 
 
 if __name__ == "__main__":
