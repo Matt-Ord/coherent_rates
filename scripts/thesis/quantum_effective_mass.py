@@ -29,7 +29,7 @@ Three models of the effective mass m_eff / m = m k_B T / <p_tr^2> are compared
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import numpy as np
 from matplotlib.colors import TwoSlopeNorm
@@ -45,8 +45,13 @@ from coherent_rates.util import (
     CAM_CHERRY,
     CAM_SLATE_3,
     get_fancy_figure,
+    get_thesis_fig_size,
     get_thesis_figure,
 )
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
 
 TEMPERATURE = 155
 N_K = 256
@@ -322,16 +327,13 @@ def _plot_mass_ratio_against_mass() -> None:
 
     exact = np.array([get_exact_mass_ratio(*p) for p in parameters])
     averaged = np.array([get_band_averaged_mass_ratio(*p) for p in parameters])
-    tunnelling = np.array([get_tunnelling_mass_ratio(*p) for p in parameters])
     classical = get_classical_mass_ratio(barrier_ratio)
 
-    fig, ax = get_thesis_figure()
+    fig, ax = get_fancy_figure()
     mass_u = masses / atomic_mass
     (exact_line,) = ax.plot(mass_u, exact, color=CAM_BLUE.warm)
     (averaged_line,) = ax.plot(mass_u, averaged, color=CAM_CHERRY.dark)
     averaged_line.set_linestyle("--")
-    (tunnelling_line,) = ax.plot(mass_u, tunnelling, color=CAM_CHERRY.warm)
-    tunnelling_line.set_linestyle(":")
     classical_line = ax.axhline(classical, color=CAM_BLUE.dark)
     classical_line.set_linestyle("--")
 
@@ -352,13 +354,13 @@ def _plot_mass_ratio_against_mass() -> None:
 
     ax.set_xscale("log")
     ax.set_xlim(0.8, mass_u[-1])
-    ax.set_ylim(2.0, 2.8)
+    ax.set_ylim(2.2, 2.8)
     ax.set_xlabel(r"Mass / $\mathrm{u}$")
     ax.set_ylabel(r"$m_\mathrm{eff} / m$")
     ax.legend(
-        handles=[exact_line, averaged_line, tunnelling_line, classical_line],
-        labels=["exact", "band averaged", "band centre", "classical"],
-        loc="lower right",
+        handles=[exact_line, averaged_line, classical_line],
+        labels=["exact", "band averaged", "classical"],
+        loc="upper right",
     )
     fig.savefig("scripts/thesis/quantum_effective_mass.mass.pdf")
 
@@ -375,37 +377,108 @@ def _plot_mass_ratio_against_mass() -> None:
         )
 
 
-def _plot_band_averaged_momentum() -> None:
+def _get_square_figure() -> tuple[Figure, Axes]:
+    width = get_thesis_fig_size()[0]
+    return get_thesis_figure(fig_size=(width, width))
+
+
+def _get_classical_momentum_squared(
+    energy: np.ndarray[Any, np.dtype[np.float64]],
+    barrier_ratio: float,
+) -> np.ndarray[Any, np.dtype[np.float64]]:
+    """Return p_cl^2 / (m k_B T) = 2 pi^2 e_b / I(u)^2 at E / k_B T = energy.
+
+    Below the barrier, p_cl = m dx / tau(E), with tau half the period in
+    the well.
+    """
+    crossing = _get_crossing_time_integral(energy / barrier_ratio)
+    return 2 * np.pi**2 * barrier_ratio / crossing**2
+
+
+def _plot_state_momentum() -> None:
+    """Plot <p>^2 / 2 m E of each Bloch state of sodium, with the classical value."""
+    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
+    barrier_ratio, omega_ratio = _get_dimensionless_parameters(system)
+    energies, p_squared = _get_bloch_states(barrier_ratio, omega_ratio)
+
+    fig, ax = _get_square_figure()
+    for band in range(energies.shape[1]):
+        ax.plot(
+            energies[:, band] - barrier_ratio,
+            p_squared[:, band] / (2 * energies[:, band]),
+            color=CAM_BLUE.warm if band % 2 == 0 else CAM_BLUE.base,
+        )
+    quantum_line = ax.plot([], [], color=CAM_BLUE.warm)[0]
+
+    energy = barrier_ratio + np.linspace(1e-6, 2, 1000)
+    (classical_line,) = ax.plot(
+        energy - barrier_ratio,
+        _get_classical_momentum_squared(energy, barrier_ratio) / (2 * energy),
+        color=CAM_BLUE.dark,
+    )
+    classical_line.set_linestyle("--")
+    barrier_line = ax.axvline(0, color=CAM_CHERRY.dark)
+    barrier_line.set_linestyle(":")
+
+    ax.set_yscale("log")
+    ax.set_xlim(-1, 2)
+    ax.set_ylim(1e-5, 1)
+    ax.set_xlabel(r"$(E - E_b) / k_B T$")
+    ax.set_ylabel(r"$p_\mathrm{tr}^2 / 2 m E$")
+    ax.legend(
+        handles=[quantum_line, classical_line, barrier_line],
+        labels=["quantum", "classical", "$E_b$"],
+        loc="lower right",
+    )
+    fig.savefig("scripts/thesis/quantum_effective_mass.momentum.pdf")
+
+
+def _plot_transmission() -> None:
+    """Plot p_tr^2 / p_cl^2 of each Bloch state of helium, with the Kemble P.
+
+    The centre of each band follows P, while the average over each band
+    follows 1 - sqrt(1 - P).
+    """
+    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(ADSORBATE_MASSES["He"])
+    barrier_ratio, omega_ratio = _get_dimensionless_parameters(system)
+    energies, p_squared = _get_bloch_states(barrier_ratio, omega_ratio)
+    classical = _get_classical_momentum_squared(energies, barrier_ratio)
+
+    fig, ax = _get_square_figure()
+    for band in range(energies.shape[1]):
+        ax.plot(
+            (energies[:, band] - barrier_ratio) / omega_ratio,
+            p_squared[:, band] / classical[:, band],
+            color=CAM_BLUE.warm if band % 2 == 0 else CAM_BLUE.base,
+        )
+    quantum_line = ax.plot([], [], color=CAM_BLUE.warm)[0]
+
+    band_eps, band_ratio = get_band_averaged_momentum(system)
+    average_points = ax.scatter(
+        band_eps,
+        band_ratio,
+        color=CAM_BLUE.dark,
+        marker="x",
+        zorder=5,
+    )
+
     eps = np.linspace(-3, 3, 1000)
     probability = expit(2 * np.pi * eps)
-
-    fig, ax = get_thesis_figure()
-    for name, color in [
-        ("He", CAM_CHERRY.base),
-        ("Na", CAM_BLUE.warm),
-        ("Cs", CAM_BLUE.dark),
-    ]:
-        system = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(ADSORBATE_MASSES[name])
-        band_eps, ratio = get_band_averaged_momentum(system)
-        ax.scatter(band_eps, ratio, color=color, marker="x", s=12, label=name, zorder=5)
-
-    (classical_line,) = ax.plot(eps, (eps > 0).astype(float), color=CAM_BLUE.dark)
-    classical_line.set_linestyle("--")
+    (kemble_line,) = ax.plot(eps, probability, color=CAM_CHERRY.warm)
+    kemble_line.set_linestyle(":")
     (averaged_line,) = ax.plot(eps, 1 - np.sqrt(1 - probability), color=CAM_CHERRY.dark)
-    (tunnelling_line,) = ax.plot(eps, probability, color=CAM_CHERRY.warm)
-    tunnelling_line.set_linestyle(":")
+    averaged_line.set_linestyle("--")
 
-    ax.set_xlim(-3, 3)
-    ax.set_ylim(0, 1.2)
+    ax.set_xlim(-2, 3)
+    ax.set_ylim(0, 1.5)
     ax.set_xlabel(r"$(E - E_b) / \hbar \omega_b$")
-    ax.set_ylabel(r"$\langle p_\mathrm{tr}^2 \rangle / p_\mathrm{cl}^2$")
-    handles, labels = ax.get_legend_handles_labels()
+    ax.set_ylabel(r"$p_\mathrm{tr}^2 / p_\mathrm{cl}^2$")
     ax.legend(
-        handles=[*handles, averaged_line, tunnelling_line, classical_line],
-        labels=[*labels, r"$1 - \sqrt{1 - P}$", r"$P$", "classical"],
+        handles=[quantum_line, average_points, kemble_line, averaged_line],
+        labels=["quantum", "band average", r"$P$", r"$1 - \sqrt{1 - P}$"],
         loc="upper left",
     )
-    fig.savefig("scripts/thesis/quantum_effective_mass.band_average.pdf")
+    fig.savefig("scripts/thesis/quantum_effective_mass.transmission.pdf")
 
 
 class _MassRatioMap(TypedDict):
@@ -484,5 +557,6 @@ def _plot_mass_ratio_map() -> None:
 
 if __name__ == "__main__":
     _plot_mass_ratio_against_mass()
-    _plot_band_averaged_momentum()
+    _plot_state_momentum()
+    _plot_transmission()
     _plot_mass_ratio_map()
