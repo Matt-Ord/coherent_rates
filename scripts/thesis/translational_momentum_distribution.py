@@ -1,9 +1,8 @@
 """Plot the thermal distribution of quantum translational momentum.
 
 The translational ISF, which is the cosine transform of the distribution, is
-also compared between sodium, helium and the classical limit. Time is measured
-in units of the decay rate alpha of a free particle, in which the classical ISF
-is independent of mass.
+also compared between sodium, helium and the classical limit. Time is scaled
+as dk t sqrt(k_B T / 2 m), in which the classical ISF is independent of mass.
 
 The translational momentum of each Bloch eigenstate is the magnitude of its
 diagonal momentum, |<n|p|n>|, and each eigenstate is weighted by its Boltzmann
@@ -189,26 +188,26 @@ def _plot_translational_momentum_distribution(
 
 def _get_quantum_translational_isf(
     system: PeriodicSystem1d,
-    alpha_t: np.ndarray[Any, np.dtype[np.float64]],
+    scaled_time: np.ndarray[Any, np.dtype[np.float64]],
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
-    """Return the translational ISF against alpha t, without the recoil phase.
+    """Return the translational ISF against dk t sqrt(k_B T / 2 m).
 
     With p_tr measured in units of sqrt(m k_B T), the phase of each state is
-    dk t p_tr / m = sqrt(2) alpha t p_tr, where alpha = sqrt(k_B T / 2 m) dk.
+    dk t p_tr / m = sqrt(2) s p_tr, where s = dk t sqrt(k_B T / 2 m).
     """
     p_tr, weights = _get_quantum_translational_momentum(system)
     # The momenta are binned finely enough that the phase error within a
     # bin is negligible over the times of interest
     counts, edges = np.histogram(p_tr, bins=40000, range=(0, 8), weights=weights)
     p_centres = 0.5 * (edges[1:] + edges[:-1])
-    return np.cos(np.sqrt(2) * np.outer(alpha_t, p_centres)) @ counts
+    return np.cos(np.sqrt(2) * np.outer(scaled_time, p_centres)) @ counts
 
 
 def _get_classical_translational_isf(
     barrier_energy_ratio: float,
-    alpha_t: np.ndarray[Any, np.dtype[np.float64]],
+    scaled_time: np.ndarray[Any, np.dtype[np.float64]],
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
-    """Return the exact classical translational ISF against alpha t.
+    """Return the exact classical translational ISF against dk t sqrt(k_B T / 2 m).
 
     The weight of each energy E = epsilon E_b is e^(-beta E) I(epsilon), and
     the trapped adsorbates with epsilon < 1 contribute a constant 1 - A.
@@ -233,7 +232,7 @@ def _get_classical_translational_isf(
                 limit=500,
             )[0]
             / partition
-            for a in alpha_t
+            for a in scaled_time
         ],
     )
 
@@ -241,26 +240,26 @@ def _get_classical_translational_isf(
 def _plot_translational_isf() -> None:
     sodium = SODIUM_COPPER_BRIDGE_SYSTEM_1D
     helium = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(HELIUM_MASS)
-    alpha_t = np.linspace(0, 4, 400)
+    scaled_time = np.linspace(0, 4, 400)
 
     fig, ax = get_fancy_figure()
     (sodium_line,) = ax.plot(
-        alpha_t,
-        _get_quantum_translational_isf(sodium, alpha_t),
+        scaled_time,
+        _get_quantum_translational_isf(sodium, scaled_time),
         color=CAM_BLUE.warm,
         label="sodium",
     )
     (helium_line,) = ax.plot(
-        alpha_t,
-        _get_quantum_translational_isf(helium, alpha_t),
+        scaled_time,
+        _get_quantum_translational_isf(helium, scaled_time),
         color=CAM_CHERRY.base,
         label="helium",
     )
     (classical_line,) = ax.plot(
-        alpha_t,
+        scaled_time,
         _get_classical_translational_isf(
             sodium.barrier_energy / (Boltzmann * TEMPERATURE),
-            alpha_t,
+            scaled_time,
         ),
         color=CAM_BLUE.dark,
         label="classical",
@@ -269,7 +268,7 @@ def _plot_translational_isf() -> None:
 
     ax.set_xlim(0, 4)
     ax.set_ylim(0.6, 1.0)
-    ax.set_xlabel(r"$\alpha t$")
+    ax.set_xlabel(r"$\Delta k \, t \sqrt{k_B T / 2m}$")
     ax.set_ylabel(r"$I_\mathrm{tr}(\Delta k, t)$")
     ax.legend(
         handles=[classical_line, sodium_line, helium_line],
