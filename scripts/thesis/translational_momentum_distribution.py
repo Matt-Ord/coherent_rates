@@ -1,5 +1,9 @@
 """Plot the thermal distribution of quantum translational momentum.
 
+The translational ISF, which is the cosine transform of the distribution, is
+also compared with the gamma distribution model of the classical ISF, using the
+quantum moments of the distribution as parameters.
+
 The translational momentum of each Bloch eigenstate is the magnitude of its
 diagonal momentum, |<n|p|n>|, and each eigenstate is weighted by its Boltzmann
 factor. The distribution is compared with the exact classical distribution on
@@ -32,6 +36,9 @@ P_RANGE = (0.0, 4.0)
 N_GRID = 4000
 BROADENING = 0.01
 N_K_INTERPOLATED = 100000
+# The momentum transfer and friction of the classical ISF figures
+DELTA_K = 0.43e10
+FRICTION = 0.2e12
 
 
 def _get_quantum_translational_momentum(
@@ -177,9 +184,76 @@ def _plot_translational_momentum_distribution(
     fig.savefig(f"scripts/thesis/translational_momentum_distribution.{name}.pdf")
 
 
+def _get_quantum_translational_isf(
+    system: PeriodicSystem1d,
+    times: np.ndarray[Any, np.dtype[np.float64]],
+) -> np.ndarray[Any, np.dtype[np.float64]]:
+    """Return the translational ISF, with the quantum recoil phase removed."""
+    p_tr, weights = _get_quantum_translational_momentum(system)
+    # The momenta are binned finely enough that the phase error within a
+    # bin is negligible over the times of interest
+    counts, edges = np.histogram(p_tr, bins=40000, range=(0, 8), weights=weights)
+    p_centres = 0.5 * (edges[1:] + edges[:-1])
+    velocity = p_centres * np.sqrt(system.mass * Boltzmann * TEMPERATURE) / system.mass
+    return np.cos(DELTA_K * np.outer(times, velocity)) @ counts
+
+
+def _get_gamma_model_isf(
+    system: PeriodicSystem1d,
+    times: np.ndarray[Any, np.dtype[np.float64]],
+) -> np.ndarray[Any, np.dtype[np.float64]]:
+    """Return the gamma distribution model of the ISF, with quantum parameters.
+
+    The model matches <p_tr> and <p_tr^2> of the quantum distribution. Since
+    the quantum distribution has no sharp dynamic fraction, the states which
+    cross a unit cell slower than the friction timescale, |p_tr| < m dx gamma,
+    are counted as static.
+    """
+    p_tr, weights = _get_quantum_translational_momentum(system)
+    thermal_momentum = np.sqrt(system.mass * Boltzmann * TEMPERATURE)
+    threshold = system.mass * system.lattice_constant * FRICTION / thermal_momentum
+    dynamic_fraction = np.sum(weights[p_tr > threshold])
+    mean = np.sum(weights * p_tr) / dynamic_fraction
+    mean_squared = np.sum(weights * p_tr**2) / dynamic_fraction
+    shape = mean**2 / (mean_squared - mean**2)
+    scale = (mean_squared - mean**2) / mean * thermal_momentum
+    return (1 - dynamic_fraction) + dynamic_fraction * np.real(
+        (1 - 1j * DELTA_K * times * scale / system.mass) ** (-shape),
+    )
+
+
+def _plot_translational_isf(system: PeriodicSystem1d, name: str) -> None:
+    times = np.linspace(0, 2 / FRICTION, 400)
+    fig, ax = get_thesis_figure()
+    (line,) = ax.plot(
+        times * FRICTION,
+        _get_quantum_translational_isf(system, times),
+        color=CAM_BLUE.warm,
+    )
+    line.set_label("quantum")
+    (gamma_line,) = ax.plot(
+        times * FRICTION,
+        _get_gamma_model_isf(system, times),
+        color=CAM_BLUE.dark,
+    )
+    gamma_line.set_linestyle("--")
+    gamma_line.set_label("approximate")
+
+    ax.set_xlim(0, 2)
+    ax.set_xlabel(r"$t \gamma$")
+    ax.set_ylabel(r"$I_\mathrm{tr}(\Delta k, t)$")
+    ax.legend(handles=[line, gamma_line], loc="upper right")
+    fig.savefig(f"scripts/thesis/translational_isf_gamma.{name}.pdf")
+
+
 if __name__ == "__main__":
     _plot_translational_momentum_distribution(SODIUM_COPPER_BRIDGE_SYSTEM_1D, "sodium")
     _plot_translational_momentum_distribution(
+        SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(HELIUM_MASS),
+        "helium",
+    )
+    _plot_translational_isf(SODIUM_COPPER_BRIDGE_SYSTEM_1D, "sodium")
+    _plot_translational_isf(
         SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(HELIUM_MASS),
         "helium",
     )
