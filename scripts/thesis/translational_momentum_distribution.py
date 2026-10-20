@@ -31,7 +31,6 @@ from coherent_rates.solve import get_hamiltonian
 from coherent_rates.system import SODIUM_COPPER_BRIDGE_SYSTEM_1D, PeriodicSystem1d
 from coherent_rates.util import (
     CAM_BLUE,
-    CAM_CHERRY,
     get_fancy_figure,
     get_thesis_figure,
 )
@@ -249,6 +248,8 @@ def _plot_translational_isf() -> None:
     helium = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(HELIUM_MASS)
     scaled_time = np.linspace(0, 4, 400)
 
+    # The colours get darker for heavier adsorbates, with the classical
+    # limit as the heaviest
     fig, ax = get_fancy_figure()
     (sodium_line,) = ax.plot(
         scaled_time,
@@ -259,7 +260,7 @@ def _plot_translational_isf() -> None:
     (helium_line,) = ax.plot(
         scaled_time,
         _get_quantum_translational_isf(helium, scaled_time),
-        color=CAM_CHERRY.base,
+        color=CAM_BLUE.base,
         label="helium",
     )
     (classical_line,) = ax.plot(
