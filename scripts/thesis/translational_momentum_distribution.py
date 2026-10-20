@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+from matplotlib.legend_handler import HandlerTuple
 from matplotlib.patches import Patch
 from scipy.constants import Boltzmann, atomic_mass, hbar
 from scipy.integrate import quad
@@ -169,7 +170,8 @@ def _plot_translational_momentum_distribution(
         color = CAM_BLUE.warm if band % 2 == 0 else CAM_BLUE.base
         ax.fill_between(p_grid, rho_below, rho_total, color=color, lw=0)
         rho_below = rho_total
-    quantum_patch = Patch(color=CAM_BLUE.warm, label="quantum")
+    # The quantum key is split between the two alternating band colours
+    quantum_patch = (Patch(color=CAM_BLUE.warm), Patch(color=CAM_BLUE.base))
 
     (line,) = ax.plot(p_classical, rho_classical, color=CAM_BLUE.dark)
     line.set_linestyle("--")
@@ -182,7 +184,12 @@ def _plot_translational_momentum_distribution(
 
     ax.set_xlabel(r"$p_\mathrm{tr} / \sqrt{m k_B T}$")
     ax.set_ylabel(r"$\rho(p_\mathrm{tr})$")
-    ax.legend(handles=[quantum_patch, line], loc="upper right")
+    ax.legend(
+        handles=[quantum_patch, line],
+        labels=["quantum", "classical"],
+        handler_map={tuple: HandlerTuple(ndivide=None, pad=0)},
+        loc="upper right",
+    )
     fig.savefig(f"scripts/thesis/translational_momentum_distribution.{name}.pdf")
 
 
