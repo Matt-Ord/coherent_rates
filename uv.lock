@@ -107,7 +107,7 @@ wheels = [
 [[package]]
 name = "hamiltonian-generator"
 version = "0.0.1"
-source = { directory = "/workspaces/coherent_rates/lib/surface_potential_analysis/lib/hamiltonian_generator" }
+source = { directory = "lib/surface_potential_analysis/lib/hamiltonian_generator" }
 
 [[package]]
 name = "iniconfig"
@@ -465,7 +465,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "hamiltonian-generator", directory = "/workspaces/coherent_rates/lib/surface_potential_analysis/lib/hamiltonian_generator" },
+    { name = "hamiltonian-generator", directory = "lib/surface_potential_analysis/lib/hamiltonian_generator" },
     { name = "matplotlib", specifier = ">=3.8.2,<4.0.0" },
     { name = "numpy", specifier = ">=2.0.0,<3.0.0" },
     { name = "qutip", specifier = ">=5.0.0,<6.0.0" },

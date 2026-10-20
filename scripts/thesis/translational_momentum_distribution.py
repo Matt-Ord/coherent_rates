@@ -268,7 +268,7 @@ def _plot_translational_isf() -> None:
     classical_line.set_linestyle("--")
 
     ax.set_xlim(0, 4)
-    ax.set_ylim(0.5, 1.0)
+    ax.set_ylim(0.6, 1.0)
     ax.set_xlabel(r"$\alpha t$")
     ax.set_ylabel(r"$I_\mathrm{tr}(\Delta k, t)$")
     ax.legend(
