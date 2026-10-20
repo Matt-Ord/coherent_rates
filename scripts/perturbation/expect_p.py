@@ -268,7 +268,7 @@ def _plot_momentum_squared_with_classical(*, semi_classical: bool = False) -> No
     line.set_color(CAM_CHERRY.dark)
 
     ax.legend(
-        loc="upper left",
+        loc="upper right",
         fontsize=8,
         handles=[line, classical_line, quantum_line],
         labels=["$E_b$", "Semiclassical", "Quantum"]
