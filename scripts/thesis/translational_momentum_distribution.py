@@ -1,8 +1,9 @@
 """Plot the thermal distribution of quantum translational momentum.
 
 The translational ISF, which is the cosine transform of the distribution, is
-also compared with the Gaussian decay of a free particle with the effective
-mass, m_eff / m = m k_B T / <p_tr^2>.
+also compared between sodium, helium and the classical limit. Time is measured
+in units of the decay rate alpha of a free particle, in which the classical ISF
+is independent of mass.
 
 The translational momentum of each Bloch eigenstate is the magnitude of its
 diagonal momentum, |<n|p|n>|, and each eigenstate is weighted by its Boltzmann
@@ -28,7 +29,12 @@ from scipy.special import ellipk
 from coherent_rates.config import PeriodicSystemConfig
 from coherent_rates.solve import get_hamiltonian
 from coherent_rates.system import SODIUM_COPPER_BRIDGE_SYSTEM_1D, PeriodicSystem1d
-from coherent_rates.util import CAM_BLUE, get_thesis_figure
+from coherent_rates.util import (
+    CAM_BLUE,
+    CAM_CHERRY,
+    get_fancy_figure,
+    get_thesis_figure,
+)
 
 HELIUM_MASS = 4.00260 * atomic_mass
 TEMPERATURE = 155
@@ -36,8 +42,6 @@ P_RANGE = (0.0, 4.0)
 N_GRID = 4000
 BROADENING = 0.01
 N_K_INTERPOLATED = 100000
-# The momentum transfer of the classical ISF figures
-DELTA_K = 0.43e10
 
 
 def _get_quantum_translational_momentum(
@@ -185,59 +189,93 @@ def _plot_translational_momentum_distribution(
 
 def _get_quantum_translational_isf(
     system: PeriodicSystem1d,
-    times: np.ndarray[Any, np.dtype[np.float64]],
+    alpha_t: np.ndarray[Any, np.dtype[np.float64]],
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
-    """Return the translational ISF, with the quantum recoil phase removed."""
+    """Return the translational ISF against alpha t, without the recoil phase.
+
+    With p_tr measured in units of sqrt(m k_B T), the phase of each state is
+    dk t p_tr / m = sqrt(2) alpha t p_tr, where alpha = sqrt(k_B T / 2 m) dk.
+    """
     p_tr, weights = _get_quantum_translational_momentum(system)
     # The momenta are binned finely enough that the phase error within a
     # bin is negligible over the times of interest
     counts, edges = np.histogram(p_tr, bins=40000, range=(0, 8), weights=weights)
     p_centres = 0.5 * (edges[1:] + edges[:-1])
-    velocity = p_centres * np.sqrt(system.mass * Boltzmann * TEMPERATURE) / system.mass
-    return np.cos(DELTA_K * np.outer(times, velocity)) @ counts
+    return np.cos(np.sqrt(2) * np.outer(alpha_t, p_centres)) @ counts
 
 
-def _get_effective_mass_isf(
-    system: PeriodicSystem1d,
-    times: np.ndarray[Any, np.dtype[np.float64]],
+def _get_classical_translational_isf(
+    barrier_energy_ratio: float,
+    alpha_t: np.ndarray[Any, np.dtype[np.float64]],
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
-    """Return the ISF of a free particle with the quantum effective mass.
+    """Return the exact classical translational ISF against alpha t.
 
-    In units of sqrt(m k_B T), k_B T / m_eff = <p_tr^2> k_B T / m, so the
-    free particle ISF exp(-k_B T dk^2 t^2 / 2 m_eff) depends only on <p_tr^2>.
+    The weight of each energy E = epsilon E_b is e^(-beta E) I(epsilon), and
+    the trapped adsorbates with epsilon < 1 contribute a constant 1 - A.
     """
-    p_tr, weights = _get_quantum_translational_momentum(system)
-    kbt = Boltzmann * TEMPERATURE
-    effective_mass = system.mass / np.sum(weights * p_tr**2)
-    return np.exp(-kbt * DELTA_K**2 * times**2 / (2 * effective_mass))
+    u0 = barrier_energy_ratio
+
+    def escaping(epsilon: float) -> float:
+        return np.exp(-u0 * epsilon) * ellipk(1 / epsilon) / np.sqrt(epsilon)
+
+    def p_tr(epsilon: float) -> float:
+        return np.pi * np.sqrt(u0 / 2) * np.sqrt(epsilon) / ellipk(1 / epsilon)
+
+    trapped = quad(lambda e: np.exp(-u0 * e) * ellipk(e), 0, 1, limit=500)[0]
+    partition = trapped + quad(escaping, 1, np.inf, limit=500)[0]
+    return np.array(
+        [
+            trapped / partition
+            + quad(
+                lambda e, a=a: escaping(e) * np.cos(np.sqrt(2) * a * p_tr(e)),
+                1,
+                np.inf,
+                limit=500,
+            )[0]
+            / partition
+            for a in alpha_t
+        ],
+    )
 
 
-def _plot_translational_isf(system: PeriodicSystem1d, name: str) -> None:
-    # Time is measured in units of the decay rate alpha of a free particle
-    # with the true mass, so that the free particle decays as exp(-(alpha t)^2)
-    alpha = np.sqrt(Boltzmann * TEMPERATURE / (2 * system.mass)) * DELTA_K
-    times = np.linspace(0, 4 / alpha, 800)
-    fig, ax = get_thesis_figure()
-    (line,) = ax.plot(
-        times * alpha,
-        _get_quantum_translational_isf(system, times),
+def _plot_translational_isf() -> None:
+    sodium = SODIUM_COPPER_BRIDGE_SYSTEM_1D
+    helium = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(HELIUM_MASS)
+    alpha_t = np.linspace(0, 4, 400)
+
+    fig, ax = get_fancy_figure()
+    (sodium_line,) = ax.plot(
+        alpha_t,
+        _get_quantum_translational_isf(sodium, alpha_t),
         color=CAM_BLUE.warm,
+        label="sodium",
     )
-    line.set_label("quantum")
-    (mass_line,) = ax.plot(
-        times * alpha,
-        _get_effective_mass_isf(system, times),
+    (helium_line,) = ax.plot(
+        alpha_t,
+        _get_quantum_translational_isf(helium, alpha_t),
+        color=CAM_CHERRY.base,
+        label="helium",
+    )
+    (classical_line,) = ax.plot(
+        alpha_t,
+        _get_classical_translational_isf(
+            sodium.barrier_energy / (Boltzmann * TEMPERATURE),
+            alpha_t,
+        ),
         color=CAM_BLUE.dark,
+        label="classical",
     )
-    mass_line.set_linestyle("--")
-    mass_line.set_label("effective mass")
+    classical_line.set_linestyle("--")
 
     ax.set_xlim(0, 4)
-    ax.set_ylim(0, 1.02)
+    ax.set_ylim(0.5, 1.0)
     ax.set_xlabel(r"$\alpha t$")
     ax.set_ylabel(r"$I_\mathrm{tr}(\Delta k, t)$")
-    ax.legend(handles=[line, mass_line], loc="upper right")
-    fig.savefig(f"scripts/thesis/translational_isf.{name}.pdf")
+    ax.legend(
+        handles=[classical_line, sodium_line, helium_line],
+        loc="upper right",
+    )
+    fig.savefig("scripts/thesis/translational_isf.pdf")
 
 
 if __name__ == "__main__":
@@ -246,8 +284,4 @@ if __name__ == "__main__":
         SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(HELIUM_MASS),
         "helium",
     )
-    _plot_translational_isf(SODIUM_COPPER_BRIDGE_SYSTEM_1D, "sodium")
-    _plot_translational_isf(
-        SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(HELIUM_MASS),
-        "helium",
-    )
+    _plot_translational_isf()
