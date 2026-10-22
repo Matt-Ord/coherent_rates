@@ -52,6 +52,8 @@ from coherent_rates.util import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
 
@@ -602,6 +604,25 @@ def get_mass_ratio_map() -> _MassRatioMap:
     }
 
 
+def get_turnover_omega_ratio(
+    mass_ratio: Callable[[float, float], float],
+    barrier_ratio: float,
+) -> float:
+    """Return the hbar omega_b / k_B T at which m_eff / m is largest.
+
+    At fixed E_b / k_B T, decreasing the mass increases hbar omega_b / k_B T,
+    so the maximum is the turnover of m_eff / m against mass. The maximum is
+    flat, so a parabola in log(omega) is fitted to a grid of values around it,
+    which is insensitive to the small numerical noise in the exact ratio.
+    """
+    log_omega = np.linspace(np.log(0.2), np.log(3), 41)
+    ratio = np.array([mass_ratio(barrier_ratio, np.exp(w)) for w in log_omega])
+    peak = int(np.clip(np.argmax(ratio), 4, log_omega.size - 5))
+    window = slice(peak - 4, peak + 5)
+    a, b, _ = np.polyfit(log_omega[window], ratio[window], 2)
+    return float(np.exp(-b / (2 * a)))
+
+
 def _plot_mass_ratio_map() -> None:
     data = get_mass_ratio_map()
     barrier_ratios = data["barrier_ratios"]
@@ -628,6 +649,22 @@ def _plot_mass_ratio_map() -> None:
         linewidths=0.8,
     )
     ax.clabel(contours, fmt={-0.05: r"$-5\%$", 0.05: r"$+5\%$"}, fontsize=7)
+
+    exact_turnover = [
+        get_turnover_omega_ratio(get_exact_mass_ratio, b) for b in barrier_ratios
+    ]
+    harmonic_turnover = [
+        get_turnover_omega_ratio(get_harmonic_mass_ratio, b) for b in barrier_ratios
+    ]
+    (exact_line,) = ax.plot(barrier_ratios, exact_turnover, color="black")
+    (harmonic_line,) = ax.plot(barrier_ratios, harmonic_turnover, color="black")
+    harmonic_line.set_linestyle("--")
+    ax.legend(
+        handles=[exact_line, harmonic_line],
+        labels=["turnover", "harmonic well"],
+        loc="lower right",
+        fontsize=8,
+    )
 
     for name in ["H", "He", "Na"]:
         system = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(ADSORBATE_MASSES[name])
