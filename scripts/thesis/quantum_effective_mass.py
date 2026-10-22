@@ -36,13 +36,14 @@ from matplotlib.colors import TwoSlopeNorm
 from scipy.constants import Boltzmann, atomic_mass, hbar
 from scipy.integrate import quad
 from scipy.linalg import eigh_tridiagonal, eigvalsh_tridiagonal
-from scipy.special import ellipe, ellipk, expit, i0, loggamma
+from scipy.special import ellipe, ellipk, expit, gamma, i0, loggamma
 from surface_potential_analysis.util.decorators import cached
 
 from coherent_rates.system import SODIUM_COPPER_BRIDGE_SYSTEM_1D, PeriodicSystem1d
 from coherent_rates.util import (
     CAM_BLUE,
     CAM_CHERRY,
+    CAM_GREEN,
     CAM_INDIGO,
     CAM_SLATE_3,
     get_fancy_figure,
@@ -260,6 +261,28 @@ def get_harmonic_mass_ratio(barrier_ratio: float, omega_ratio: float) -> float:
     ) * get_band_averaged_mass_ratio(barrier_ratio, omega_ratio)
 
 
+def get_rate_theory_mass_ratio(barrier_ratio: float, omega_ratio: float) -> float:
+    """Return m_eff / m with a transmission coefficient, as in quantum rate theory.
+
+    The crossing rate 1 / tau is taken to be the same at all energies, so the
+    band averaged weight 1 - sqrt(1 - P) reduces the classical flux by
+
+        kappa = beta int e^(-beta (E - E_b)) (1 - sqrt(1 - P)) dE
+              = Gamma(1 - s) Gamma(1 / 2 + s) / sqrt(pi),
+
+    where s = hbar omega_b / (2 pi k_B T), the analogue of the Bell
+    coefficient for the weight P. The partition function takes the harmonic
+    correction.
+    """
+    s = omega_ratio / (2 * np.pi)
+    kappa = gamma(1 - s) * gamma(0.5 + s) / np.sqrt(np.pi)
+    return float(
+        get_classical_mass_ratio(barrier_ratio)
+        * get_harmonic_partition_ratio(omega_ratio)
+        / kappa,
+    )
+
+
 def _get_well_action(
     u: np.ndarray[Any, np.dtype[np.float64]],
     barrier_ratio: float,
@@ -372,6 +395,7 @@ def _plot_mass_ratio_against_mass() -> None:
     exact = np.array([get_exact_mass_ratio(*p) for p in parameters])
     averaged = np.array([get_band_averaged_mass_ratio(*p) for p in parameters])
     harmonic = np.array([get_harmonic_mass_ratio(*p) for p in parameters])
+    rate_theory = np.array([get_rate_theory_mass_ratio(*p) for p in parameters])
     classical = get_classical_mass_ratio(barrier_ratio)
 
     fig, ax = get_fancy_figure()
@@ -381,6 +405,8 @@ def _plot_mass_ratio_against_mass() -> None:
     averaged_line.set_linestyle("--")
     (harmonic_line,) = ax.plot(mass_u, harmonic, color=CAM_INDIGO.base)
     harmonic_line.set_linestyle("-.")
+    (rate_theory_line,) = ax.plot(mass_u, rate_theory, color=CAM_GREEN.base)
+    rate_theory_line.set_linestyle(":")
     classical_line = ax.axhline(classical, color=CAM_BLUE.dark)
     classical_line.set_linestyle("--")
 
@@ -405,8 +431,14 @@ def _plot_mass_ratio_against_mass() -> None:
     ax.set_xlabel(r"Mass / $\mathrm{u}$")
     ax.set_ylabel(r"$m_\mathrm{eff} / m$")
     ax.legend(
-        handles=[exact_line, averaged_line, harmonic_line, classical_line],
-        labels=["exact", "band averaged", "harmonic well", "classical"],
+        handles=[
+            exact_line,
+            averaged_line,
+            harmonic_line,
+            rate_theory_line,
+            classical_line,
+        ],
+        labels=["exact", "band averaged", "harmonic well", "rate theory", "classical"],
         loc="upper right",
     )
     fig.savefig("scripts/thesis/quantum_effective_mass.mass.pdf")
@@ -421,6 +453,7 @@ def _plot_mass_ratio_against_mass() -> None:
             f"phase integral = {get_phase_integral_mass_ratio(*p):.4f}, "
             f"band averaged = {get_band_averaged_mass_ratio(*p):.4f}, "
             f"harmonic = {get_harmonic_mass_ratio(*p):.4f}, "
+            f"rate theory = {get_rate_theory_mass_ratio(*p):.4f}, "
             f"Z exact = {get_exact_partition_ratio(*p):.4f}, "
             f"Z harmonic = {get_harmonic_partition_ratio(p[1]):.4f}, "
             f"band centre = {get_tunnelling_mass_ratio(*p):.4f}",
