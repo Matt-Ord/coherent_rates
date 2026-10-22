@@ -292,6 +292,23 @@ def _get_parabolic_phase(
     return np.where(eps == 0, 0.0, phase)
 
 
+def _get_phase_integral_slope_squared(
+    phase: np.ndarray[Any, np.dtype[np.float64]],
+    probability: np.ndarray[Any, np.dtype[np.float64]],
+    phase_slope: np.ndarray[Any, np.dtype[np.float64]],
+) -> np.ndarray[Any, np.dtype[np.float64]]:
+    """Return (dE / d(k dx))^2 of the states with total phase S.
+
+    Differentiating the band condition cos(k dx) = cos(S) / sqrt(P), and
+    neglecting the variation of P across a band, gives
+    dE / d(k dx) = sqrt(P - cos^2 S) / (|sin S| dS / dE), which vanishes at
+    the edges of each band.
+    """
+    return np.clip(probability - np.cos(phase) ** 2, 0, None) / (
+        phase_slope**2 * np.sin(phase) ** 2
+    )
+
+
 def get_phase_integral_mass_ratio(
     barrier_ratio: float,
     omega_ratio: float,
@@ -304,7 +321,8 @@ def get_phase_integral_mass_ratio(
     The total phase S(E) = Theta(E) + phi(eps) increases monotonically with
     energy, and band n is centred at S = (n + 1 / 2) pi. Within each band,
     cos(k dx) = cos(S) / |t|, and the momentum of each state is
-    p = (m dx / hbar) dE / d(k dx). States are sampled on a grid of S which
+    p = (m dx / hbar) dE / d(k dx), with dE / d(k dx) from
+    _get_phase_integral_slope_squared. States are sampled on a grid of S which
     is concentrated at the centre of each band, so that the narrow bands
     deep in the well are resolved.
     """
@@ -312,6 +330,8 @@ def get_phase_integral_mass_ratio(
     u = np.linspace(1e-8, u_max, n_energy)
     eps = barrier_ratio * (1 - u) / omega_ratio
     phase = _get_well_action(u, barrier_ratio, omega_ratio) + _get_parabolic_phase(eps)
+    # dS / dE, with energies in units of k_B T
+    phase_slope = np.gradient(phase, barrier_ratio * u)
 
     offset = np.geomspace(1e-15, 1, n_per_band) * np.pi / 2
     offset = np.concatenate([-offset[::-1], offset])
@@ -327,11 +347,16 @@ def get_phase_integral_mass_ratio(
         k_dx = np.arccos(cos_k)
 
         d_k = np.abs(np.diff(k_dx))
-        d_energy = np.diff(energy)
-        weight = np.exp(-(0.5 * (energy[1:] + energy[:-1]) - barrier_ratio))
+        mid_phase = 0.5 * (band_phase[1:] + band_phase[:-1])
+        mid_energy = 0.5 * (energy[1:] + energy[:-1])
+        slope_squared = _get_phase_integral_slope_squared(
+            mid_phase,
+            0.5 * (probability[1:] + probability[:-1]),
+            np.interp(mid_energy, barrier_ratio * u, phase_slope),
+        )
+        weight = np.exp(-(mid_energy - barrier_ratio))
         partition += np.sum(weight * d_k) / np.pi
-        with np.errstate(divide="ignore", invalid="ignore"):
-            flux += np.sum(weight * np.where(d_k > 0, d_energy**2 / d_k, 0)) / np.pi
+        flux += np.sum(weight * slope_squared * d_k) / np.pi
 
     # In these units, p^2 / (m k_B T) = (2 pi^2 e_b / w^2) (dE / d(k dx))^2
     p_squared = 2 * np.pi**2 * barrier_ratio / omega_ratio**2 * flux / partition
@@ -437,12 +462,15 @@ def get_phase_integral_bands(
     band n as S = (n + 1 / 2) pi + delta, the band condition
     cos(k dx) = cos(S) / |t| becomes sin(delta) = (-1)^(n + 1) |t| cos(k dx).
     Since |t| depends on the energy, and so on delta, the condition is
-    solved by fixed-point iteration.
+    solved by fixed-point iteration. The momentum of each state then follows
+    from _get_phase_integral_slope_squared.
     """
     u_max = 1 + MAX_KINETIC / barrier_ratio
     u = np.linspace(1e-8, u_max, n_energy)
     eps = barrier_ratio * (1 - u) / omega_ratio
     phase = _get_well_action(u, barrier_ratio, omega_ratio) + _get_parabolic_phase(eps)
+    # dS / dE, with energies in units of k_B T
+    phase_slope = np.gradient(phase, barrier_ratio * u)
 
     k_dx = np.linspace(0, np.pi, n_k)
     n_bands = int(phase[-1] / np.pi) - 1
@@ -458,16 +486,13 @@ def get_phase_integral_bands(
             )
             delta = np.arcsin(sign * transmission * np.cos(k_dx))
         energies[:, n] = energy
-        # In these units, p^2 / (m k_B T) = (2 pi^2 e_b / w^2) (dE / d(k dx))^2
-        p_squared[:, n] = (
-            2
-            * np.pi**2
-            * barrier_ratio
-            / omega_ratio**2
-            * np.gradient(energy, k_dx) ** 2
+        slope_squared = _get_phase_integral_slope_squared(
+            (n + 0.5) * np.pi + delta,
+            expit((energy - barrier_ratio) * 2 * np.pi / omega_ratio),
+            np.interp(energy, barrier_ratio * u, phase_slope),
         )
-        # dE / dk vanishes at the edges of each band
-        p_squared[[0, -1], n] = 0
+        # In these units, p^2 / (m k_B T) = (2 pi^2 e_b / w^2) (dE / d(k dx))^2
+        p_squared[:, n] = 2 * np.pi**2 * barrier_ratio / omega_ratio**2 * slope_squared
     return energies, p_squared
 
 
