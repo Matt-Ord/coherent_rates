@@ -36,13 +36,14 @@ from matplotlib.colors import TwoSlopeNorm
 from scipy.constants import Boltzmann, atomic_mass, hbar
 from scipy.integrate import quad
 from scipy.linalg import eigh_tridiagonal, eigvalsh_tridiagonal
-from scipy.special import ellipe, ellipk, expit, loggamma
+from scipy.special import ellipe, ellipk, expit, i0, loggamma
 from surface_potential_analysis.util.decorators import cached
 
 from coherent_rates.system import SODIUM_COPPER_BRIDGE_SYSTEM_1D, PeriodicSystem1d
 from coherent_rates.util import (
     CAM_BLUE,
     CAM_CHERRY,
+    CAM_INDIGO,
     CAM_SLATE_3,
     get_fancy_figure,
     get_thesis_fig_size,
@@ -81,6 +82,8 @@ def _get_dimensionless_parameters(system: PeriodicSystem1d) -> tuple[float, floa
 def _get_bloch_states(
     barrier_ratio: float,
     omega_ratio: float,
+    *,
+    include_edges: bool = False,
 ) -> tuple[
     np.ndarray[Any, np.dtype[np.float64]],
     np.ndarray[Any, np.dtype[np.float64]],
@@ -95,6 +98,9 @@ def _get_bloch_states(
 
     Since E(k) = E(-k), only the half of the Brillouin zone with k > 0 is
     sampled, and only the bands below E_b + MAX_KINETIC k_B T are kept.
+    By default k is sampled at the midpoints of N_K // 2 intervals, which
+    gives the uniform average over the zone. With include_edges, k runs from
+    the centre to the edge of the zone, where the momentum vanishes.
     """
     recoil = omega_ratio**2 / barrier_ratio
     n_g = int(np.sqrt((barrier_ratio + MAX_KINETIC) / recoil)) + 12
@@ -111,7 +117,10 @@ def _get_bloch_states(
     n_bands = int(
         np.sum(band_energies < barrier_ratio + MAX_KINETIC),
     )
-    k = 0.5 * (np.arange(N_K // 2) + 0.5) / (N_K // 2)
+    if include_edges:
+        k = np.linspace(0, 0.5, N_K // 2)
+    else:
+        k = 0.5 * (np.arange(N_K // 2) + 0.5) / (N_K // 2)
     energies = np.empty((k.size, n_bands))
     p_squared = np.empty((k.size, n_bands))
     for i, k_i in enumerate(k):
@@ -124,6 +133,9 @@ def _get_bloch_states(
         # The diagonal momentum of each Bloch state, by Hellmann-Feynman
         q_expect = np.einsum("gn,g->n", vectors**2, k_i + g)
         p_squared[i] = 2 * recoil * q_expect**2
+    if include_edges:
+        # By symmetry, the momentum vanishes at the centre and edge of the zone
+        p_squared[[0, -1]] = 0
     return energies, p_squared
 
 
@@ -215,6 +227,39 @@ def get_tunnelling_mass_ratio(barrier_ratio: float, omega_ratio: float) -> float
     )
 
 
+def get_exact_partition_ratio(barrier_ratio: float, omega_ratio: float) -> float:
+    """Return Z / Z_cl, the exact quantum partition function of the Bloch states.
+
+    Per unit cell, with wavevectors in units of 2 pi / dx, the classical
+    partition function is sqrt(pi / e_R) e^(-a) I_0(a), where a = e_b / 2.
+    """
+    energies, _ = _get_bloch_states(barrier_ratio, omega_ratio)
+    recoil = omega_ratio**2 / barrier_ratio
+    quantum = np.mean(np.sum(np.exp(-energies), axis=1))
+    a = barrier_ratio / 2
+    return float(quantum / (np.sqrt(np.pi / recoil) * np.exp(-a) * i0(a)))
+
+
+def get_harmonic_partition_ratio(omega_ratio: float) -> float:
+    """Return Z / Z_cl of a harmonic well, (w / 2) / sinh(w / 2).
+
+    For the cosine potential the frequency at the bottom of the well equals
+    the barrier frequency omega_b.
+    """
+    return float(omega_ratio / 2 / np.sinh(omega_ratio / 2))
+
+
+def get_harmonic_mass_ratio(barrier_ratio: float, omega_ratio: float) -> float:
+    """Return m_eff / m with the band averaged flux and the harmonic Z.
+
+    Since m_eff / m is proportional to Z, the band averaged ratio is scaled by
+    the harmonic correction to the partition function.
+    """
+    return get_harmonic_partition_ratio(
+        omega_ratio,
+    ) * get_band_averaged_mass_ratio(barrier_ratio, omega_ratio)
+
+
 def _get_well_action(
     u: np.ndarray[Any, np.dtype[np.float64]],
     barrier_ratio: float,
@@ -293,32 +338,6 @@ def get_phase_integral_mass_ratio(
     return 1 / p_squared
 
 
-def get_band_averaged_momentum(
-    system: PeriodicSystem1d,
-) -> tuple[
-    np.ndarray[Any, np.dtype[np.float64]],
-    np.ndarray[Any, np.dtype[np.float64]],
-]:
-    """Return (E - E_b) / hbar omega_b and <p^2> / p_cl^2 of each band.
-
-    The average <p^2> is taken uniformly over the Brillouin zone, and p_cl is
-    the classical crossing momentum m dx / tau(E) at the mean energy of the
-    band, where below the barrier tau is half the period in the well.
-    """
-    barrier_ratio, omega_ratio = _get_dimensionless_parameters(system)
-    energies, p_squared = _get_bloch_states(barrier_ratio, omega_ratio)
-    band_energy = np.mean(energies, axis=0)
-    band_p_squared = np.mean(p_squared, axis=0)
-    # With tau = (dx / pi) sqrt(m / 2 E_b) I(u), p_cl^2 / (m k_B T) is
-    # 2 pi^2 e_b / I(u)^2
-    crossing = _get_crossing_time_integral(band_energy / barrier_ratio)
-    classical_p_squared = 2 * np.pi**2 * barrier_ratio / crossing**2
-    return (
-        (band_energy - barrier_ratio) / omega_ratio,
-        band_p_squared / classical_p_squared,
-    )
-
-
 def _plot_mass_ratio_against_mass() -> None:
     base = SODIUM_COPPER_BRIDGE_SYSTEM_1D
     masses = np.geomspace(0.8 * atomic_mass, 1000 * atomic_mass, 60)
@@ -327,6 +346,7 @@ def _plot_mass_ratio_against_mass() -> None:
 
     exact = np.array([get_exact_mass_ratio(*p) for p in parameters])
     averaged = np.array([get_band_averaged_mass_ratio(*p) for p in parameters])
+    harmonic = np.array([get_harmonic_mass_ratio(*p) for p in parameters])
     classical = get_classical_mass_ratio(barrier_ratio)
 
     fig, ax = get_fancy_figure()
@@ -334,6 +354,8 @@ def _plot_mass_ratio_against_mass() -> None:
     (exact_line,) = ax.plot(mass_u, exact, color=CAM_BLUE.warm)
     (averaged_line,) = ax.plot(mass_u, averaged, color=CAM_CHERRY.dark)
     averaged_line.set_linestyle("--")
+    (harmonic_line,) = ax.plot(mass_u, harmonic, color=CAM_INDIGO.base)
+    harmonic_line.set_linestyle("-.")
     classical_line = ax.axhline(classical, color=CAM_BLUE.dark)
     classical_line.set_linestyle("--")
 
@@ -358,8 +380,8 @@ def _plot_mass_ratio_against_mass() -> None:
     ax.set_xlabel(r"Mass / $\mathrm{u}$")
     ax.set_ylabel(r"$m_\mathrm{eff} / m$")
     ax.legend(
-        handles=[exact_line, averaged_line, classical_line],
-        labels=["exact", "band averaged", "classical"],
+        handles=[exact_line, averaged_line, harmonic_line, classical_line],
+        labels=["exact", "band averaged", "harmonic well", "classical"],
         loc="upper right",
     )
     fig.savefig("scripts/thesis/quantum_effective_mass.mass.pdf")
@@ -373,6 +395,9 @@ def _plot_mass_ratio_against_mass() -> None:
             f"exact = {get_exact_mass_ratio(*p):.4f}, "
             f"phase integral = {get_phase_integral_mass_ratio(*p):.4f}, "
             f"band averaged = {get_band_averaged_mass_ratio(*p):.4f}, "
+            f"harmonic = {get_harmonic_mass_ratio(*p):.4f}, "
+            f"Z exact = {get_exact_partition_ratio(*p):.4f}, "
+            f"Z harmonic = {get_harmonic_partition_ratio(p[1]):.4f}, "
             f"band centre = {get_tunnelling_mass_ratio(*p):.4f}",
         )
 
@@ -395,90 +420,104 @@ def _get_classical_momentum_squared(
     return 2 * np.pi**2 * barrier_ratio / crossing**2
 
 
-def _plot_state_momentum() -> None:
-    """Plot <p>^2 / 2 m E of each Bloch state of sodium, with the classical value."""
-    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
+def get_phase_integral_bands(
+    barrier_ratio: float,
+    omega_ratio: float,
+    *,
+    n_k: int = 512,
+    n_energy: int = 400000,
+) -> tuple[
+    np.ndarray[Any, np.dtype[np.float64]],
+    np.ndarray[Any, np.dtype[np.float64]],
+]:
+    """Return E / k_B T and p_tr^2 / (m k_B T) from the band condition.
+
+    Both are returned with shape (n_k, n_bands), sampled uniformly in k dx
+    over [0, pi], including the edges of each band. Writing the total phase of
+    band n as S = (n + 1 / 2) pi + delta, the band condition
+    cos(k dx) = cos(S) / |t| becomes sin(delta) = (-1)^(n + 1) |t| cos(k dx).
+    Since |t| depends on the energy, and so on delta, the condition is
+    solved by fixed-point iteration.
+    """
+    u_max = 1 + MAX_KINETIC / barrier_ratio
+    u = np.linspace(1e-8, u_max, n_energy)
+    eps = barrier_ratio * (1 - u) / omega_ratio
+    phase = _get_well_action(u, barrier_ratio, omega_ratio) + _get_parabolic_phase(eps)
+
+    k_dx = np.linspace(0, np.pi, n_k)
+    n_bands = int(phase[-1] / np.pi) - 1
+    energies = np.empty((n_k, n_bands))
+    p_squared = np.empty((n_k, n_bands))
+    for n in range(n_bands):
+        sign = (-1) ** (n + 1)
+        delta = np.zeros_like(k_dx)
+        for _ in range(200):
+            energy = barrier_ratio * np.interp((n + 0.5) * np.pi + delta, phase, u)
+            transmission = np.sqrt(
+                expit((energy - barrier_ratio) * 2 * np.pi / omega_ratio),
+            )
+            delta = np.arcsin(sign * transmission * np.cos(k_dx))
+        energies[:, n] = energy
+        # In these units, p^2 / (m k_B T) = (2 pi^2 e_b / w^2) (dE / d(k dx))^2
+        p_squared[:, n] = (
+            2
+            * np.pi**2
+            * barrier_ratio
+            / omega_ratio**2
+            * np.gradient(energy, k_dx) ** 2
+        )
+        # dE / dk vanishes at the edges of each band
+        p_squared[[0, -1], n] = 0
+    return energies, p_squared
+
+
+def _plot_state_momentum(name: str, x_range: tuple[float, float]) -> None:
+    """Plot (tau(E) p_tr / m dx)^2 of each Bloch state, with the semiclassical bands.
+
+    The exact Bloch states are compared with the phase-integral band
+    condition, where tau(E) is the classical crossing time, which below the
+    barrier is half the period in the well.
+    """
+    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(ADSORBATE_MASSES[name])
     barrier_ratio, omega_ratio = _get_dimensionless_parameters(system)
-    energies, p_squared = _get_bloch_states(barrier_ratio, omega_ratio)
 
     fig, ax = _get_square_figure()
+    energies, p_squared = _get_bloch_states(
+        barrier_ratio,
+        omega_ratio,
+        include_edges=True,
+    )
+    classical = _get_classical_momentum_squared(energies, barrier_ratio)
     for band in range(energies.shape[1]):
         ax.plot(
             energies[:, band] - barrier_ratio,
-            p_squared[:, band] / (2 * energies[:, band]),
-            color=CAM_BLUE.warm if band % 2 == 0 else CAM_BLUE.base,
-        )
-    quantum_line = ax.plot([], [], color=CAM_BLUE.warm)[0]
-
-    energy = barrier_ratio + np.linspace(1e-6, 2, 1000)
-    (classical_line,) = ax.plot(
-        energy - barrier_ratio,
-        _get_classical_momentum_squared(energy, barrier_ratio) / (2 * energy),
-        color=CAM_BLUE.dark,
-    )
-    classical_line.set_linestyle("--")
-    barrier_line = ax.axvline(0, color=CAM_CHERRY.dark)
-    barrier_line.set_linestyle(":")
-
-    ax.set_yscale("log")
-    ax.set_xlim(-1, 2)
-    ax.set_ylim(1e-5, 1)
-    ax.set_xlabel(r"$(E - E_b) / k_B T$")
-    ax.set_ylabel(r"$p_\mathrm{tr}^2 / 2 m E$")
-    ax.legend(
-        handles=[quantum_line, classical_line, barrier_line],
-        labels=["quantum", "classical", "$E_b$"],
-        loc="lower right",
-    )
-    fig.savefig("scripts/thesis/quantum_effective_mass.momentum.pdf")
-
-
-def _plot_transmission() -> None:
-    """Plot p_tr^2 / p_cl^2 of each Bloch state of helium, with the Kemble P.
-
-    The centre of each band follows P, while the average over each band
-    follows 1 - sqrt(1 - P).
-    """
-    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(ADSORBATE_MASSES["He"])
-    barrier_ratio, omega_ratio = _get_dimensionless_parameters(system)
-    energies, p_squared = _get_bloch_states(barrier_ratio, omega_ratio)
-    classical = _get_classical_momentum_squared(energies, barrier_ratio)
-
-    fig, ax = _get_square_figure()
-    for band in range(energies.shape[1]):
-        ax.plot(
-            (energies[:, band] - barrier_ratio) / omega_ratio,
             p_squared[:, band] / classical[:, band],
             color=CAM_BLUE.warm if band % 2 == 0 else CAM_BLUE.base,
         )
     quantum_line = ax.plot([], [], color=CAM_BLUE.warm)[0]
 
-    band_eps, band_ratio = get_band_averaged_momentum(system)
-    average_points = ax.scatter(
-        band_eps,
-        band_ratio,
-        color=CAM_BLUE.dark,
-        marker="x",
-        zorder=5,
-    )
+    energies, p_squared = get_phase_integral_bands(barrier_ratio, omega_ratio)
+    classical = _get_classical_momentum_squared(energies, barrier_ratio)
+    for band in range(energies.shape[1]):
+        (line,) = ax.plot(
+            energies[:, band] - barrier_ratio,
+            p_squared[:, band] / classical[:, band],
+            color=CAM_CHERRY.dark,
+        )
+        line.set_linestyle("--")
+    semiclassical_line = ax.plot([], [], color=CAM_CHERRY.dark)[0]
+    semiclassical_line.set_linestyle("--")
 
-    eps = np.linspace(-3, 3, 1000)
-    probability = expit(2 * np.pi * eps)
-    (kemble_line,) = ax.plot(eps, probability, color=CAM_CHERRY.warm)
-    kemble_line.set_linestyle(":")
-    (averaged_line,) = ax.plot(eps, 1 - np.sqrt(1 - probability), color=CAM_CHERRY.dark)
-    averaged_line.set_linestyle("--")
-
-    ax.set_xlim(-2, 3)
-    ax.set_ylim(0, 1.5)
-    ax.set_xlabel(r"$(E - E_b) / \hbar \omega_b$")
-    ax.set_ylabel(r"$p_\mathrm{tr}^2 / p_\mathrm{cl}^2$")
+    ax.set_xlim(*x_range)
+    ax.set_ylim(0, 1.2)
+    ax.set_xlabel(r"$(E - E_b) / k_B T$")
+    ax.set_ylabel(r"$\tau(E)^2 p_\mathrm{tr}^2 / (m \Delta x)^2$")
     ax.legend(
-        handles=[quantum_line, average_points, kemble_line, averaged_line],
-        labels=["quantum", "band average", r"$P$", r"$1 - \sqrt{1 - P}$"],
+        handles=[quantum_line, semiclassical_line],
+        labels=["quantum", "phase integral"],
         loc="upper left",
     )
-    fig.savefig("scripts/thesis/quantum_effective_mass.transmission.pdf")
+    fig.savefig(f"scripts/thesis/quantum_effective_mass.momentum.{name}.pdf")
 
 
 class _MassRatioMap(TypedDict):
@@ -557,6 +596,6 @@ def _plot_mass_ratio_map() -> None:
 
 if __name__ == "__main__":
     _plot_mass_ratio_against_mass()
-    _plot_state_momentum()
-    _plot_transmission()
+    _plot_state_momentum("Na", (-0.5, 2))
+    _plot_state_momentum("He", (-0.5, 2))
     _plot_mass_ratio_map()
