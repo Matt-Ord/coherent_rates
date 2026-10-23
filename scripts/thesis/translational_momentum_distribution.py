@@ -292,6 +292,7 @@ def _plot_translational_isf() -> None:
     ax.legend(
         handles=[classical_line, sodium_line, helium_line, hydrogen_line],
         loc="upper right",
+        ncol=2,
     )
     fig.savefig("scripts/thesis/translational_isf.pdf")
 
