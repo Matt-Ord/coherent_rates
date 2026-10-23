@@ -1,8 +1,9 @@
 """Plot the thermal distribution of quantum translational momentum.
 
 The translational ISF, which is the cosine transform of the distribution, is
-also compared between sodium, helium and the classical limit. Time is scaled
-as dk t sqrt(k_B T / 2 m), in which the classical ISF is independent of mass.
+also compared between sodium, helium, hydrogen and the classical limit. Time
+is scaled as dk t sqrt(k_B T / 2 m), in which the classical ISF is
+independent of mass.
 
 The translational momentum of each Bloch eigenstate is the magnitude of its
 diagonal momentum, |<n|p|n>|, and each eigenstate is weighted by its Boltzmann
@@ -38,6 +39,7 @@ from coherent_rates.util import (
 )
 
 HELIUM_MASS = 4.00260 * atomic_mass
+HYDROGEN_MASS = 1.00784 * atomic_mass
 TEMPERATURE = 155
 P_RANGE = (0.0, 4.0)
 N_GRID = 4000
@@ -248,6 +250,7 @@ def _get_classical_translational_isf(
 def _plot_translational_isf() -> None:
     sodium = SODIUM_COPPER_BRIDGE_SYSTEM_1D
     helium = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(HELIUM_MASS)
+    hydrogen = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(HYDROGEN_MASS)
     scaled_time = np.linspace(0, 4, 400)
 
     # The classical limit is shown in red, to separate it from the quantum
@@ -265,6 +268,12 @@ def _plot_translational_isf() -> None:
         color=CAM_BLUE.warm,
         label="helium",
     )
+    (hydrogen_line,) = ax.plot(
+        scaled_time,
+        _get_quantum_translational_isf(hydrogen, scaled_time),
+        color=CAM_BLUE.base,
+        label="hydrogen",
+    )
     (classical_line,) = ax.plot(
         scaled_time,
         _get_classical_translational_isf(
@@ -281,7 +290,7 @@ def _plot_translational_isf() -> None:
     ax.set_xlabel(r"$\Delta k \, t \sqrt{k_B T / 2m}$")
     ax.set_ylabel(r"$I_\mathrm{tr}(\Delta k, t)$")
     ax.legend(
-        handles=[classical_line, sodium_line, helium_line],
+        handles=[classical_line, sodium_line, helium_line, hydrogen_line],
         loc="upper right",
     )
     fig.savefig("scripts/thesis/translational_isf.pdf")
