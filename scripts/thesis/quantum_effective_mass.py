@@ -803,7 +803,13 @@ def _get_mass_ratio_deviation(
     barrier_ratio: float,
     omega_ratios: np.ndarray[Any, np.dtype[np.float64]],
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
-    """Return m_eff / m_eff^cl - 1 at one barrier energy, for each omega_ratio."""
+    """Return m_eff / m_eff^cl - 1 at one barrier energy, for each omega_ratio.
+
+    Without a barrier the adsorbate is free, and m_eff = m in both the quantum
+    and the classical system.
+    """
+    if barrier_ratio == 0:
+        return np.zeros_like(omega_ratios)
     classical = get_classical_mass_ratio(barrier_ratio)
     return np.array(
         [get_exact_mass_ratio(barrier_ratio, w) / classical - 1 for w in omega_ratios],
@@ -817,7 +823,7 @@ def get_mass_ratio_map() -> _MassRatioMap:
     Each barrier energy is independent, so the columns are computed in
     parallel.
     """
-    barrier_ratios = np.linspace(1, 5, 100)
+    barrier_ratios = np.linspace(0, 4, 100)
     omega_ratios = np.geomspace(0.1, 3, 100)
     with ProcessPoolExecutor() as executor:
         columns = list(
