@@ -32,19 +32,21 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypedDict
 
 import numpy as np
-from matplotlib.colors import TwoSlopeNorm
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import LinearSegmentedColormap, Normalize, TwoSlopeNorm
 from scipy.constants import Boltzmann, atomic_mass, hbar
 from scipy.integrate import quad
 from scipy.linalg import eigh_tridiagonal, eigvalsh_tridiagonal
-from scipy.special import ellipe, ellipk, expit, i0, loggamma
+from scipy.special import ellipe, ellipk, expit, gamma, i0, i0e, i1e, loggamma
 from surface_potential_analysis.util.decorators import cached
 
 from coherent_rates.system import SODIUM_COPPER_BRIDGE_SYSTEM_1D, PeriodicSystem1d
 from coherent_rates.util import (
     CAM_BLUE,
     CAM_CHERRY,
-    CAM_INDIGO,
-    CAM_SLATE_3,
+    CAM_SLATE_1,
+    CAM_SLATE_2,
+    CAM_SLATE_4,
     get_fancy_figure,
     get_thesis_fig_size,
     get_thesis_figure,
@@ -240,24 +242,92 @@ def get_exact_partition_ratio(barrier_ratio: float, omega_ratio: float) -> float
     return float(quantum / (np.sqrt(np.pi / recoil) * np.exp(-a) * i0(a)))
 
 
-def get_harmonic_partition_ratio(omega_ratio: float) -> float:
-    """Return Z / Z_cl of a harmonic well, (w / 2) / sinh(w / 2).
+def get_wigner_partition_ratio(barrier_ratio: float, omega_ratio: float) -> float:
+    """Return Z / Z_cl to first order in hbar^2, the Wigner-Kirkwood expansion.
 
-    For the cosine potential the frequency at the bottom of the well equals
-    the barrier frequency omega_b.
+    For a general potential, Z / Z_cl = 1 - (beta hbar)^2 <V''(x)>_cl / 24 m,
+    where the average is taken over the classical Boltzmann distribution. On
+    the cosine potential V''(x) = m omega_b^2 cos(2 pi x / dx), and the
+    classical average of the cosine is I_1(a) / I_0(a), with a = E_b / 2 k_B T.
+    In a deep well I_1(a) / I_0(a) -> 1, and the result reduces to the first
+    term of the harmonic (w / 2) / sinh(w / 2).
     """
-    return float(omega_ratio / 2 / np.sinh(omega_ratio / 2))
+    a = barrier_ratio / 2
+    return float(1 - omega_ratio**2 / 24 * i1e(a) / i0e(a))
 
 
-def get_harmonic_mass_ratio(barrier_ratio: float, omega_ratio: float) -> float:
-    """Return m_eff / m with the band averaged flux and the harmonic Z.
+def get_semiclassical_mass_ratio(barrier_ratio: float, omega_ratio: float) -> float:
+    """Return m_eff / m with the band averaged flux and the Wigner-Kirkwood Z.
 
     Since m_eff / m is proportional to Z, the band averaged ratio is scaled by
-    the harmonic correction to the partition function.
+    the first-order correction to the partition function.
     """
-    return get_harmonic_partition_ratio(
+    return get_wigner_partition_ratio(
+        barrier_ratio,
         omega_ratio,
     ) * get_band_averaged_mass_ratio(barrier_ratio, omega_ratio)
+
+
+def get_rate_theory_mass_ratio(barrier_ratio: float, omega_ratio: float) -> float:
+    """Return m_eff / m with a transmission coefficient, as in quantum rate theory.
+
+    The crossing rate 1 / tau is taken to be the same at all energies, so the
+    band averaged weight 1 - sqrt(1 - P) reduces the classical flux by
+
+        kappa = beta int e^(-beta (E - E_b)) (1 - sqrt(1 - P)) dE
+              = Gamma(1 - s) Gamma(1 / 2 + s) / sqrt(pi),
+
+    where s = hbar omega_b / (2 pi k_B T), the analogue of the Bell
+    coefficient for the weight P. The partition function takes the
+    Wigner-Kirkwood correction.
+    """
+    s = omega_ratio / (2 * np.pi)
+    kappa = gamma(1 - s) * gamma(0.5 + s) / np.sqrt(np.pi)
+    return float(
+        get_classical_mass_ratio(barrier_ratio)
+        * get_wigner_partition_ratio(barrier_ratio, omega_ratio)
+        / kappa,
+    )
+
+
+def get_series_mass_ratio(barrier_ratio: float, omega_ratio: float) -> float:
+    """Return m_eff / m from the second-order expansion of the band averaged flux.
+
+    The weight 1 - sqrt(1 - P) differs from the classical step only within a
+    few hbar omega_b of the barrier top, where tau(E) varies only
+    logarithmically. The crossing time there is taken to be the classical
+    Lambda = ln(16 E_b / k_B T) + gamma_E with k_B T replaced by hbar omega_b.
+    Expanding the Boltzmann factor across the barrier region, the Boltzmann
+    average of the weight is
+
+        eta = 1 - (ln 2 / pi) w + (1 / 12 + (ln 2)^2 / (2 pi^2)) w^2,
+
+    with w = hbar omega_b / k_B T. Relative to the classical result,
+
+        m / m_eff = (m / m_eff)_cl (1 - A (1 - eta) + delta_zpe),
+
+    where A = omega_b / (<1 / tau>_xi (Lambda - ln w)), and the last term is
+    the Wigner-Kirkwood correction to the partition function.
+    """
+    flux = quad(
+        lambda u: float(
+            np.exp(-barrier_ratio * (u - 1)) / _get_crossing_time_integral(u),
+        ),
+        1,
+        1 + 80 / barrier_ratio,
+        limit=500,
+    )[0]
+    # omega_b / <1 / tau>_xi, from the classical flux in units of E_b
+    crossing = 1 / (barrier_ratio * flux)
+    prefactor = crossing / (np.log(16 * barrier_ratio / omega_ratio) + np.euler_gamma)
+    reflection = np.log(2) / np.pi
+    tunnelling = 1 / 12 + reflection**2 / 2
+    correction = (
+        -prefactor * (reflection * omega_ratio - tunnelling * omega_ratio**2)
+        + 1
+        - get_wigner_partition_ratio(barrier_ratio, omega_ratio)
+    )
+    return float(get_classical_mass_ratio(barrier_ratio) / (1 + correction))
 
 
 def _get_well_action(
@@ -370,17 +440,14 @@ def _plot_mass_ratio_against_mass() -> None:
     barrier_ratio = parameters[0][0]
 
     exact = np.array([get_exact_mass_ratio(*p) for p in parameters])
-    averaged = np.array([get_band_averaged_mass_ratio(*p) for p in parameters])
-    harmonic = np.array([get_harmonic_mass_ratio(*p) for p in parameters])
+    semiclassical = np.array([get_semiclassical_mass_ratio(*p) for p in parameters])
     classical = get_classical_mass_ratio(barrier_ratio)
 
     fig, ax = get_fancy_figure()
     mass_u = masses / atomic_mass
     (exact_line,) = ax.plot(mass_u, exact, color=CAM_BLUE.warm)
-    (averaged_line,) = ax.plot(mass_u, averaged, color=CAM_CHERRY.dark)
-    averaged_line.set_linestyle("--")
-    (harmonic_line,) = ax.plot(mass_u, harmonic, color=CAM_INDIGO.base)
-    harmonic_line.set_linestyle("-.")
+    (semiclassical_line,) = ax.plot(mass_u, semiclassical, color=CAM_CHERRY.dark)
+    semiclassical_line.set_linestyle("--")
     classical_line = ax.axhline(classical, color=CAM_BLUE.dark)
     classical_line.set_linestyle("--")
 
@@ -405,8 +472,12 @@ def _plot_mass_ratio_against_mass() -> None:
     ax.set_xlabel(r"Mass / $\mathrm{u}$")
     ax.set_ylabel(r"$m_\mathrm{eff} / m$")
     ax.legend(
-        handles=[exact_line, averaged_line, harmonic_line, classical_line],
-        labels=["exact", "band averaged", "harmonic well", "classical"],
+        handles=[
+            exact_line,
+            semiclassical_line,
+            classical_line,
+        ],
+        labels=["exact", "semiclassical", "classical"],
         loc="upper right",
     )
     fig.savefig("scripts/thesis/quantum_effective_mass.mass.pdf")
@@ -420,11 +491,186 @@ def _plot_mass_ratio_against_mass() -> None:
             f"exact = {get_exact_mass_ratio(*p):.4f}, "
             f"phase integral = {get_phase_integral_mass_ratio(*p):.4f}, "
             f"band averaged = {get_band_averaged_mass_ratio(*p):.4f}, "
-            f"harmonic = {get_harmonic_mass_ratio(*p):.4f}, "
+            f"semiclassical = {get_semiclassical_mass_ratio(*p):.4f}, "
+            f"rate theory = {get_rate_theory_mass_ratio(*p):.4f}, "
+            f"series = {get_series_mass_ratio(*p):.4f}, "
             f"Z exact = {get_exact_partition_ratio(*p):.4f}, "
-            f"Z harmonic = {get_harmonic_partition_ratio(p[1]):.4f}, "
+            f"Z Wigner = {get_wigner_partition_ratio(*p):.4f}, "
             f"band centre = {get_tunnelling_mass_ratio(*p):.4f}",
         )
+
+
+class _CorrectionTerms(TypedDict):
+    reflection: float
+    tunnelling: float
+    zero_point: float
+    total: float
+
+
+def get_correction_terms(barrier_ratio: float, omega_ratio: float) -> _CorrectionTerms:
+    """Return the relative change in m_eff from each quantum effect.
+
+    The flux integral of the semiclassical mass, relative to its classical
+    value int_(E_b) e^(-beta E) / tau dE, is 1 + delta_r + delta_t, where
+
+        delta_r = int_(E_b)^inf e^(-beta E) (w - 1) / tau dE,
+        delta_t = int_0^(E_b) e^(-beta E) w / tau dE,
+
+    in units of the classical flux, with w = 1 - sqrt(1 - P). Since
+    m / m_eff = (m / m_eff)_cl (Z_cl / Z) (1 + delta_r + delta_t), and Z / Z_cl
+    takes the Wigner-Kirkwood form, each term is the change in m_eff with the other
+    two switched off, and the total includes all three.
+    """
+
+    def missing_transmission(u: float) -> float:
+        # sqrt(1 - P), written so that it does not overflow far from E_b
+        return float(
+            np.sqrt(expit(-2 * np.pi * barrier_ratio * (u - 1) / omega_ratio)),
+        )
+
+    def flux(u: float, weight: float) -> float:
+        return float(
+            np.exp(-barrier_ratio * (u - 1)) * weight / _get_crossing_time_integral(u),
+        )
+
+    u_max = 1 + 80 / barrier_ratio
+    classical = quad(lambda u: flux(u, 1), 1, u_max, limit=500)[0]
+    reflection = (
+        quad(lambda u: flux(u, -missing_transmission(u)), 1, u_max, limit=500)[0]
+        / classical
+    )
+    tunnelling = (
+        quad(lambda u: flux(u, 1 - missing_transmission(u)), 0, 1, limit=500)[0]
+        / classical
+    )
+    partition = get_wigner_partition_ratio(barrier_ratio, omega_ratio)
+    return {
+        "reflection": float(1 / (1 + reflection) - 1),
+        "tunnelling": float(1 / (1 + tunnelling) - 1),
+        "zero_point": partition - 1,
+        "total": float(partition / (1 + reflection + tunnelling) - 1),
+    }
+
+
+# Sequential map for the barrier energy, from light to dark blue
+CAM_SEQUENTIAL_CMAP = LinearSegmentedColormap.from_list(
+    "CAM_SEQUENTIAL_CMAP",
+    [CAM_BLUE.warm, CAM_BLUE.dark],
+)
+
+
+# Both correction figures share the range of hbar omega_b / k_B T
+CORRECTION_OMEGA_RATIOS = np.geomspace(0.05, 3, 60)
+
+
+def _plot_correction_terms_against_omega(ax: Axes) -> None:
+    """Plot each correction on the Cu(111) barrier against hbar omega_b / k_B T.
+
+    At fixed barrier, lattice constant and temperature, hbar omega_b / k_B T
+    falls as m^(-1 / 2), so heavier adsorbates lie further to the left.
+    """
+    barrier_ratio, _ = _get_dimensionless_parameters(SODIUM_COPPER_BRIDGE_SYSTEM_1D)
+    omega_ratios = CORRECTION_OMEGA_RATIOS
+    terms = [get_correction_terms(barrier_ratio, w) for w in omega_ratios]
+
+    ax.axhline(0, color=CAM_SLATE_4, linewidth=0.8)
+    (total_line,) = ax.plot(
+        omega_ratios,
+        [t["total"] for t in terms],
+        color=CAM_CHERRY.dark,
+    )
+    (reflection_line,) = ax.plot(
+        omega_ratios,
+        [t["reflection"] for t in terms],
+        color=CAM_BLUE.dark,
+    )
+    reflection_line.set_linestyle("-.")
+    (tunnelling_line,) = ax.plot(
+        omega_ratios,
+        [t["tunnelling"] for t in terms],
+        color=CAM_BLUE.warm,
+    )
+    tunnelling_line.set_linestyle(":")
+    (zero_point_line,) = ax.plot(
+        omega_ratios,
+        [t["zero_point"] for t in terms],
+        color=CAM_BLUE.base,
+    )
+    zero_point_line.set_linestyle("--")
+
+    for name in ["H", "He", "Na"]:
+        system = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(ADSORBATE_MASSES[name])
+        _, omega_ratio = _get_dimensionless_parameters(system)
+        ax.axvline(omega_ratio, color=CAM_SLATE_2, linewidth=0.8, zorder=0)
+        ax.annotate(
+            name,
+            (omega_ratio, 1),
+            xycoords=("data", "axes fraction"),
+            xytext=(3, -3),
+            textcoords="offset points",
+            ha="left",
+            va="top",
+            fontsize=8,
+        )
+
+    ax.set_xscale("log")
+    ax.set_xlim(omega_ratios[0], omega_ratios[-1])
+    ax.set_ylim(-0.25, 0.6)
+    ax.set_xlabel(r"$\hbar \omega_b / k_B T$")
+    ax.set_ylabel("Correction")
+    ax.legend(
+        handles=[
+            total_line,
+            reflection_line,
+            tunnelling_line,
+            zero_point_line,
+        ],
+        labels=["total", "reflection", "tunnelling", "zero-point"],
+        loc="upper left",
+    )
+
+
+def _plot_reflection_against_omega(ax: Axes) -> ScalarMappable:
+    """Plot the reflection correction against hbar omega_b / k_B T.
+
+    One line is drawn for each barrier energy E_b / k_B T. The lines
+    collapse onto a single curve, since the reflection correction depends
+    almost entirely on hbar omega_b / k_B T.
+    """
+    barrier_ratios = np.array([0.5, 1, 2, 3, 5, 8])
+    omega_ratios = CORRECTION_OMEGA_RATIOS
+    norm = Normalize(0, barrier_ratios[-1])
+    ax.axhline(0, color=CAM_SLATE_4, linewidth=0.8)
+    for barrier_ratio in barrier_ratios:
+        reflection = [
+            get_correction_terms(barrier_ratio, w)["reflection"] for w in omega_ratios
+        ]
+        ax.plot(
+            omega_ratios,
+            reflection,
+            color=CAM_SEQUENTIAL_CMAP(norm(barrier_ratio)),
+        )
+
+    ax.set_xscale("log")
+    ax.set_xlim(omega_ratios[0], omega_ratios[-1])
+    ax.set_ylim(-0.25, 0.6)
+    ax.set_xlabel(r"$\hbar \omega_b / k_B T$")
+    ax.set_ylabel("Correction")
+    return ScalarMappable(norm=norm, cmap=CAM_SEQUENTIAL_CMAP)
+
+
+def _plot_correction_terms() -> None:
+    fig, ax = _get_square_figure()
+    _plot_correction_terms_against_omega(ax)
+    fig.savefig("scripts/thesis/quantum_effective_mass.corrections.terms.pdf")
+
+    fig, ax = _get_square_figure()
+    mappable = _plot_reflection_against_omega(ax)
+    colorbar_ax = ax.inset_axes((0.08, 0.78, 0.45, 0.05))
+    colorbar = fig.colorbar(mappable, cax=colorbar_ax, orientation="horizontal")
+    colorbar.set_label(r"$E_b / k_B T$", fontsize=9)
+    colorbar.ax.tick_params(labelsize=8)
+    fig.savefig("scripts/thesis/quantum_effective_mass.corrections.reflection.pdf")
 
 
 def _get_square_figure() -> tuple[Figure, Axes]:
@@ -569,6 +815,21 @@ def get_mass_ratio_map() -> _MassRatioMap:
     }
 
 
+# Diverging map from blue (m_eff lowered) through the axes background to cherry
+CAM_DIVERGING_CMAP = LinearSegmentedColormap.from_list(
+    "CAM_DIVERGING_CMAP",
+    [
+        CAM_BLUE.warm,
+        CAM_BLUE.base,
+        CAM_BLUE.light,
+        CAM_SLATE_1,
+        CAM_CHERRY.light,
+        CAM_CHERRY.warm,
+        CAM_CHERRY.base,
+    ],
+)
+
+
 def _plot_mass_ratio_map() -> None:
     data = get_mass_ratio_map()
     barrier_ratios = data["barrier_ratios"]
@@ -576,43 +837,45 @@ def _plot_mass_ratio_map() -> None:
     deviation = data["deviation"]
 
     fig, ax = get_fancy_figure()
-    limit = float(np.max(np.abs(deviation)))
+    # The scale is set by the largest rise in m_eff, and the stronger fall at
+    # the lightest masses saturates
+    limit = 1.2 * float(np.max(deviation))
     mesh = ax.pcolormesh(
         barrier_ratios,
         omega_ratios,
         deviation,
         shading="nearest",
-        cmap="RdBu_r",
+        cmap=CAM_DIVERGING_CMAP,
         norm=TwoSlopeNorm(0, -limit, limit),
         rasterized=True,
     )
-    contours = ax.contour(
-        barrier_ratios,
-        omega_ratios,
-        deviation,
-        levels=[-0.05, 0.05],
-        colors=CAM_SLATE_3,
-        linewidths=0.8,
-    )
-    ax.clabel(contours, fmt={-0.05: r"$-5\%$", 0.05: r"$+5\%$"}, fontsize=7)
-
     for name in ["H", "He", "Na"]:
         system = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(ADSORBATE_MASSES[name])
         barrier_ratio, omega_ratio = _get_dimensionless_parameters(system)
-        ax.scatter(barrier_ratio, omega_ratio, color="black", marker="x", zorder=5)
+        # At fixed mass, lattice constant and temperature, omega_b grows as
+        # sqrt(E_b), so a change of barrier moves the adsorbate along a curve
+        path = omega_ratio * np.sqrt(barrier_ratios / barrier_ratio)
+        (path_line,) = ax.plot(
+            barrier_ratios,
+            path,
+            color=CAM_SLATE_4,
+            linewidth=1,
+        )
+        path_line.set_linestyle(":")
         ax.annotate(
             name,
             (barrier_ratio, omega_ratio),
-            xytext=(5, 0),
+            xytext=(6, -4),
             textcoords="offset points",
-            va="center",
+            va="top",
             fontsize=8,
         )
 
     ax.set_yscale("log")
+    ax.set_ylim(omega_ratios[0], omega_ratios[-1])
     ax.set_xlabel(r"$E_b / k_B T$")
     ax.set_ylabel(r"$\hbar \omega_b / k_B T$")
-    colorbar = fig.colorbar(mesh, ax=ax)
+    colorbar = fig.colorbar(mesh, ax=ax, extend="min")
     colorbar.set_label(
         r"$m_\mathrm{eff} / m_\mathrm{eff}^\mathrm{cl} - 1$",
     )
@@ -624,3 +887,4 @@ if __name__ == "__main__":
     _plot_state_momentum("Na", (-0.5, 2))
     _plot_state_momentum("He", (-0.5, 2))
     _plot_mass_ratio_map()
+    _plot_correction_terms()
