@@ -643,6 +643,11 @@ def _plot_reflection_against_omega(ax: Axes) -> ScalarMappable:
     omega_ratios = CORRECTION_OMEGA_RATIOS
     norm = Normalize(0, barrier_ratios[-1])
     ax.axhline(0, color=CAM_SLATE_4, linewidth=0.8)
+    # The adsorbates of the Cu(111) figure, unlabelled
+    for name in ["H", "He", "Na"]:
+        system = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(ADSORBATE_MASSES[name])
+        _, omega_ratio = _get_dimensionless_parameters(system)
+        ax.axvline(omega_ratio, color=CAM_SLATE_2, linewidth=0.8, zorder=0)
     for barrier_ratio in barrier_ratios:
         reflection = [
             get_correction_terms(barrier_ratio, w)["reflection"] for w in omega_ratios
@@ -668,7 +673,7 @@ def _plot_correction_terms() -> None:
 
     fig, ax = _get_square_figure()
     mappable = _plot_reflection_against_omega(ax)
-    colorbar_ax = ax.inset_axes((0.08, 0.78, 0.45, 0.05))
+    colorbar_ax = ax.inset_axes((0.06, 0.88, 0.4, 0.04))
     colorbar = fig.colorbar(mappable, cax=colorbar_ax, orientation="horizontal")
     colorbar.set_label(r"$E_b / k_B T$", fontsize=9)
     colorbar.ax.tick_params(labelsize=8)
