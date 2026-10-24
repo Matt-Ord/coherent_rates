@@ -733,6 +733,7 @@ def get_phase_integral_bands(
     for n in range(n_bands):
         sign = (-1) ** (n + 1)
         delta = np.zeros_like(k_dx)
+        energy = np.zeros_like(k_dx)
         for _ in range(200):
             energy = barrier_ratio * np.interp((n + 0.5) * np.pi + delta, phase, u)
             transmission = np.sqrt(
