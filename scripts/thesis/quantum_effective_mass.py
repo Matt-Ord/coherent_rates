@@ -639,9 +639,10 @@ def _plot_reflection_against_omega(ax: Axes) -> ScalarMappable:
     collapse onto a single curve, since the reflection correction depends
     almost entirely on hbar omega_b / k_B T.
     """
-    barrier_ratios = np.array([0.5, 1, 2, 3, 5, 8])
+    # The colour scale covers the same E_b / k_B T as the mass ratio map
+    barrier_ratios = np.array([0.25, 0.5, 1, 1.5, 2, 3, 4])
     omega_ratios = CORRECTION_OMEGA_RATIOS
-    norm = Normalize(0, barrier_ratios[-1])
+    norm = Normalize(0, 4)
     ax.axhline(0, color=CAM_SLATE_4, linewidth=0.8)
     # The adsorbates of the Cu(111) figure, unlabelled
     for name in ["H", "He", "Na"]:
