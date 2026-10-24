@@ -800,8 +800,8 @@ class _MassRatioMap(TypedDict):
 @cached(Path("scripts/thesis/quantum_effective_mass.map.npz"))
 def get_mass_ratio_map() -> _MassRatioMap:
     """Return m_eff / m_eff^cl - 1 against E_b / k_B T and hbar omega_b / k_B T."""
-    barrier_ratios = np.linspace(0.25, 5, 30)
-    omega_ratios = np.geomspace(0.05, 3, 30)
+    barrier_ratios = np.linspace(0.25, 5, 50)
+    omega_ratios = np.geomspace(0.1, 3, 50)
     deviation = np.empty((omega_ratios.size, barrier_ratios.size))
     for j, barrier_ratio in enumerate(barrier_ratios):
         classical = get_classical_mass_ratio(barrier_ratio)
