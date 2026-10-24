@@ -28,12 +28,14 @@ Three models of the effective mass m_eff / m = m k_B T / <p_tr^2> are compared
 
 from __future__ import annotations
 
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypedDict
 
 import numpy as np
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import LinearSegmentedColormap, Normalize, TwoSlopeNorm
+from matplotlib.ticker import FixedLocator, NullFormatter, StrMethodFormatter
 from scipy.constants import Boltzmann, atomic_mass, hbar
 from scipy.integrate import quad
 from scipy.linalg import eigh_tridiagonal, eigvalsh_tridiagonal
@@ -797,21 +799,38 @@ class _MassRatioMap(TypedDict):
     deviation: np.ndarray[Any, np.dtype[np.float64]]
 
 
+def _get_mass_ratio_deviation(
+    barrier_ratio: float,
+    omega_ratios: np.ndarray[Any, np.dtype[np.float64]],
+) -> np.ndarray[Any, np.dtype[np.float64]]:
+    """Return m_eff / m_eff^cl - 1 at one barrier energy, for each omega_ratio."""
+    classical = get_classical_mass_ratio(barrier_ratio)
+    return np.array(
+        [get_exact_mass_ratio(barrier_ratio, w) / classical - 1 for w in omega_ratios],
+    )
+
+
 @cached(Path("scripts/thesis/quantum_effective_mass.map.npz"))
 def get_mass_ratio_map() -> _MassRatioMap:
-    """Return m_eff / m_eff^cl - 1 against E_b / k_B T and hbar omega_b / k_B T."""
-    barrier_ratios = np.linspace(0.25, 5, 50)
-    omega_ratios = np.geomspace(0.1, 3, 50)
-    deviation = np.empty((omega_ratios.size, barrier_ratios.size))
-    for j, barrier_ratio in enumerate(barrier_ratios):
-        classical = get_classical_mass_ratio(barrier_ratio)
-        for i, omega_ratio in enumerate(omega_ratios):
-            exact = get_exact_mass_ratio(barrier_ratio, omega_ratio)
-            deviation[i, j] = exact / classical - 1
+    """Return m_eff / m_eff^cl - 1 against E_b / k_B T and hbar omega_b / k_B T.
+
+    Each barrier energy is independent, so the columns are computed in
+    parallel.
+    """
+    barrier_ratios = np.linspace(1, 5, 100)
+    omega_ratios = np.geomspace(0.1, 3, 100)
+    with ProcessPoolExecutor() as executor:
+        columns = list(
+            executor.map(
+                _get_mass_ratio_deviation,
+                barrier_ratios,
+                [omega_ratios] * barrier_ratios.size,
+            ),
+        )
     return {
         "barrier_ratios": barrier_ratios,
         "omega_ratios": omega_ratios,
-        "deviation": deviation,
+        "deviation": np.stack(columns, axis=1),
     }
 
 
@@ -873,12 +892,15 @@ def _plot_mass_ratio_map() -> None:
 
     ax.set_yscale("log")
     ax.set_ylim(omega_ratios[0], omega_ratios[-1])
+    # Plain labels on a few round values, rather than every power of ten
+    ax.yaxis.set_major_locator(FixedLocator([0.1, 0.2, 0.5, 1, 2, 3]))
+    ax.yaxis.set_major_formatter(StrMethodFormatter("{x:g}"))
+    ax.yaxis.set_minor_formatter(NullFormatter())
+    ax.set_xlim(barrier_ratios[0], barrier_ratios[-1])
     ax.set_xlabel(r"$E_b / k_B T$")
     ax.set_ylabel(r"$\hbar \omega_b / k_B T$")
     colorbar = fig.colorbar(mesh, ax=ax, extend="min")
-    colorbar.set_label(
-        r"$m_\mathrm{eff} / m_\mathrm{eff}^\mathrm{cl} - 1$",
-    )
+    colorbar.set_label("Correction")
     fig.savefig("scripts/thesis/quantum_effective_mass.map.pdf")
 
 
