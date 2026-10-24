@@ -751,7 +751,7 @@ def get_phase_integral_bands(
 
 
 def _plot_state_momentum(name: str, x_range: tuple[float, float]) -> None:
-    """Plot (tau(E) p_tr / m dx)^2 of each Bloch state, with the semiclassical bands.
+    """Plot tau(E) |p_tr| / m dx of each Bloch state, with the semiclassical bands.
 
     The exact Bloch states are compared with the phase-integral band
     condition, where tau(E) is the classical crossing time, which below the
@@ -770,7 +770,7 @@ def _plot_state_momentum(name: str, x_range: tuple[float, float]) -> None:
     for band in range(energies.shape[1]):
         ax.plot(
             energies[:, band] - barrier_ratio,
-            p_squared[:, band] / classical[:, band],
+            np.sqrt(p_squared[:, band] / classical[:, band]),
             color=CAM_BLUE.warm if band % 2 == 0 else CAM_BLUE.base,
         )
     quantum_line = ax.plot([], [], color=CAM_BLUE.warm)[0]
@@ -780,7 +780,7 @@ def _plot_state_momentum(name: str, x_range: tuple[float, float]) -> None:
     for band in range(energies.shape[1]):
         (line,) = ax.plot(
             energies[:, band] - barrier_ratio,
-            p_squared[:, band] / classical[:, band],
+            np.sqrt(p_squared[:, band] / classical[:, band]),
             color=CAM_CHERRY.dark,
         )
         line.set_linestyle("--")
@@ -790,10 +790,10 @@ def _plot_state_momentum(name: str, x_range: tuple[float, float]) -> None:
     ax.set_xlim(*x_range)
     ax.set_ylim(0, 1.2)
     ax.set_xlabel(r"$(E - E_b) / k_B T$")
-    ax.set_ylabel(r"$\tau(E)^2 p_\mathrm{tr}^2 / (m \Delta x)^2$")
+    ax.set_ylabel(r"$\tau(E) |p_\mathrm{tr}| / m \Delta x$")
     ax.legend(
         handles=[quantum_line, semiclassical_line],
-        labels=["quantum", "phase integral"],
+        labels=["quantum", "semiclassical"],
         loc="upper left",
     )
     fig.savefig(f"scripts/thesis/quantum_effective_mass.momentum.{name}.pdf")
