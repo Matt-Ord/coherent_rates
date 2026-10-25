@@ -939,9 +939,7 @@ def _plot_inverse_mass_ratio_map() -> None:
     ax.set_xlabel(r"$E_b / k_B T$")
     ax.set_ylabel(r"$\hbar \omega_b / k_B T$")
     colorbar = fig.colorbar(mesh, ax=ax, extend="max")
-    colorbar.set_label(
-        r"$(m / m_\mathrm{eff}) / (m / m_\mathrm{eff})_\mathrm{cl} - 1$",
-    )
+    colorbar.set_label("Correction")
     fig.savefig("scripts/thesis/quantum_effective_mass.map.pdf")
 
 
