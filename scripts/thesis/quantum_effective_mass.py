@@ -275,10 +275,13 @@ def get_semiclassical_inverse_mass_ratio(
     (m / m_eff)_cl delta_zpe, with Z / Z_cl = 1 - delta_zpe.
     """
     delta_zpe = 1 - get_wigner_partition_ratio(barrier_ratio, omega_ratio)
-    return get_band_averaged_inverse_mass_ratio(
-        barrier_ratio,
-        omega_ratio,
-    ) + get_classical_inverse_mass_ratio(barrier_ratio) * delta_zpe
+    return (
+        get_band_averaged_inverse_mass_ratio(
+            barrier_ratio,
+            omega_ratio,
+        )
+        + get_classical_inverse_mass_ratio(barrier_ratio) * delta_zpe
+    )
 
 
 def get_rate_theory_inverse_mass_ratio(
