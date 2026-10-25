@@ -270,13 +270,15 @@ def get_semiclassical_inverse_mass_ratio(
 ) -> float:
     """Return m / m_eff with the band averaged flux and the Wigner-Kirkwood Z.
 
-    Since m / m_eff is inversely proportional to Z, the band averaged ratio is
-    divided by the first-order correction to the partition function.
+    To first order in each correction, the band averaged ratio
+    (m / m_eff)_cl (1 + delta_r + delta_t) gains the zero-point term
+    (m / m_eff)_cl delta_zpe, with Z / Z_cl = 1 - delta_zpe.
     """
+    delta_zpe = 1 - get_wigner_partition_ratio(barrier_ratio, omega_ratio)
     return get_band_averaged_inverse_mass_ratio(
         barrier_ratio,
         omega_ratio,
-    ) / get_wigner_partition_ratio(barrier_ratio, omega_ratio)
+    ) + get_classical_inverse_mass_ratio(barrier_ratio) * delta_zpe
 
 
 def get_rate_theory_inverse_mass_ratio(
