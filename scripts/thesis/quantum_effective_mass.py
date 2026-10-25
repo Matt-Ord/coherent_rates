@@ -1,13 +1,13 @@
 """Compare the quantum effective mass of an adsorbate with the classical limit.
 
-On the 1D cosine potential V(x) = E_b / 2 (1 - cos(2 pi x / dx)), the ratio
-m_eff / m depends only on two dimensionless numbers, the barrier energy
+On the 1D cosine potential V(x) = E_b / 2 (1 - cos(2 pi x / dx)), the inverse
+mass ratio m / m_eff depends only on two dimensionless numbers, the barrier energy
 E_b / k_B T and the quantum of barrier energy hbar omega_b / k_B T, where
 omega_b = (pi / dx) sqrt(2 E_b / m) is the barrier frequency. In the
 classical limit hbar omega_b / k_B T -> 0, and the ratio depends only on
 E_b / k_B T.
 
-Three models of the effective mass m_eff / m = m k_B T / <p_tr^2> are compared
+Three models of the inverse mass ratio m / m_eff = <p_tr^2> / m k_B T are compared
 
 - The exact result, from the Bloch states of the cosine potential, which is
   the Mathieu equation. In a plane wave basis the Hamiltonian is tridiagonal,
@@ -143,11 +143,11 @@ def _get_bloch_states(
     return energies, p_squared
 
 
-def get_exact_mass_ratio(barrier_ratio: float, omega_ratio: float) -> float:
-    """Return the exact m_eff / m = m k_B T / <p_tr^2> on the cosine potential."""
+def get_exact_inverse_mass_ratio(barrier_ratio: float, omega_ratio: float) -> float:
+    """Return the exact m / m_eff = <p_tr^2> / m k_B T on the cosine potential."""
     energies, p_squared = _get_bloch_states(barrier_ratio, omega_ratio)
     weights = np.exp(-(energies - np.min(energies)))
-    return float(np.sum(weights) / np.sum(weights * p_squared))
+    return float(np.sum(weights * p_squared) / np.sum(weights))
 
 
 def _get_crossing_time_integral(
@@ -175,16 +175,16 @@ def _get_kemble_probability(
     return expit(2 * np.pi * barrier_ratio * (u - 1) / omega_ratio)
 
 
-def _get_semiclassical_mass_ratio_from_weight(
+def _get_semiclassical_inverse_mass_ratio_from_weight(
     barrier_ratio: float,
     weight: Any,  # noqa: ANN401
 ) -> float:
-    """Return m_eff / m, with p_tr^2 = weight(u) times the classical value.
+    """Return m / m_eff, with p_tr^2 = weight(u) times the classical value.
 
     In units of E_b, with the crossing time I(u) of the classical motion
 
-        m_eff / m = (1 / (2 pi^2 e_b)) int e^(-e_b u) I(u) du
-                                      / int e^(-e_b u) weight(u) / I(u) du.
+        m / m_eff = 2 pi^2 e_b int e^(-e_b u) weight(u) / I(u) du
+                               / int e^(-e_b u) I(u) du.
 
     With weight(u) = theta(u - 1), the result is the exact classical ratio.
     """
@@ -202,20 +202,23 @@ def _get_semiclassical_mass_ratio_from_weight(
     partition += quad(numerator, 1, u_max, limit=500)[0]
     flux = quad(denominator, 0, 1, limit=500)[0]
     flux += quad(denominator, 1, u_max, limit=500)[0]
-    return partition / (2 * np.pi**2 * barrier_ratio * flux)
+    return 2 * np.pi**2 * barrier_ratio * flux / partition
 
 
-def get_classical_mass_ratio(barrier_ratio: float) -> float:
-    """Return the classical m_eff / m, which depends only on E_b / k_B T."""
-    return _get_semiclassical_mass_ratio_from_weight(
+def get_classical_inverse_mass_ratio(barrier_ratio: float) -> float:
+    """Return the classical m / m_eff, which depends only on E_b / k_B T."""
+    return _get_semiclassical_inverse_mass_ratio_from_weight(
         barrier_ratio,
         lambda u: float(u > 1),
     )
 
 
-def get_band_averaged_mass_ratio(barrier_ratio: float, omega_ratio: float) -> float:
-    """Return m_eff / m with the band averaged weight 1 - sqrt(1 - P)."""
-    return _get_semiclassical_mass_ratio_from_weight(
+def get_band_averaged_inverse_mass_ratio(
+    barrier_ratio: float,
+    omega_ratio: float,
+) -> float:
+    """Return m / m_eff with the band averaged weight 1 - sqrt(1 - P)."""
+    return _get_semiclassical_inverse_mass_ratio_from_weight(
         barrier_ratio,
         lambda u: (
             1 - np.sqrt(1 - _get_kemble_probability(u, barrier_ratio, omega_ratio))
@@ -223,9 +226,12 @@ def get_band_averaged_mass_ratio(barrier_ratio: float, omega_ratio: float) -> fl
     )
 
 
-def get_tunnelling_mass_ratio(barrier_ratio: float, omega_ratio: float) -> float:
-    """Return m_eff / m with the weight P of each band centre."""
-    return _get_semiclassical_mass_ratio_from_weight(
+def get_tunnelling_inverse_mass_ratio(
+    barrier_ratio: float,
+    omega_ratio: float,
+) -> float:
+    """Return m / m_eff with the weight P of each band centre."""
+    return _get_semiclassical_inverse_mass_ratio_from_weight(
         barrier_ratio,
         lambda u: _get_kemble_probability(u, barrier_ratio, omega_ratio),
     )
@@ -258,20 +264,26 @@ def get_wigner_partition_ratio(barrier_ratio: float, omega_ratio: float) -> floa
     return float(1 - omega_ratio**2 / 24 * i1e(a) / i0e(a))
 
 
-def get_semiclassical_mass_ratio(barrier_ratio: float, omega_ratio: float) -> float:
-    """Return m_eff / m with the band averaged flux and the Wigner-Kirkwood Z.
+def get_semiclassical_inverse_mass_ratio(
+    barrier_ratio: float,
+    omega_ratio: float,
+) -> float:
+    """Return m / m_eff with the band averaged flux and the Wigner-Kirkwood Z.
 
-    Since m_eff / m is proportional to Z, the band averaged ratio is scaled by
-    the first-order correction to the partition function.
+    Since m / m_eff is inversely proportional to Z, the band averaged ratio is
+    divided by the first-order correction to the partition function.
     """
-    return get_wigner_partition_ratio(
+    return get_band_averaged_inverse_mass_ratio(
         barrier_ratio,
         omega_ratio,
-    ) * get_band_averaged_mass_ratio(barrier_ratio, omega_ratio)
+    ) / get_wigner_partition_ratio(barrier_ratio, omega_ratio)
 
 
-def get_rate_theory_mass_ratio(barrier_ratio: float, omega_ratio: float) -> float:
-    """Return m_eff / m with a transmission coefficient, as in quantum rate theory.
+def get_rate_theory_inverse_mass_ratio(
+    barrier_ratio: float,
+    omega_ratio: float,
+) -> float:
+    """Return m / m_eff with a transmission coefficient, as in quantum rate theory.
 
     The crossing rate 1 / tau is taken to be the same at all energies, so the
     band averaged weight 1 - sqrt(1 - P) reduces the classical flux by
@@ -286,14 +298,14 @@ def get_rate_theory_mass_ratio(barrier_ratio: float, omega_ratio: float) -> floa
     s = omega_ratio / (2 * np.pi)
     kappa = gamma(1 - s) * gamma(0.5 + s) / np.sqrt(np.pi)
     return float(
-        get_classical_mass_ratio(barrier_ratio)
-        * get_wigner_partition_ratio(barrier_ratio, omega_ratio)
-        / kappa,
+        get_classical_inverse_mass_ratio(barrier_ratio)
+        * kappa
+        / get_wigner_partition_ratio(barrier_ratio, omega_ratio),
     )
 
 
-def get_series_mass_ratio(barrier_ratio: float, omega_ratio: float) -> float:
-    """Return m_eff / m from the second-order expansion of the band averaged flux.
+def get_series_inverse_mass_ratio(barrier_ratio: float, omega_ratio: float) -> float:
+    """Return m / m_eff from the second-order expansion of the band averaged flux.
 
     The weight 1 - sqrt(1 - P) differs from the classical step only within a
     few hbar omega_b of the barrier top, where tau(E) varies only
@@ -329,7 +341,7 @@ def get_series_mass_ratio(barrier_ratio: float, omega_ratio: float) -> float:
         + 1
         - get_wigner_partition_ratio(barrier_ratio, omega_ratio)
     )
-    return float(get_classical_mass_ratio(barrier_ratio) / (1 + correction))
+    return float(get_classical_inverse_mass_ratio(barrier_ratio) * (1 + correction))
 
 
 def _get_well_action(
@@ -381,14 +393,14 @@ def _get_phase_integral_slope_squared(
     )
 
 
-def get_phase_integral_mass_ratio(
+def get_phase_integral_inverse_mass_ratio(
     barrier_ratio: float,
     omega_ratio: float,
     *,
     n_energy: int = 400000,
     n_per_band: int = 3000,
 ) -> float:
-    """Return m_eff / m from the semiclassical band condition.
+    """Return m / m_eff from the semiclassical band condition.
 
     The total phase S(E) = Theta(E) + phi(eps) increases monotonically with
     energy, and band n is centred at S = (n + 1 / 2) pi. Within each band,
@@ -430,20 +442,22 @@ def get_phase_integral_mass_ratio(
         partition += np.sum(weight * d_k) / np.pi
         flux += np.sum(weight * slope_squared * d_k) / np.pi
 
-    # In these units, p^2 / (m k_B T) = (2 pi^2 e_b / w^2) (dE / d(k dx))^2
-    p_squared = 2 * np.pi**2 * barrier_ratio / omega_ratio**2 * flux / partition
-    return 1 / p_squared
+    # In these units, m / m_eff = <p^2> / (m k_B T)
+    # = (2 pi^2 e_b / w^2) <(dE / d(k dx))^2>
+    return 2 * np.pi**2 * barrier_ratio / omega_ratio**2 * flux / partition
 
 
-def _plot_mass_ratio_against_mass() -> None:
+def _plot_inverse_mass_ratio_against_mass() -> None:
     base = SODIUM_COPPER_BRIDGE_SYSTEM_1D
     masses = np.geomspace(0.8 * atomic_mass, 1000 * atomic_mass, 60)
     parameters = [_get_dimensionless_parameters(base.with_mass(m)) for m in masses]
     barrier_ratio = parameters[0][0]
 
-    exact = np.array([get_exact_mass_ratio(*p) for p in parameters])
-    semiclassical = np.array([get_semiclassical_mass_ratio(*p) for p in parameters])
-    classical = get_classical_mass_ratio(barrier_ratio)
+    exact = np.array([get_exact_inverse_mass_ratio(*p) for p in parameters])
+    semiclassical = np.array(
+        [get_semiclassical_inverse_mass_ratio(*p) for p in parameters],
+    )
+    classical = get_classical_inverse_mass_ratio(barrier_ratio)
 
     fig, ax = get_fancy_figure()
     mass_u = masses / atomic_mass
@@ -454,7 +468,7 @@ def _plot_mass_ratio_against_mass() -> None:
     classical_line.set_linestyle("--")
 
     for name, mass in ADSORBATE_MASSES.items():
-        ratio = get_exact_mass_ratio(
+        ratio = get_exact_inverse_mass_ratio(
             *_get_dimensionless_parameters(base.with_mass(mass)),
         )
         ax.scatter(mass / atomic_mass, ratio, color=CAM_BLUE.dark, marker="x", zorder=5)
@@ -470,9 +484,9 @@ def _plot_mass_ratio_against_mass() -> None:
 
     ax.set_xscale("log")
     ax.set_xlim(0.8, mass_u[-1])
-    ax.set_ylim(2.2, 2.8)
+    ax.set_ylim(0.36, 0.46)
     ax.set_xlabel(r"Mass / $\mathrm{u}$")
-    ax.set_ylabel(r"$m_\mathrm{eff} / m$")
+    ax.set_ylabel(r"$m / m_\mathrm{eff}$")
     ax.legend(
         handles=[
             exact_line,
@@ -485,20 +499,20 @@ def _plot_mass_ratio_against_mass() -> None:
     fig.savefig("scripts/thesis/quantum_effective_mass.mass.pdf")
 
     print(f"E_b / k_B T = {barrier_ratio:.4f}")  # noqa: T201
-    print(f"classical m_eff / m = {classical:.4f}")  # noqa: T201
+    print(f"classical m / m_eff = {classical:.4f}")  # noqa: T201
     for name, mass in ADSORBATE_MASSES.items():
         p = _get_dimensionless_parameters(base.with_mass(mass))
         print(  # noqa: T201
             f"{name}: hbar w_b / kT = {p[1]:.3f}, "
-            f"exact = {get_exact_mass_ratio(*p):.4f}, "
-            f"phase integral = {get_phase_integral_mass_ratio(*p):.4f}, "
-            f"band averaged = {get_band_averaged_mass_ratio(*p):.4f}, "
-            f"semiclassical = {get_semiclassical_mass_ratio(*p):.4f}, "
-            f"rate theory = {get_rate_theory_mass_ratio(*p):.4f}, "
-            f"series = {get_series_mass_ratio(*p):.4f}, "
+            f"exact = {get_exact_inverse_mass_ratio(*p):.4f}, "
+            f"phase integral = {get_phase_integral_inverse_mass_ratio(*p):.4f}, "
+            f"band averaged = {get_band_averaged_inverse_mass_ratio(*p):.4f}, "
+            f"semiclassical = {get_semiclassical_inverse_mass_ratio(*p):.4f}, "
+            f"rate theory = {get_rate_theory_inverse_mass_ratio(*p):.4f}, "
+            f"series = {get_series_inverse_mass_ratio(*p):.4f}, "
             f"Z exact = {get_exact_partition_ratio(*p):.4f}, "
             f"Z Wigner = {get_wigner_partition_ratio(*p):.4f}, "
-            f"band centre = {get_tunnelling_mass_ratio(*p):.4f}",
+            f"band centre = {get_tunnelling_inverse_mass_ratio(*p):.4f}",
         )
 
 
@@ -510,7 +524,7 @@ class _CorrectionTerms(TypedDict):
 
 
 def get_correction_terms(barrier_ratio: float, omega_ratio: float) -> _CorrectionTerms:
-    """Return the relative change in m_eff from each quantum effect.
+    """Return the relative change in m / m_eff from each quantum effect.
 
     The flux integral of the semiclassical mass, relative to its classical
     value int_(E_b) e^(-beta E) / tau dE, is 1 + delta_r + delta_t, where
@@ -519,9 +533,10 @@ def get_correction_terms(barrier_ratio: float, omega_ratio: float) -> _Correctio
         delta_t = int_0^(E_b) e^(-beta E) w / tau dE,
 
     in units of the classical flux, with w = 1 - sqrt(1 - P). Since
-    m / m_eff = (m / m_eff)_cl (Z_cl / Z) (1 + delta_r + delta_t), and Z / Z_cl
-    takes the Wigner-Kirkwood form, each term is the change in m_eff with the other
-    two switched off, and the total includes all three.
+    m / m_eff = (m / m_eff)_cl (Z_cl / Z) (1 + delta_r + delta_t), and
+    Z / Z_cl = 1 - delta_zpe takes the Wigner-Kirkwood form, each term is the
+    change in m / m_eff with the other two switched off, and the total
+    includes all three.
     """
 
     def missing_transmission(u: float) -> float:
@@ -547,10 +562,10 @@ def get_correction_terms(barrier_ratio: float, omega_ratio: float) -> _Correctio
     )
     partition = get_wigner_partition_ratio(barrier_ratio, omega_ratio)
     return {
-        "reflection": float(1 / (1 + reflection) - 1),
-        "tunnelling": float(1 / (1 + tunnelling) - 1),
-        "zero_point": partition - 1,
-        "total": float(partition / (1 + reflection + tunnelling) - 1),
+        "reflection": float(reflection),
+        "tunnelling": float(tunnelling),
+        "zero_point": 1 / partition - 1,
+        "total": float((1 + reflection + tunnelling) / partition - 1),
     }
 
 
@@ -617,9 +632,9 @@ def _plot_correction_terms_against_omega(ax: Axes) -> None:
 
     ax.set_xscale("log")
     ax.set_xlim(omega_ratios[0], omega_ratios[-1])
-    ax.set_ylim(-0.25, 0.6)
+    ax.set_ylim(-0.4, 0.4)
     ax.set_xlabel(r"$\hbar \omega_b / k_B T$")
-    ax.set_ylabel("Correction")
+    ax.set_ylabel(r"Relative change in $m / m_\mathrm{eff}$")
     ax.legend(
         handles=[
             total_line,
@@ -639,7 +654,7 @@ def _plot_reflection_against_omega(ax: Axes) -> ScalarMappable:
     collapse onto a single curve, since the reflection correction depends
     almost entirely on hbar omega_b / k_B T.
     """
-    # The colour scale covers the same E_b / k_B T as the mass ratio map
+    # The colour scale covers the same E_b / k_B T as the inverse mass ratio map
     barrier_ratios = np.array([0.25, 0.5, 1, 1.5, 2, 3, 4])
     omega_ratios = CORRECTION_OMEGA_RATIOS
     norm = Normalize(0, 4)
@@ -661,9 +676,9 @@ def _plot_reflection_against_omega(ax: Axes) -> ScalarMappable:
 
     ax.set_xscale("log")
     ax.set_xlim(omega_ratios[0], omega_ratios[-1])
-    ax.set_ylim(-0.25, 0.6)
+    ax.set_ylim(-0.4, 0.4)
     ax.set_xlabel(r"$\hbar \omega_b / k_B T$")
-    ax.set_ylabel("Correction")
+    ax.set_ylabel(r"Relative change in $m / m_\mathrm{eff}$")
     return ScalarMappable(norm=norm, cmap=CAM_SEQUENTIAL_CMAP)
 
 
@@ -800,32 +815,37 @@ def _plot_state_momentum(name: str, x_range: tuple[float, float]) -> None:
     fig.savefig(f"scripts/thesis/quantum_effective_mass.momentum.{name}.pdf")
 
 
-class _MassRatioMap(TypedDict):
+class _InverseMassRatioMap(TypedDict):
     barrier_ratios: np.ndarray[Any, np.dtype[np.float64]]
     omega_ratios: np.ndarray[Any, np.dtype[np.float64]]
     deviation: np.ndarray[Any, np.dtype[np.float64]]
 
 
-def _get_mass_ratio_deviation(
+def _get_inverse_mass_ratio_deviation(
     barrier_ratio: float,
     omega_ratios: np.ndarray[Any, np.dtype[np.float64]],
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
-    """Return m_eff / m_eff^cl - 1 at one barrier energy, for each omega_ratio.
+    """Return (m / m_eff) / (m / m_eff)_cl - 1 at one E_b, for each omega_ratio.
 
     Without a barrier the adsorbate is free, and m_eff = m in both the quantum
     and the classical system.
     """
     if barrier_ratio == 0:
         return np.zeros_like(omega_ratios)
-    classical = get_classical_mass_ratio(barrier_ratio)
+    classical = get_classical_inverse_mass_ratio(barrier_ratio)
     return np.array(
-        [get_exact_mass_ratio(barrier_ratio, w) / classical - 1 for w in omega_ratios],
+        [
+            get_exact_inverse_mass_ratio(barrier_ratio, w) / classical - 1
+            for w in omega_ratios
+        ],
     )
 
 
-@cached(Path("scripts/thesis/quantum_effective_mass.map.npz"))
-def get_mass_ratio_map() -> _MassRatioMap:
-    """Return m_eff / m_eff^cl - 1 against E_b / k_B T and hbar omega_b / k_B T.
+@cached(Path("scripts/thesis/quantum_effective_mass.inverse_map.npz"))
+def get_inverse_mass_ratio_map() -> _InverseMassRatioMap:
+    """Return (m / m_eff) / (m / m_eff)_cl - 1 against E_b and hbar omega_b.
+
+    Both are in units of k_B T.
 
     Each barrier energy is independent, so the columns are computed in
     parallel.
@@ -835,7 +855,7 @@ def get_mass_ratio_map() -> _MassRatioMap:
     with ProcessPoolExecutor() as executor:
         columns = list(
             executor.map(
-                _get_mass_ratio_deviation,
+                _get_inverse_mass_ratio_deviation,
                 barrier_ratios,
                 [omega_ratios] * barrier_ratios.size,
             ),
@@ -847,7 +867,7 @@ def get_mass_ratio_map() -> _MassRatioMap:
     }
 
 
-# Diverging map from blue (m_eff lowered) through the axes background to cherry
+# Diverging map from blue (m / m_eff lowered) through the axes background to cherry
 CAM_DIVERGING_CMAP = LinearSegmentedColormap.from_list(
     "CAM_DIVERGING_CMAP",
     [
@@ -862,16 +882,16 @@ CAM_DIVERGING_CMAP = LinearSegmentedColormap.from_list(
 )
 
 
-def _plot_mass_ratio_map() -> None:
-    data = get_mass_ratio_map()
+def _plot_inverse_mass_ratio_map() -> None:
+    data = get_inverse_mass_ratio_map()
     barrier_ratios = data["barrier_ratios"]
     omega_ratios = data["omega_ratios"]
     deviation = data["deviation"]
 
     fig, ax = get_fancy_figure()
-    # The scale is set by the largest rise in m_eff, and the stronger fall at
-    # the lightest masses saturates
-    limit = 1.2 * float(np.max(deviation))
+    # The scale is set by the largest fall in m / m_eff, and the stronger rise
+    # at the lightest masses saturates
+    limit = -1.2 * float(np.min(deviation))
     mesh = ax.pcolormesh(
         barrier_ratios,
         omega_ratios,
@@ -912,14 +932,16 @@ def _plot_mass_ratio_map() -> None:
     ax.set_xlim(barrier_ratios[0], barrier_ratios[-1])
     ax.set_xlabel(r"$E_b / k_B T$")
     ax.set_ylabel(r"$\hbar \omega_b / k_B T$")
-    colorbar = fig.colorbar(mesh, ax=ax, extend="min")
-    colorbar.set_label("Correction")
+    colorbar = fig.colorbar(mesh, ax=ax, extend="max")
+    colorbar.set_label(
+        r"$(m / m_\mathrm{eff}) / (m / m_\mathrm{eff})_\mathrm{cl} - 1$",
+    )
     fig.savefig("scripts/thesis/quantum_effective_mass.map.pdf")
 
 
 if __name__ == "__main__":
-    _plot_mass_ratio_against_mass()
+    _plot_inverse_mass_ratio_against_mass()
     _plot_state_momentum("Na", (-0.5, 2))
     _plot_state_momentum("He", (-0.5, 2))
-    _plot_mass_ratio_map()
+    _plot_inverse_mass_ratio_map()
     _plot_correction_terms()
