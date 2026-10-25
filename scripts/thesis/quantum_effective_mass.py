@@ -534,9 +534,10 @@ def get_correction_terms(barrier_ratio: float, omega_ratio: float) -> _Correctio
 
     in units of the classical flux, with w = 1 - sqrt(1 - P). Since
     m / m_eff = (m / m_eff)_cl (Z_cl / Z) (1 + delta_r + delta_t), and
-    Z / Z_cl = 1 - delta_zpe takes the Wigner-Kirkwood form, each term is the
-    change in m / m_eff with the other two switched off, and the total
-    includes all three.
+    Z / Z_cl = 1 - delta_zpe takes the Wigner-Kirkwood form, to first order in
+    each correction m / m_eff = (m / m_eff)_cl (1 + delta_r + delta_t + delta_zpe).
+    Each term is the change in m / m_eff with the other two switched off, and
+    the total is their sum.
     """
 
     def missing_transmission(u: float) -> float:
@@ -560,12 +561,12 @@ def get_correction_terms(barrier_ratio: float, omega_ratio: float) -> _Correctio
         quad(lambda u: flux(u, 1 - missing_transmission(u)), 0, 1, limit=500)[0]
         / classical
     )
-    partition = get_wigner_partition_ratio(barrier_ratio, omega_ratio)
+    zero_point = 1 - get_wigner_partition_ratio(barrier_ratio, omega_ratio)
     return {
         "reflection": float(reflection),
         "tunnelling": float(tunnelling),
-        "zero_point": 1 / partition - 1,
-        "total": float((1 + reflection + tunnelling) / partition - 1),
+        "zero_point": zero_point,
+        "total": float(reflection + tunnelling + zero_point),
     }
 
 
