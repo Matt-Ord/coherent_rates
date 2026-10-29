@@ -342,7 +342,12 @@ def _get_2d_gaussian_fit() -> None:
         # Adjust amplitude explicitly: offset + amplitude * exp(...)
         decay = (effective_isf - fit[1].offset) / expected_amplitude
         effective_isf = fit[1].offset + fit[0].amplitude * decay
-    print("Effective mass: ", effective_mass / system.mass)  # noqa: T201
+    print("Width mass (chapter 3): ", effective_mass / system.mass)  # noqa: T201
+    # The initial decay of the fitted ISF, with m_eff = m k_B T / <p_tr^2>
+    print(  # noqa: T201
+        "Effective mass (initial decay): ",
+        effective_mass / (fit[0].amplitude * system.mass),
+    )
     fitted_data = method.get_fitted_data(fit, isf["basis"])
     fig, ax0, line = plot_value_list_against_time(
         fitted_data,

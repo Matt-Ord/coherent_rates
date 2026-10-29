@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, TypedDict
 import numpy as np
 import scipy
 import scipy.optimize
+from scipy.constants import Boltzmann
 from surface_potential_analysis.basis.momentum_basis_like import MomentumBasis
 from surface_potential_analysis.state_vector.plot_value_list import (
     plot_value_list_against_momentum,
@@ -171,7 +172,7 @@ def _2d_boltzmann_rate_thesis() -> None:  # noqa: PLR0915
     data_111_double = get_boltzmann_rate_against_momentum_data(
         system,
         config,
-        fit_method=DoubleGaussianMethod(measure="abs", ty="Fast"),
+        fit_method=DoubleGaussianMethod(measure="abs", ty="Initial"),
         directions=directions,
         n_repeats=20,
     )
@@ -186,7 +187,7 @@ def _2d_boltzmann_rate_thesis() -> None:  # noqa: PLR0915
     data_112_double = get_boltzmann_rate_against_momentum_data(
         system,
         config,
-        fit_method=DoubleGaussianMethod(measure="abs", ty="Fast"),
+        fit_method=DoubleGaussianMethod(measure="abs", ty="Initial"),
         directions=directions,
         n_repeats=20,
     )
@@ -202,7 +203,7 @@ def _2d_boltzmann_rate_thesis() -> None:  # noqa: PLR0915
     data_111_single = get_boltzmann_rate_against_momentum_data(
         system,
         config,
-        fit_method=GaussianMethod(measure="abs"),
+        fit_method=GaussianMethod(measure="abs", rate="initial"),
         directions=directions,
     )
     data_111_single = select_idx(data_111_single, list(range(6, 15)))
@@ -215,7 +216,7 @@ def _2d_boltzmann_rate_thesis() -> None:  # noqa: PLR0915
     data_112_single = get_boltzmann_rate_against_momentum_data(
         system,
         config,
-        fit_method=GaussianMethod(measure="abs"),
+        fit_method=GaussianMethod(measure="abs", rate="initial"),
         directions=directions,
     )
     data_112_single = select_idx(data_112_single, list(range(3, 15)))
@@ -229,7 +230,7 @@ def _2d_boltzmann_rate_thesis() -> None:  # noqa: PLR0915
     data_112_free = get_boltzmann_rate_against_momentum_data(
         free,
         config,
-        fit_method=GaussianMethod(measure="abs"),
+        fit_method=GaussianMethod(measure="abs", rate="initial"),
         directions=directions,
     )
     fig, ax, line = plot_value_list_against_momentum(data_112_free, ax=ax)
@@ -252,6 +253,14 @@ def _2d_boltzmann_rate_thesis() -> None:  # noqa: PLR0915
     a, b = np.polyfit(x_fit, y_fit, 1)
     print("Line of best fit: y = Ax + B")  # noqa: T201
     print(f"Slope (a): {a:.2e}, Intercept (b): {b:.2e}")  # noqa: T201
+    # The rates are the initial decay of the whole ISF, so a quasi-elastic
+    # slope gives m / m_eff = m a^2 / k_B T, with m_eff = m k_B T / <p_tr^2>
+    kbt = Boltzmann * config.temperature
+    (a_origin,), *_ = np.linalg.lstsq(x_fit[:, np.newaxis], y_fit)
+    print(f"m / m_eff (slope): {system.mass * a**2 / kbt:.3f}")  # noqa: T201
+    print(  # noqa: T201
+        f"m / m_eff (through origin): {system.mass * a_origin**2 / kbt:.3f}",
+    )
 
     # Generate points for the line of best fit and plot it
     # You can plot it over x_fit, or the entire momentum range depending on preference
@@ -270,7 +279,7 @@ def _2d_boltzmann_rate_thesis() -> None:  # noqa: PLR0915
     )
     legend.get_frame().set_alpha(0)
     format_axis_scientific(ax.xaxis)
-    ax.set_ylabel(r"Rate / $\mathrm{s}^{-1}$")
+    ax.set_ylabel(r"Initial rate / $\mathrm{s}^{-1}$")
     ax.set_xlabel(r"$\Delta k$ / $\mathrm{m}^{-1}$")
     fig.savefig("scripts/thesis/boltzmann_mass.2d.thesis.pdf")
 

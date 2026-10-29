@@ -39,6 +39,15 @@ if TYPE_CHECKING:
 _BT0 = TypeVar("_BT0", bound=BasisWithTimeLike[Any, Any])
 T = TypeVar("T")
 
+RateConvention = Literal["width", "initial"]
+"""How a Gaussian fit is converted into a rate.
+
+``"width"`` gives the inverse width of the Gaussian, ignoring its amplitude.
+``"initial"`` gives the rate of the initial decay of the fitted ISF,
+``sqrt(amplitude) / width``, so that for a free particle of mass ``m_eff``
+the rate is ``Delta k sqrt(k_B T / m_eff)``.
+"""
+
 
 class FitInfo(TypedDict):
     """Information about an ISF calculation."""
@@ -248,6 +257,20 @@ def get_free_particle_rate(
     return 1 / get_free_particle_time(system, config)
 
 
+def get_effective_mass_from_rate(
+    system: System,
+    config: PeriodicSystemConfig,
+    rate: float,
+) -> float:
+    """Return the mass of a free particle whose ISF decays initially at ``rate``.
+
+    The free ISF is ``exp(-(rate t)^2 / 2)`` with
+    ``rate^2 = k_B T Delta k^2 / m_eff``. With an ``"initial"`` rate, the result
+    is the effective mass ``m_eff = m k_B T / <p_tr^2>``.
+    """
+    return system.mass * (get_free_particle_rate(system, config) / rate) ** 2
+
+
 def get_free_particle_isf(
     system: System,
     config: PeriodicSystemConfig,
@@ -285,9 +308,11 @@ class GaussianMethod(FitMethod[GaussianParameters]):
         truncate: bool = True,
         measure: Measure = "real",
         t_factor: float = 4,
+        rate: RateConvention = "width",
     ) -> None:
         self._truncate = truncate
         self._t_factor = t_factor
+        self._rate: RateConvention = rate
         super().__init__(measure=measure)
 
     def __hash__(self: Self) -> int:
@@ -372,10 +397,12 @@ class GaussianMethod(FitMethod[GaussianParameters]):
         self: Self,
         fit: GaussianParameters,
     ) -> float:
+        if self._rate == "initial":
+            return np.sqrt(fit.amplitude) / fit.width
         return 1 / fit.width
 
     def get_rate_label(self: Self) -> str:
-        return "Gaussian"
+        return "Gaussian (initial)" if self._rate == "initial" else "Gaussian"
 
     def get_fit_times(
         self: Self,
@@ -404,8 +431,10 @@ class GaussianMethodWithOffset(FitMethod[tuple[GaussianParameters, FitOffset]]):
         *,
         truncate: bool = True,
         measure: Measure = "abs",
+        rate: RateConvention = "width",
     ) -> None:
         self._truncate = truncate
+        self._rate: RateConvention = rate
         super().__init__(measure=measure)
 
     def __hash__(self: Self) -> int:
@@ -489,9 +518,13 @@ class GaussianMethodWithOffset(FitMethod[tuple[GaussianParameters, FitOffset]]):
         self: Self,
         fit: tuple[GaussianParameters, FitOffset],
     ) -> float:
+        if self._rate == "initial":
+            return np.sqrt(fit[0].amplitude) / fit[0].width
         return 1 / fit[0].width
 
     def get_rate_label(self: Self) -> str:
+        if self._rate == "initial":
+            return "Gaussian (with offset, initial)"
         return "Gaussian (with offset)"
 
     def get_fit_times(
@@ -508,7 +541,7 @@ class DoubleGaussianMethod(
 
     def __init__(
         self: Self,
-        ty: Literal["Fast", "Slow"],
+        ty: Literal["Fast", "Slow", "Initial"],
         measure: Measure = "abs",
     ) -> None:
         self._ty = ty
@@ -583,6 +616,12 @@ class DoubleGaussianMethod(
         self: Self,
         fit: tuple[GaussianParameters, GaussianParameters, FitOffset],
     ) -> float:
+        if self._ty == "Initial":
+            # The initial decay of the fitted ISF, from both Gaussians
+            return np.sqrt(
+                fit[0].amplitude / fit[0].width ** 2
+                + fit[1].amplitude / fit[1].width ** 2,
+            )
         return (
             max(1 / fit[0].width, 1 / fit[1].width)
             if self._ty == "Fast"
@@ -590,7 +629,11 @@ class DoubleGaussianMethod(
         )
 
     def get_rate_label(self: Self) -> str:
-        return "Fast gaussian" if self._ty == "Fast" else "Slow gaussian"
+        return {
+            "Fast": "Fast gaussian",
+            "Slow": "Slow gaussian",
+            "Initial": "Initial gaussian",
+        }[self._ty]
 
     def get_fit_times(
         self: Self,

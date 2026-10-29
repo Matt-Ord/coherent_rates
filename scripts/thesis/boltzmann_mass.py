@@ -4,19 +4,23 @@ import dataclasses
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from scipy.constants import electron_volt  # type:ignore lib
+from scipy.constants import Boltzmann, electron_volt  # type:ignore lib
 
 from coherent_rates.config import ExponentialInstrumentFunction, PeriodicSystemConfig
 from coherent_rates.fit import (
     GaussianMethod,
     GaussianMethodWithOffset,
 )
-from coherent_rates.isf import get_boltzmann_rate_against_momentum_data
+from coherent_rates.isf import (
+    get_boltzmann_rate_against_momentum_data,
+    get_momentum_squared_per_state,
+)
 from coherent_rates.plot import (
     plot_boltzmann_isf_fit_for_directions,
     plot_boltzmann_rate_against_momentum,
     plot_local_boltzmann_rate_against_momentum,
 )
+from coherent_rates.solve import get_hamiltonian
 from coherent_rates.state import UniformXLocalizationStrategy
 from coherent_rates.system import (
     SODIUM_COPPER_BRIDGE_SYSTEM_1D,
@@ -381,6 +385,23 @@ def _compare_rate_against_localized_surface(
     return fig
 
 
+def _get_band_effective_mass_ratio(
+    system: System,
+    config: PeriodicSystemConfig,
+) -> float:
+    """Return m / m_eff from the thermal average of the band group velocity."""
+    hamiltonian = get_hamiltonian(system, config)
+    energies = np.real(hamiltonian["data"])
+    p_squared = np.real(
+        get_momentum_squared_per_state(hamiltonian, (1,))["data"],
+    )
+    kbt = Boltzmann * config.temperature
+    weights = np.exp(-(energies - np.min(energies)) / kbt)
+    return float(
+        np.sum(weights * p_squared) / (np.sum(weights) * system.mass * kbt),
+    )
+
+
 def _boltzmann_mass_thesis() -> None:
     config = PeriodicSystemConfig(
         (400,),
@@ -391,6 +412,9 @@ def _boltzmann_mass_thesis() -> None:
     system = SODIUM_COPPER_BRIDGE_SYSTEM_1D
     print(system.barrier_energy)  # noqa: T201
     directions = [(i,) for i in [1, 2, *list(range(5, 155, 5))]]
+    # The rate of the initial decay of the whole ISF, sqrt(amplitude) / width,
+    # so that rate = Delta k sqrt(k_B T / m_eff) with m_eff = m k_B T / <p_tr^2>
+    fit_method = GaussianMethod(measure="abs", rate="initial")
 
     w, h = get_thesis_fig_size()
     fig, ax = get_thesis_figure(fig_size=(1.5 * w, h))
@@ -398,37 +422,41 @@ def _boltzmann_mass_thesis() -> None:
         system,
         config,
         directions=directions,
-        fit_method=GaussianMethod(measure="abs"),
-        free_fit_method=GaussianMethod(measure="abs"),
+        fit_method=fit_method,
+        free_fit_method=fit_method,
         ax=ax,
     )
 
     data = get_boltzmann_rate_against_momentum_data(
         system,
         config,
-        fit_method=GaussianMethod(measure="abs"),
+        fit_method=fit_method,
         directions=directions,
     )
     rates = data["data"]
     momentum = data["basis"].k_points
-    x_fit = np.real(momentum[:9])
-    y_fit = np.real(rates[:9])
+    # Above about 1e9 m^-1 the inelastic contribution already raises the rate
+    x_fit = np.real(momentum[:4])
+    y_fit = np.real(rates[:4])
 
-    # Perform linear regression (degree 1 polynomial)
-    # polyfit returns [slope, intercept] -> [a, b]
-    a, b = np.polyfit(x_fit, y_fit, 1)
-    print("Line of best fit: y = Ax + B")  # noqa: T201
-    print(f"Slope (a): {a:.2e}, Intercept (b): {b:.2e}")  # noqa: T201
+    # A quasi-elastic decay passes through the origin, so fit the slope alone
+    (a,), *_ = np.linalg.lstsq(x_fit[:, np.newaxis], y_fit)
+    kbt = Boltzmann * config.temperature
+    print(f"Slope: {a:.3e}")  # noqa: T201
+    print(f"m / m_eff (ISF): {system.mass * a**2 / kbt:.3f}")  # noqa: T201
+    print(  # noqa: T201
+        "m / m_eff (band group velocity): "
+        f"{_get_band_effective_mass_ratio(system, config):.3f}",
+    )
 
-    # Generate points for the line of best fit and plot it
-    # You can plot it over x_fit, or the entire momentum range depending on preference
     best_fit_x = np.linspace(0, 1.5 * momentum[-1])
-    best_fit_y = a * best_fit_x + b
+    best_fit_y = a * best_fit_x
     (line,) = ax.plot(best_fit_x, best_fit_y, linewidth=2, alpha=0.5)
     line.set_color(CAM_CHERRY.dark)
 
     ax.set_xlim(0, 1.4e10)
-    ax.set_ylim(0, 6e12)
+    ax.set_ylim(0, 4e12)
+    ax.set_ylabel(r"Initial rate / $\mathrm{s}^{-1}$")
 
     fig.savefig("scripts/thesis/boltzmann_mass.1d.thesis.pdf")
 
