@@ -270,7 +270,7 @@ def plot_relative_rate_thesis() -> None:
 
     line = ax.axvline(SODIUM_COPPER_BRIDGE_SYSTEM_1D.barrier_energy)  # type: ignore library type
     ax.set_yscale("log")
-    ax.set_ylabel(r"Relative rate $R_n / R_n^\mathrm{free}$")
+    ax.set_ylabel("Relative rate")
     ax.set_xlabel(r"Average Energy / $\mathrm{J}$")
     ax.set_xlim(0, 3 * SODIUM_COPPER_BRIDGE_SYSTEM_1D.barrier_energy)
     line.set_color(CAM_CHERRY.dark)
