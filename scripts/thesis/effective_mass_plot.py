@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
+import numpy as np
 from matplotlib.scale import SymmetricalLogScale
 from scipy.constants import (
     hbar,
@@ -7,10 +10,15 @@ from scipy.constants import (
 from surface_potential_analysis.stacked_basis.conversion import (
     stacked_basis_as_fundamental_transformed_basis,
 )
+from surface_potential_analysis.state_vector.plot import get_average_band_energy
 from surface_potential_analysis.wavepacket.conversion import (
     convert_wavepacket_with_eigenvalues_to_basis,
 )
+from surface_potential_analysis.wavepacket.get_eigenstate import (
+    get_full_bloch_hamiltonian,
+)
 from surface_potential_analysis.wavepacket.plot import (
+    get_wavepacket_transformed_energy_effective_mass,
     plot_wavepacket_transformed_energy_1d,
     plot_wavepacket_transformed_energy_1d_against_self_energy,
     plot_wavepacket_transformed_energy_effective_mass_against_energy,
@@ -28,6 +36,10 @@ from coherent_rates.util import (
     get_paper_figure,
     get_thesis_figure,
 )
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from matplotlib.lines import Line2D
 
 
 def plot_rates() -> None:
@@ -219,54 +231,53 @@ def plot_rates_against_self_energy_thesis() -> None:
     fig.savefig("scripts/thesis/effective_mass_plot.rates-vs-self-energy.thesis.pdf")
 
 
-def plot_effective_mass_thesis() -> None:
+def _plot_relative_rate_against_energy(
+    wavefunctions: Any,  # noqa: ANN401
+    *,
+    true_mass: float,
+    ax: Axes,
+) -> Line2D:
+    """Plot R_n / R_n^free, the inverse of the tight-binding band mass ratio."""
+    energies = get_average_band_energy(get_full_bloch_hamiltonian(wavefunctions))
+    masses = get_wavepacket_transformed_energy_effective_mass(wavefunctions, 0)
+    relative_rate = true_mass / np.real(masses["data"])
+    (line,) = ax.plot(np.real(energies["data"]), relative_rate)
+    return line
+
+
+def plot_relative_rate_thesis() -> None:
     actual_mass = SODIUM_COPPER_BRIDGE_SYSTEM_1D.mass
     config = PeriodicSystemConfig((60,), (100,), truncation=50, temperature=155)
 
     fig, ax = get_fancy_figure()
 
-    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(actual_mass)
-    wavefunctions = get_bloch_wavefunctions(system, config)
-    fig, ax, line0 = plot_wavepacket_transformed_energy_effective_mass_against_energy(
-        wavefunctions,
-        true_mass=system.mass,
-        ax=ax,
-    )
-    line0.set_color(CAM_BLUE.dark)
-    line0.set_marker("x")
+    lines = []
+    for factor, color in [
+        (1, CAM_BLUE.dark),
+        (0.5, CAM_BLUE.warm),
+        (0.25, CAM_BLUE.base),
+    ]:
+        system = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(factor * actual_mass)
+        wavefunctions = get_bloch_wavefunctions(system, config)
+        line = _plot_relative_rate_against_energy(
+            wavefunctions,
+            true_mass=system.mass,
+            ax=ax,
+        )
+        line.set_color(color)
+        line.set_marker("x")
+        lines.append(line)
 
-    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(0.5 * actual_mass)
-    wavefunctions = get_bloch_wavefunctions(system, config)
-
-    fig, ax, line1 = plot_wavepacket_transformed_energy_effective_mass_against_energy(
-        wavefunctions,
-        true_mass=system.mass,
-        ax=ax,
-    )
-    line1.set_color(CAM_BLUE.warm)
-    line1.set_marker("x")
-
-    system = SODIUM_COPPER_BRIDGE_SYSTEM_1D.with_mass(0.25 * actual_mass)
-    wavefunctions = get_bloch_wavefunctions(system, config)
-    fig, ax, line2 = plot_wavepacket_transformed_energy_effective_mass_against_energy(
-        wavefunctions,
-        true_mass=system.mass,
-        ax=ax,
-    )
-    line2.set_color(CAM_BLUE.base)
-    line2.set_marker("x")
-    line = ax.axvline(1 * system.barrier_energy)  # type: ignore library type
-    ax.set_yscale(
-        SymmetricalLogScale(None, linthresh=1e-1),
-    )
-    ax.set_ylabel(r"Effective Mass ($\frac{m_\mathrm{eff} }{m}-1$)")
+    line = ax.axvline(SODIUM_COPPER_BRIDGE_SYSTEM_1D.barrier_energy)  # type: ignore library type
+    ax.set_yscale("log")
+    ax.set_ylabel("Relative rate")
     ax.set_xlabel(r"Average Energy / $\mathrm{J}$")
-    ax.set_xlim(0, 3 * system.barrier_energy)
+    ax.set_xlim(0, 3 * SODIUM_COPPER_BRIDGE_SYSTEM_1D.barrier_energy)
     line.set_color(CAM_CHERRY.dark)
     line.set_linestyle("--")
 
     legend = ax.legend(
-        loc="upper right",
+        loc="lower right",
         handles=[
             line,
             ax.plot([], [], color=CAM_BLUE.dark)[0],
@@ -282,7 +293,7 @@ def plot_effective_mass_thesis() -> None:
     )
     legend.get_frame().set_alpha(0)
 
-    fig.savefig("scripts/thesis/effective_mass_plot.mass.thesis.pdf")
+    fig.savefig("scripts/thesis/effective_mass_plot.relative_rate.thesis.pdf")
 
 
 def plot_effective_mass_paper() -> None:
@@ -322,7 +333,7 @@ def plot_effective_mass_paper() -> None:
 
 
 if __name__ == "__main__":
-    plot_effective_mass_thesis()
+    plot_relative_rate_thesis()
     plot_effective_mass_paper()
     plot_rates()
     plot_rates_paper()
