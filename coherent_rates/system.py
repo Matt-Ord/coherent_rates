@@ -353,15 +353,41 @@ class PeriodicSystem1dHalfRate(FundamentalPeriodicSystem):
         return {"basis": TupleBasis(axis), "data": vector}
 
 
+@dataclass
 class PeriodicSystem2d(FundamentalPeriodicSystem):
-    """Represents the properties of a 2D Periodic System."""
+    """Represents the properties of a 2D Periodic System.
+
+    The potential is A_1 sum_j cos(G_j . r) + A_2 sum_j cos(2 G_j . r) + C,
+    where G_j are the three shortest reciprocal lattice vectors. The hollow
+    sites are degenerate minima at zero, the top sites are at barrier_energy
+    and the bridge sites are at bridge_ratio * barrier_energy.
+    """
+
+    bridge_ratio: float = 1 / 9
+    """The energy of the bridge sites, relative to the top sites.
+
+    The default of 1 / 9 gives a single Fourier component (A_2 = 0).
+    """
+
+    def __hash__(self: Self) -> int:
+        if self.bridge_ratio == 1 / 9:
+            # Keep the hash of the single component potential, for caching
+            return super().__hash__()
+        h = hashlib.sha256(usedforsecurity=False)
+        h.update(self.id.encode())
+        h.update(str(self.barrier_energy).encode())
+        h.update(str(self.lattice_constant).encode())
+        h.update(str(self.mass).encode())
+        h.update(str(self.bridge_ratio).encode())
+
+        return int.from_bytes(h.digest(), "big")
 
     def _get_fundamental_potential(
         self: Self,
     ) -> Potential[
         TupleBasis[
-            FundamentalTransformedPositionBasis[Literal[3], Literal[2]],
-            FundamentalTransformedPositionBasis[Literal[3], Literal[2]],
+            FundamentalTransformedPositionBasis[int, Literal[2]],
+            FundamentalTransformedPositionBasis[int, Literal[2]],
         ]
     ]:
         """Generate potential for 2D periodic system, for 111 plane of FCC lattice.
@@ -378,20 +404,32 @@ class PeriodicSystem2d(FundamentalPeriodicSystem):
         # (x0,x1) -> (-x0,x1)
         # (x0,x1) -> (x0,-x1)
         # We therefore occupy G = +-K0, +-K1, +-(K0+K1) equally
-        data = [[3, 1, 1], [1, 1, 0], [1, 0, 1]]
-        vector = self.barrier_energy * np.array(data) / np.sqrt(9)
+        if self.bridge_ratio == 1 / 9:
+            n = 3
+            data = np.array([[3, 1, 1], [1, 1, 0], [1, 0, 1]]) / 9
+        else:
+            # The second harmonic also occupies G = +-2K0, +-2K1, +-2(K0+K1)
+            n = 5
+            a_1 = (1 - self.bridge_ratio) / 4
+            a_2 = (9 * self.bridge_ratio - 1) / 36
+            data = np.zeros((n, n))
+            data[0, 0] = 1 / 3
+            for i in (1, -1):
+                data[i, 0] = data[0, i] = data[i, i] = a_1 / 2
+                data[2 * i, 0] = data[0, 2 * i] = data[2 * i, 2 * i] = a_2 / 2
+        vector = (self.barrier_energy * data * n).astype(np.complex128)
         return {
             "basis": TupleBasis(
-                FundamentalTransformedPositionBasis[Literal[3], Literal[2]](
+                FundamentalTransformedPositionBasis[int, Literal[2]](
                     self.lattice_constant * np.array([0, 1]),
-                    3,
+                    n,
                 ),
-                FundamentalTransformedPositionBasis[Literal[3], Literal[2]](
+                FundamentalTransformedPositionBasis[int, Literal[2]](
                     self.lattice_constant
                     * np.array(
                         [np.sin(np.pi / 3), np.cos(np.pi / 3)],
                     ),
-                    3,
+                    n,
                 ),
             ),
             "data": vector.ravel(),
@@ -413,17 +451,26 @@ HYDROGEN_NICKEL_SYSTEM_2D = PeriodicSystem2d(
 )
 
 
-# see <https://www.sciencedirect.com/science/article/pii/S0039602897000897>
-SODIUM_COPPER_BRIDGE_ENERGY = (416.78 - 414.24) * 1e3 / Avogadro
+SODIUM_COPPER_BRIDGE_ENERGY = 12e-3 * electron_volt
+"""The hollow to bridge barrier of sodium on Cu(111).
+
+The DFT (PBE) energy of S. P. Rittmeyer et al., Phys. Rev. Lett. 117, 196001
+(2016), Table S1, used in the Langevin simulations of D. J. Ward et al.,
+Phys. Chem. Chem. Phys. 23, 7799 (2021). It agrees with the activation
+energy of 12 +- 3 meV measured by helium spin-echo.
+"""
+SODIUM_COPPER_TOP_ENERGY = 96e-3 * electron_volt
+"""The hollow to top energy of sodium on Cu(111), from the same DFT as the bridge."""
 SODIUM_COPPER_SYSTEM_2D = PeriodicSystem2d(
     id="NaCu",
-    barrier_energy=9 * SODIUM_COPPER_BRIDGE_ENERGY,
+    barrier_energy=SODIUM_COPPER_TOP_ENERGY,
     lattice_constant=2.558e-10,
     mass=3.8175458e-26,
+    bridge_ratio=SODIUM_COPPER_BRIDGE_ENERGY / SODIUM_COPPER_TOP_ENERGY,
 )
 SODIUM_COPPER_TOP_SYSTEM_1D = PeriodicSystem1d(
     id="NaCu",
-    barrier_energy=55e-3 * electron_volt,
+    barrier_energy=SODIUM_COPPER_TOP_ENERGY,
     lattice_constant=(1 / np.sqrt(3)) * SODIUM_COPPER_SYSTEM_2D.lattice_constant,
     mass=3.8175458e-26,
 )
