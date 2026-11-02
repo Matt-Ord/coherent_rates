@@ -3,7 +3,7 @@
 # dependencies = [
 #     "numpy",
 #     "scipy",
-#     "classical-diffusion @ git+https://github.com/Matt-Ord/classical_diffusion.git@4e51a02e9a062e74dc7c8af2b6d9480725c45d26",
+#     "classical-diffusion @ git+https://github.com/Matt-Ord/classical_diffusion.git@77b1187f2e304c07160836dd4653a8e1483594dd",
 #     "jax",
 #     "tqdm"
 # ]
