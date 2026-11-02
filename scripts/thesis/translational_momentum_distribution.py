@@ -183,8 +183,8 @@ def _plot_translational_momentum_distribution(
     ax.set_ylim(0, 1.4 * float(np.max(rho_classical)))
     ax.set_xlim(*P_RANGE)
 
-    ax.set_xlabel(r"$p_\mathrm{tr} / \sqrt{m k_B T}$")
-    ax.set_ylabel(r"$\rho(p_\mathrm{tr})$")
+    ax.set_xlabel(r"$|p_\mathrm{tr}| / \sqrt{m k_B T}$")
+    ax.set_ylabel(r"$\rho(|p_\mathrm{tr}|)$")
     ax.legend(
         handles=[quantum_patch, line],
         labels=["quantum", "classical"],
