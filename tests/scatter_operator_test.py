@@ -65,7 +65,7 @@ def config(ndim: Literal[1, 2]) -> PeriodicSystemConfig:
             direction=direction,
         )
     shape = rng.integers(1, 5, 2)
-    resolution = rng.integers(3, 5, 2)
+    resolution = rng.integers(5, 7, 2)
     return PeriodicSystemConfig(
         (shape[0], shape[1]),  # type: ignore unknown
         (resolution[0], resolution[1]),  # type: ignore unknown
