@@ -169,7 +169,16 @@ def _plot_translational_momentum_distribution(
     for band in reversed(range(rho_stacked.shape[0])):
         rho_total = rho_stacked[band]
         color = CAM_BLUE.warm if band % 2 == 0 else CAM_BLUE.base
-        ax.fill_between(p_grid, rho_below, rho_total, color=color, lw=0)
+        # Each band is a fill of N_GRID points, which is slow to render as a
+        # vector, so the fills are rasterized
+        ax.fill_between(
+            p_grid,
+            rho_below,
+            rho_total,
+            color=color,
+            lw=0,
+            rasterized=True,
+        )
         rho_below = rho_total
     # The quantum key is split between the two alternating band colours
     quantum_patch = (Patch(color=CAM_BLUE.warm), Patch(color=CAM_BLUE.base))
@@ -191,7 +200,10 @@ def _plot_translational_momentum_distribution(
         handler_map={tuple: HandlerTuple(ndivide=None, pad=0)},
         loc="upper right",
     )
-    fig.savefig(f"scripts/thesis/translational_momentum_distribution.{name}.pdf")
+    fig.savefig(
+        f"scripts/thesis/translational_momentum_distribution.{name}.pdf",
+        dpi=1000,
+    )
 
 
 def _get_quantum_translational_isf(
